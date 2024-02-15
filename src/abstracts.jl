@@ -1,3 +1,5 @@
+# for use in Counters
+export AbstractGene, AbstractIndividual, AbstractGeneration
 abstract type Abstract                                  end
 abstract type AbstractState                             end
 abstract type AbstractData                              end
@@ -8,8 +10,13 @@ abstract type AbstractOperator                          end
 abstract type AbstractRetriever                         end
 abstract type AbstractUpdater                           end
 abstract type AbstractEnvironment                       end
+abstract type AbstractGeneration                        end
+abstract type AbstractGene                              end
+abstract type AbstractCreator                           end
+abstract type AbstractGenotype                          end
+abstract type AbstractPhenotype                         end
 abstract type AbstractMeasurement   <: AbstractData     end
-abstract type AbstractCounters      <: AbstractData     end
+abstract type AbstractCounter       <: AbstractData     end
 abstract type AbstractMatch         <: AbstractData     end
 abstract type AbstractMetric        <: AbstractData     end
 abstract type AbstractRecord        <: AbstractData     end

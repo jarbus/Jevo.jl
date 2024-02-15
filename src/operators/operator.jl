@@ -14,6 +14,7 @@ Base.@kwdef struct Operator <: AbstractOperator
     retriever::AbstractRetriever # retrieves iterable of objects to operate on
     operator::Function           # returns iterable of operated objects
     updater::AbstractUpdater     # updates the state
+    rng::AbstractRNG
     data::Vector{AbstractData} = AbstractData[] # for extensions and recording metrics
 end
 

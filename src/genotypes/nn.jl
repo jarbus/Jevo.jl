@@ -19,7 +19,7 @@ end
 struct Weights{N} <: AbstractWeights where N <: Int
     """A weight matrix parameterized by a series of mutations"""
     dims::NTuple{N, Int}
-    muts::Vector{Mutation}
+    muts::Vector{NetworkGene}
 end
 
 struct WeightsCollection <: AbstractWeights
@@ -67,7 +67,7 @@ end
 struct ResidualBlockLayer <: AbstractLayer
     """A block of layers with a skip connection"""
     layer::AbstractLayer
-    muts::Vector{Mutation}
+    muts::Vector{NetworkGene}
 end
 
 # TODO: specify interface for distributed cache construction
