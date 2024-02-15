@@ -3,6 +3,14 @@ uuid = "3e78decc-cd14-43d0-8271-079b340fcef2"
 authors = ["Jack <jackgarbus@gmail.com> and contributors"]
 version = "1.0.0-DEV"
 
+[deps]
+Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
+LRUCache = "8ac3fa9e-de4c-5943-b1dc-09c6b5f20637"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+LowRankApprox = "898213cb-b102-5a47-900c-97e73b919f73"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
+
 [compat]
 julia = "1"
 
