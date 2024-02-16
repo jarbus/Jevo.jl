@@ -12,7 +12,9 @@ value(c::Counter) = c.current_value
 
 default_counters() = [Counter(AbstractGene),
                       Counter(AbstractIndividual),
-                      Counter(AbstractGeneration)]
+                      Counter(AbstractGeneration),
+                      Counter(AbstractMatch),
+                     ]
 
 function inc!(counter::Counter)
     lock(counter.lock) do
