@@ -26,11 +26,10 @@ include("./phenotypes/numbersgame.jl")
 include("./datatypes/match.jl")
 include("./environments/numbersgame.jl")
 
-include("./operators/matchmaker/all_vs_all.jl")
+include("./operators/initializers.jl")
 include("./operators/retrievers/retrievers.jl")
+include("./operators/updaters/updaters.jl")
+include("./operators/matchmaker/all_vs_all.jl")
 include("./operators/operator.jl")
 include("./operators/mutators/mutators.jl")
-
-
-include("run.jl")
 end
