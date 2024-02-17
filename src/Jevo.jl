@@ -3,6 +3,7 @@ module Jevo
 using Random
 using StableRNGs
 using LRUCache
+using Serialization
 # using Flux
 # using LinearAlgebra
 # using LowRankApprox  # for approximate SVD
