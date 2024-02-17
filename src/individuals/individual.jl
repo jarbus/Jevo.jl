@@ -1,4 +1,6 @@
 export Individual
+
+import Base: show
 mutable struct Individual <: AbstractIndividual
     id::Int
     generation::Int
@@ -31,4 +33,26 @@ function Individual(counters::Vector{<:AbstractCounter},
            genotype_creator::Creator)
     id, generation = new_id_and_gen(counters)
     Individual(id, generation, Int[], genotype_creator())
+end
+
+function Base.show(io::IO, ind::Individual)
+    print(io, "Individual(id=$(ind.id), gen=$(ind.generation), geno=$(ind.genotype))")
+    if !isempty(ind.records)
+        print(io, "\n  records: ")
+        for record in ind.records
+            print(io, "\n    ", record)
+        end
+    end
+    if !isempty(ind.interactions)
+        print(io, "\n  interactions: ")
+        for (k, v) in ind.interactions
+            print(io, "\n    $k: $v")
+        end
+    end
+    if !isempty(ind.data)
+        print(io, "\n  data: ")
+        for d in ind.data
+            print(io, "\n    $d")
+        end
+    end
 end

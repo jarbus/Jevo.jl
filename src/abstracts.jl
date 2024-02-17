@@ -1,29 +1,32 @@
 # for use in Counters
+import Base: show
 export AbstractGene, AbstractIndividual, AbstractGeneration
-abstract type Abstract                                  end
-abstract type AbstractState                             end
-abstract type AbstractData                              end
-abstract type AbstractPopulation                        end
-abstract type AbstractIndividual                        end
-abstract type AbstractInteraction                       end
-abstract type AbstractOperator                          end
-abstract type AbstractRetriever                         end
-abstract type AbstractUpdater                           end
-abstract type AbstractEnvironment                       end
-abstract type AbstractGeneration                        end
-abstract type AbstractGene                              end
-abstract type AbstractCreator                           end
-abstract type AbstractGenotype                          end
-abstract type AbstractPhenotype                         end
+abstract type AbstractJevo                              end
+abstract type AbstractState         <: AbstractJevo     end
+abstract type AbstractData          <: AbstractJevo     end
+abstract type AbstractPopulation    <: AbstractJevo     end
+abstract type AbstractIndividual    <: AbstractJevo     end
+abstract type AbstractInteraction   <: AbstractJevo     end
+abstract type AbstractOperator      <: AbstractJevo     end
+abstract type AbstractRetriever     <: AbstractJevo     end
+abstract type AbstractUpdater       <: AbstractJevo     end
+abstract type AbstractEnvironment   <: AbstractJevo     end
+abstract type AbstractGeneration    <: AbstractJevo     end
+abstract type AbstractGene          <: AbstractJevo     end
+abstract type AbstractCreator       <: AbstractJevo     end
+abstract type AbstractGenotype      <: AbstractJevo     end
+abstract type AbstractPhenotype     <: AbstractJevo     end
 abstract type AbstractMeasurement   <: AbstractData     end
 abstract type AbstractCounter       <: AbstractData     end
 abstract type AbstractMatch         <: AbstractData     end
 abstract type AbstractMetric        <: AbstractData     end
 abstract type AbstractRecord        <: AbstractData     end
 abstract type AbstractMutator       <: AbstractOperator end
-abstract type AbstractMatchMaker    <: AbstractOperator end # populates the state.matches with matches
+# populates the state.matches with matches
+abstract type AbstractMatchMaker    <: AbstractOperator end
 abstract type AbstractScorer        <: AbstractOperator end
-abstract type AbstractEvaluator     <: AbstractOperator end # Can be distributed
+# Evaluator should enable distributed computing
+abstract type AbstractEvaluator     <: AbstractOperator end
 abstract type AbstractCrossover     <: AbstractOperator end
 abstract type AbstractSelector      <: AbstractOperator end
 abstract type AbstractReplacer      <: AbstractOperator end
@@ -35,3 +38,27 @@ abstract type AbstractInitializer end
 abstract type AbstractWeights end
 abstract type AbstractLayer end
 abstract type AbstractMutation end
+
+"Override Base.show to avoid printing empty containers"
+function Base.show(io::IO, jevos::Vector{<:AbstractJevo})
+    if isempty(jevos)
+    elseif !isempty(jevos)
+        print(io, typeof(jevos[1]))
+        print(io, "[")
+        for jevo in jevos[1:end-1]
+            print(io, jevo, ", ")
+        end
+        print(io, jevos[end], "]")
+    end
+end
+function Base.show(io::IO, jevo::Dict{Any, <:AbstractJevo})
+    if isempty(jevo)
+    elseif !isempty(jevo)
+        print(io, typeof(jevo))
+        print(io, "{")
+        for (k, v) in jevo
+            print(io, k, " => ", v, ", ")
+        end
+        print(io, "}")
+    end
+end
