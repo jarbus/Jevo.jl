@@ -75,11 +75,14 @@ end
                 ├── pop2a: ind2a1, ind2a2
                 └── pop2b: ind2b1, ind2b2
         """
-        comp_comp_pop_creator = Creator(CompositePopulation, ("ecosystem",
-                                    [Creator(CompositePopulation,("species",
-                                            [("p$i", n_inds, ng_gc) for i in 1:n_species]),
-                            counters)
-                        for i in 1:n_pops]))
+        comp_comp_pop_creator = 
+            Creator(CompositePopulation, 
+                ("ecosystem", 
+                 [Creator(CompositePopulation,
+                        ("species",
+                        [("p$i", n_inds, ng_gc) for i in 1:n_species],
+                        counters))
+                for i in 1:n_pops]))
         comp_comp_pop = comp_comp_pop_creator()
         state = State([comp_comp_pop_creator],
                       [InitializeAllPopulations()])

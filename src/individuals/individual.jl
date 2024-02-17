@@ -1,6 +1,5 @@
 export Individual
 
-import Base: show
 mutable struct Individual <: AbstractIndividual
     id::Int
     generation::Int

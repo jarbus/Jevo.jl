@@ -7,6 +7,8 @@ mutable struct Counter <: AbstractCounter
     lock::ReentrantLock
 end
 
+Base.show(io::IO, c::Counter) = print(io, "Counter($(c.type), $(c.current_value))")
+
 Counter(type::Type) = Counter(type, 1, Threads.ReentrantLock())
 value(c::Counter) = c.current_value
 

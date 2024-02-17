@@ -4,6 +4,7 @@ using Random
 using StableRNGs
 using LRUCache
 using Serialization
+import Base: show
 # using Flux
 # using LinearAlgebra
 # using LowRankApprox  # for approximate SVD

@@ -1,5 +1,4 @@
 export Population, CompositePopulation
-import Base: show
 mutable struct CompositePopulation <: AbstractPopulation
     id::String
     populations::Vector{AbstractPopulation}

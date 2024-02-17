@@ -13,7 +13,6 @@ end
 function operate!(state::AbstractState, operator::AbstractOperator)
     !operator.condition(state) && return
     objects = operator.retriever(state)
-    println(objects)
     objects = operator.operator(objects)
     operator.updater(state, objects)
 end
