@@ -23,3 +23,6 @@ docs/site/
 # environment.
 Manifest.toml
 *Session.vim
+*.jld
+*.jld2
+*.txt
