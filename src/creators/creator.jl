@@ -13,6 +13,7 @@ Creator(type::Type) = Creator(type, NamedTuple())
 
 (creator::Creator)() = creator.type(create(creator.kwargs)...)
 
+create(::AbstractState, x) = create(x)
 create(x) = x
 create(c::Creator) = c()
 create(args::Tuple) = Tuple(create(arg) for arg in args)

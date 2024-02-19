@@ -1,4 +1,5 @@
 export find
+import Base: map
 
 function find(attr::Symbol, match::Any, v::Vector) 
     for el in v
@@ -7,4 +8,12 @@ function find(attr::Symbol, match::Any, v::Vector)
         end
     end
     @assert false "Failed to retrieve an element from $(typeof(v)) where el.$(attr) == $match"
+end
+
+get_counter(type::Type, state::AbstractState) = find(:type, type, state.counters)
+
+function Base.map(operation::Union{Function, <:AbstractOperator})
+    return function (state::AbstractState, objs::Vector)
+        return [operation(state, obj) for obj in objs]
+    end
 end

@@ -21,6 +21,7 @@ function Individual(
 )
     Individual(id, generation, parents, genotype, records, interactions, data)
 end
+new_id_and_gen(state::AbstractState) = new_id_and_gen(state.counters)
 function new_id_and_gen(counters::Vector{<:AbstractCounter})
     id = find(:type, AbstractIndividual, counters) |> inc!
     gen = find(:type, AbstractGeneration, counters) |> value

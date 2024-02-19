@@ -48,6 +48,7 @@ end
 
 generation(state::AbstractState) = find(:type, AbstractGeneration, state.counters) |> value
 first_gen(state::AbstractState) = generation(state) == 1
+always(state::AbstractState) = true
 
 run!(state::State, max_generations::Int) = 
     foreach((_)->operate!(state), generation(state):max_generations)

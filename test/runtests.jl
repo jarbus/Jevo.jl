@@ -31,9 +31,9 @@ end
     state = State()
 end
 
-@testset "numbers game" begin
+@testset "general tests using numbers game" begin
     # creators
-    n_dims = 1
+    n_dims = 2
     n_inds = 2
     n_species = 2
     n_pops = 2
@@ -92,31 +92,63 @@ end
             @test pops[1].id == "ecosystem"
             run!(state, 1)
         end
-        @testset "PopulationRetriever" begin
-            @test state.populations |> length == 1
-            @test state.populations[1].id == "ecosystem"
-            @test state.populations[1].populations |> length == n_pops
-            pops = PopulationRetriever(["ecosystem"])(state)
-            @test pops |> length == 1 # requesting ecosystem returns single population
-            @test length(pops[1]) == 8
-            pops = PopulationRetriever(["nopop"])(state)
-            @test pops |> length == 1
-            @test length(pops[1]) == 0
-            println("composite1")
-            pops = PopulationRetriever(["composite1"])(state)
-            @test length(pops) == 1
-            @test length(pops[1]) == 4
-            pops = PopulationRetriever(["p2"])(state)
-            @test length(pops) == 1
-            @test length.(pops) == [2]
-            pops = PopulationRetriever(["p1", "p2"])(state)
-            @test length(pops) == 2
-            @test length.(pops) == [2,2]
+        @testset "Population{Retriever,Updater}" begin
+           # PopulationRetriever
+           @test state.populations |> length == 1
+           @test state.populations[1].id == "ecosystem"
+           @test state.populations[1].populations |> length == n_pops
+           pops = PopulationRetriever(["ecosystem"])(state)
+           @test length(pops) == 1 # requesting ecosystem returns single population
+           @test length(pops[1]) == 4
+           pops = PopulationRetriever()(state) # return all pops by default
+           @test length(pops) == 4
+           pops = PopulationRetriever(["nopop"])(state)
+           @test length(pops) == 1
+           @test length(pops[1]) == 0
+           pops = PopulationRetriever(["composite1"])(state)
+           @test length(pops) == 1
+           @test length(pops[1]) == n_species
+           pops = PopulationRetriever(["p2"])(state)
+           @test length(pops) == 1
+           @test length.(pops) == [1] # p2 contains a single pop, p2
+           pops = PopulationRetriever(["p1", "p2"])(state)
+           @test length(pops) == n_pops
+           @test length(pops[1]) == 1
+           @test length(pops[1][1].individuals) == n_inds
+        #    # find population
+           @test find_population("p1", state).id == "p1"
+           @test find_population("p4", state).id == "p4"
+           try
+               find_population("composite1", state)
+           catch
+               @test true
+           end
+           try
+               find_population("nopop", state)
+           catch
+               @test true
+           end
+           # PopulationUpdater
+           pops = PopulationRetriever(["p1", "p2"])(state)
+           @test all([length(p) == 1 for p in pops])
+           @test all([length(p[1].individuals) == 2 for p in pops])
+           # bad practice, we are making individuals with the same id
+           updater = PopulationUpdater(["p1"])(state, [deepcopy(pops[1][1].individuals)])
+           pops = PopulationRetriever(["p1", "p2"])(state)
+           @test [length(p) for p in pops] == [1,1]
+           @test [length(p[1].individuals) for p in pops] == [4,2]
+        end
+        @testset "Mutator" begin
+           # comp_pop_creator has n_species pops with n_inds inds
+           state = State([comp_pop_creator], [InitializeAllPopulations(), Mutator()])
+           run!(state, 1)
+           pops = PopulationRetriever(["p1", "p2"])(state)
+           @test [length(p[1].individuals) for p in pops] == [4,4]
         end
 
-        # Env
-        env_creator = Creator(CompareOnOne)
-        env = env_creator()
+        ## Env
+        #env_creator = Creator(CompareOnOne)
+        #env = env_creator()
 
         @testset "match" begin
         end

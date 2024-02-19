@@ -27,6 +27,29 @@ Population(id::String, individuals::Vector{<:AbstractIndividual}) =
 Population(id::String, n::Int, genotype_creator::Creator, counters::Vector{<:AbstractCounter}) =
     Population(id, [Individual(counters, genotype_creator) for i in 1:n])
 
+find_population(id::String, population::Population) = 
+    population.id == id ? population : nothing
+
+function find_population(id::String, composite::CompositePopulation)
+    if composite.id == id
+        @error "Cannot retrieve a composite population with id $id"
+    end
+    for pop in composite.populations
+        found_pops = find_population(id, pop)
+        if !isnothing(found_pops)
+            return found_pops
+        end
+    end
+    nothing
+end
+
+function find_population(id::String, state::AbstractState)
+    pops =[find_population(id, p) for p in state.populations] |>
+        filter(!isnothing)
+    @assert length(pops) == 1 "Failed to retrieve a single population with id $id"
+    pops[1]
+end
+
 # composite pop
 function Base.show(io::IO, pop::CompositePopulation; depth::Int=0)
     print(io, pop.id, ": ", length(pop.populations), " populations:")
