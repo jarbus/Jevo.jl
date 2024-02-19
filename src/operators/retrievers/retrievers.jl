@@ -32,36 +32,23 @@ Base.@kwdef struct PopulationRetriever <: AbstractRetriever
     ids::Vector{String} = String[] # ids of populations to return
 end
 
-Base.in(population::AbstractPopulation, ids::Vector{String})::Bool =
-    isempty(ids) || population.id in ids
-
-function get_populations(population::Population,
-        ids::Vector{String};
-        flatten::Bool=false)
-    # If there was a match higher up (flatten=true)
-    # or if this is a match, return the population
-    flatten || population ∈ ids ?
-        AbstractIndividual.(population.individuals) :
-        AbstractIndividual[]
+function get_populations(id::String, population::Population; flatten::Bool=false)
+    (flatten || population.id == id) ? population.individuals : AbstractIndividual[]
 end
 
-function get_populations(composite::CompositePopulation, ids::Vector{String}; flatten::Bool=false)
-    flatten && composite.id ∈ ids && error("Cannot flatten composite population")
-    # if id is matches, return vec{vec{ind}} of all subpops
-    # elseif flattening, return vec{ind} of all inds in all subpops
-    # else return vec{subpop} of all subpops that match
-    if composite.id ∈ ids
-        AbstractIndividual[get_populations(p, ids, flatten=true)
-                for p in composite.populations] |> filter(!isempty)
-    elseif flatten
-        [get_populations(p, ids, flatten=flatten) for p in composite.populations] |> vcat |> filter(!isempty)
-    else
-        [get_populations(p, ids, flatten=flatten) for p in composite.populations] |> filter(!isempty)
-    end
+function get_populations(id::String, populations::Vector{<:AbstractPopulation}; flatten::Bool=false)
+    [get_populations(id, p, flatten=flatten) for p in populations] |> Iterators.flatten |> collect
+end
+function get_populations(id::String, composite::CompositePopulation; flatten::Bool=false)
+    flatten && composite.id == id && error("Cannot flatten composite population $(composite.id)")
+    [get_populations(id, p, flatten=flatten || composite.id == id)
+        for p in composite.populations] |> Iterators.flatten |> collect
 end
 
 """Traverses the population tree and returns references to all vectors of individuals to an arbitrary depth. If ids is not empty, it only returns individuals from the specified populations"""
-(r::PopulationRetriever)(state::AbstractState) = get_populations(state.populations, r.ids)
+(r::PopulationRetriever)(state::AbstractState) = [get_populations(id, state.populations) for id in r.ids]
 
+"""Retreives all creators of type AbstractPopulation from state.creators"""
 struct PopulationCreatorRetriever <: AbstractRetriever end
-(::PopulationCreatorRetriever)(state::AbstractState) = filter(c -> c.type isa AbstractPopulation, state.creators) |> collect
+# (::PopulationCreatorRetriever)(state::AbstractState) = filter(c -> c.type isa AbstractPopulation, state.creators) |> collect
+(::PopulationCreatorRetriever)(state::AbstractState) = filter(c -> c.type <: AbstractPopulation, state.creators) |> collect
