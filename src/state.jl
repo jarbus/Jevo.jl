@@ -32,7 +32,7 @@ function operate!(state::AbstractState)
             operate!(state, state.operators[i])
         catch e
             println("Error in operator ", i, " ", state.operators[i])
-            serialize(state, "error-state.jld")
+            serialize("error-state.jld", state)
             # write operator id to file
             open("error-operator.txt", "w") do io
                 println(io, state.operators[i])
