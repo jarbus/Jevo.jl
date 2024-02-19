@@ -21,3 +21,5 @@ function create(cs::Vector{<:AbstractCreator})
     @assert length(cs) > 0 "No creators to create"
     [create(c) for c in cs]
 end
+
+Base.show(io::IO, c::Creator) = print(io, "Creator($(c.type), $(c.kwargs[1]))")
