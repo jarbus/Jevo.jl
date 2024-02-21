@@ -23,3 +23,16 @@ function (updater::PopulationUpdater)(state::AbstractState, inds::Vector{<:Vecto
         end
     end
 end
+
+Base.@kwdef struct ComputeInteractions <: AbstractUpdater end
+function (updater::ComputeInteractions)(::AbstractState, matches::Vector{<:AbstractMatch})
+    @assert !isempty(matches) "No matches to compute interactions for"
+    for m in matches 
+        scores = play(m)
+        for (score, ind) in zip(scores, m.individuals)
+            interaction = Interaction(m.id, ind.id, 
+                                    [i.id for i in m.individuals if i !== ind], score)
+            push!(ind.interactions, interaction)
+        end
+    end
+end

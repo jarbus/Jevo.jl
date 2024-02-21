@@ -1,12 +1,13 @@
-export Individual
+export Individual, develop
 
 mutable struct Individual <: AbstractIndividual
     id::Int
     generation::Int
     parents::Vector{Int}
     genotype::AbstractGenotype
+    developer::AbstractCreator
     records::Vector{AbstractRecord}
-    interactions::Dict{Any, <:AbstractInteraction}
+    interactions::Vector{<:AbstractInteraction}
     data::Vector{AbstractData}
 end
 
@@ -14,12 +15,13 @@ function Individual(
     id::Int, 
     generation::Int, 
     parents::Vector{Int}, 
-    genotype::AbstractGenotype;
+    genotype::AbstractGenotype,
+    developer::AbstractCreator;
     records::Vector{AbstractRecord} = AbstractRecord[],
-    interactions::Dict{Any, <:AbstractInteraction} = Dict{Any, AbstractInteraction}(),
+    interactions::Vector{<:AbstractInteraction} = AbstractInteraction[],
     data::Vector{AbstractData} = AbstractData[]
 )
-    Individual(id, generation, parents, genotype, records, interactions, data)
+    Individual(id, generation, parents, genotype, developer, records, interactions, data)
 end
 new_id_and_gen(state::AbstractState) = new_id_and_gen(state.counters)
 function new_id_and_gen(counters::Vector{<:AbstractCounter})
@@ -27,12 +29,15 @@ function new_id_and_gen(counters::Vector{<:AbstractCounter})
     gen = find(:type, AbstractGeneration, counters) |> value
     id, gen
 end
+develop(ind::AbstractIndividual) = develop(ind.developer, ind.genotype)
 
 "Create new individual with no parents"
 function Individual(counters::Vector{<:AbstractCounter},
-           genotype_creator::Creator)
+           genotype_creator::Creator,
+           developer::AbstractCreator
+    )
     id, generation = new_id_and_gen(counters)
-    Individual(id, generation, Int[], genotype_creator())
+    Individual(id, generation, Int[], genotype_creator(), developer)
 end
 
 function Base.show(io::IO, ind::Individual)

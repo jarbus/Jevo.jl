@@ -12,10 +12,25 @@ mutable struct State <: AbstractState
     info::Dict{Any, Any}          # for extensions
 end
 
+generation(state::AbstractState) = find(:type, AbstractGeneration, state.counters) |> value
+first_gen(state::AbstractState) = generation(state) == 1
+always(state::AbstractState) = true
+
+Base.@kwdef struct GenerationIncrementer <: AbstractOperator
+    condition = always
+    retriever = noop
+    operator = noop 
+    updater::Function = (state, kwargs...) -> get_counter(AbstractGeneration, state) |> inc!
+    data::Vector{AbstractData} = AbstractData[]
+end
+
 
 # Allows specifying state by id, rng, creators, and operators
-State(id::String, rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator}) = 
+# TODO: add automatic generation incrementer at the end of the operators
+function State(id::String, rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator})
+    operators = AbstractOperator[operators..., GenerationIncrementer()]
     State(id, rng, creators, operators, AbstractPopulation[], default_counters(), AbstractMatch[], AbstractMetric[], AbstractData[], Dict())
+end
 
 # shorthand to create empty states 
 State() = State("", StableRNG(1234), AbstractCreator[], AbstractOperator[])
@@ -31,24 +46,17 @@ function operate!(state::AbstractState)
         try
             operate!(state, state.operators[i])
         catch e
-            println("Error in operator ", i, " ", state.operators[i])
+            println("Error in operator ", i, " ", state.operators[i], ", serializing state.")
             serialize("error-state.jld", state)
             # write operator id to file
             open("error-operator.txt", "w") do io
                 println(io, state.operators[i])
             end
-
-
             rethrow(e)
         end
-            
-
     end
 end
 
-generation(state::AbstractState) = find(:type, AbstractGeneration, state.counters) |> value
-first_gen(state::AbstractState) = generation(state) == 1
-always(state::AbstractState) = true
 
 run!(state::State, max_generations::Int) = 
     foreach((_)->operate!(state), generation(state):max_generations)

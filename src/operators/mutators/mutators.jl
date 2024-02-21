@@ -10,7 +10,7 @@ end
 
 function Mutator(pop_ids::Vector{String}=String[])
     condition = always
-    retriever = PopulationRetriever(pop_ids) # returns vec{vec{ind}}
+    retriever = PopulationRetriever(pop_ids) # returns vec{vec{pop}}
     operator = map((s,x)->mutate(s, x))
     updater = PopulationUpdater(pop_ids)
     Mutator(condition, retriever, operator, updater)
@@ -22,8 +22,7 @@ mutate(state::AbstractState, pop::AbstractPopulation) =
 function mutate(state::AbstractState, ind::AbstractIndividual) 
     new_id, gen = new_id_and_gen(state)
     new_geno = mutate(state, ind.genotype)
-    Individual(new_id, gen, [ind.id], new_geno)
+    Individual(new_id, gen, [ind.id], new_geno, ind.developer)
 end
-function mutate(::AbstractState, genotype::AbstractGenotype)
+mutate(::AbstractState, genotype::AbstractGenotype) =
     error("mutate function not implemented for $(typeof(genotype))")
-end

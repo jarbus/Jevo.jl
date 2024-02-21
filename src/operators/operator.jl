@@ -15,5 +15,3 @@ function operate!(state::AbstractState, operator::AbstractOperator)
     objects = operator.operator(state, objects)
     operator.updater(state, objects)
 end
-
-noop(x...) = x

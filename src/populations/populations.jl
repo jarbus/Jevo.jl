@@ -9,9 +9,9 @@ CompositePopulation(id::String, populations::Vector{<:AbstractPopulation}) =
     CompositePopulation(id, populations, Vector{AbstractData}())
 # Create composite population using genotype creator
 CompositePopulation(id::String,
-                    pops::Vector{Tuple{String, Int, Creator}},
+                    pops::Vector{<:Tuple{String, Int, <:AbstractCreator, <:AbstractCreator}},
                     counters::Vector{<:AbstractCounter}) =
-CompositePopulation(id, [Population(id, n, gc, counters) for (id, n, gc) in pops])
+CompositePopulation(id, [Population(id, n, gc, dev, counters) for (id, n, gc, dev) in pops])
 
 mutable struct Population <: AbstractPopulation
     id::String
@@ -24,8 +24,8 @@ Population(id::String, individuals::Vector{<:AbstractIndividual}) =
     Population(id, individuals, AbstractData[])
 
 # Create n inds using genotype creator, updates counters
-Population(id::String, n::Int, genotype_creator::Creator, counters::Vector{<:AbstractCounter}) =
-    Population(id, [Individual(counters, genotype_creator) for i in 1:n])
+Population(id::String, n::Int, genotype_creator::AbstractCreator, developer::AbstractCreator, counters::Vector{<:AbstractCounter}) =
+    Population(id, [Individual(counters, genotype_creator, developer) for i in 1:n])
 
 find_population(id::String, population::Population) = 
     population.id == id ? population : nothing

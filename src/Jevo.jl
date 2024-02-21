@@ -11,26 +11,13 @@ import Base: show
 
 include("./abstracts.jl")
 include("./utils.jl")
+include("./datatypes/datatypes.jl")
 include("./creators/creator.jl")
 include("./individuals/individual.jl")
 include("./populations/populations.jl")
 include("./state.jl")
+include("./organisms/organisms.jl")
+include("./environments/environments.jl")
+include("./operators/operators.jl")
 
-include("./datatypes/counters.jl")
-
-include("./genotypes/numbersgame.jl")
-include("./genotypes/nn.jl")
-
-include("./phenotypes/phenotype.jl")
-include("./phenotypes/numbersgame.jl")
-
-include("./datatypes/match.jl")
-include("./environments/numbersgame.jl")
-
-include("./operators/initializers.jl")
-include("./operators/retrievers/retrievers.jl")
-include("./operators/updaters/updaters.jl")
-include("./operators/matchmaker/all_vs_all.jl")
-include("./operators/operator.jl")
-include("./operators/mutators/mutators.jl")
 end

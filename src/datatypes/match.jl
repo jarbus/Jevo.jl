@@ -1,6 +1,5 @@
 struct Match <: AbstractMatch
-    ids::Vector{Int}
+    id::Int
+    individuals::Vector{<:AbstractIndividual}
     environment_creator::AbstractCreator
-    genotypes::Vector{<:AbstractGenotype}
-    developers::Vector{<:AbstractCreator}
 end

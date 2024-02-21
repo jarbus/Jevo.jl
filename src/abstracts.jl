@@ -1,6 +1,6 @@
 # for use in Counters
 import Base: show
-export AbstractGene, AbstractIndividual, AbstractGeneration
+export AbstractGene, AbstractIndividual, AbstractGeneration, AbstractEnvironment
 abstract type AbstractJevo                              end
 abstract type AbstractState         <: AbstractJevo     end
 abstract type AbstractData          <: AbstractJevo     end
@@ -25,11 +25,11 @@ abstract type AbstractMutator       <: AbstractOperator end
 # populates the state.matches with matches
 abstract type AbstractMatchMaker    <: AbstractOperator end
 abstract type AbstractScorer        <: AbstractOperator end
+abstract type AbstractPerformer     <: AbstractOperator end
 # Evaluator should enable distributed computing
 abstract type AbstractEvaluator     <: AbstractOperator end
-abstract type AbstractCrossover     <: AbstractOperator end
+abstract type AbstractReproducer     <: AbstractOperator end
 abstract type AbstractSelector      <: AbstractOperator end
-abstract type AbstractReplacer      <: AbstractOperator end
 abstract type AbstractCheckpointer  <: AbstractOperator end
 abstract type AbstractReporter      <: AbstractOperator end
 abstract type AbstractAssertor      <: AbstractOperator end # Can apply assertions to objects in state

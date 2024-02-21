@@ -1,5 +1,9 @@
-export VectorGenotype
+export VectorGenotype, VectorPhenotype, develop, mutate
 mutable struct VectorGenotype <: AbstractGenotype
+    numbers::Vector{Float32}
+end
+
+mutable struct VectorPhenotype <: AbstractPhenotype
     numbers::Vector{Float32}
 end
 
@@ -16,3 +20,5 @@ function mutate(state::State, genotype::VectorGenotype)
     genotype.numbers[j] += randn(state.rng)
     genotype
 end
+
+develop(c::Creator, genotype::VectorGenotype) = c.type(genotype.numbers)
