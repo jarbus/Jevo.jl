@@ -1,3 +1,4 @@
+export Operator, ClearInteractionsAndRecords
 # ==========OPERATORS===========
 # Evolutionary operators (e.g., mutator, performer, evaluator, archiver)
 # are independent actions that use/update the state
@@ -14,4 +15,12 @@ function operate!(state::AbstractState, operator::AbstractOperator)
     objects = operator.retriever(state)
     objects = operator.operator(state, objects)
     operator.updater(state, objects)
+end
+
+Base.@kwdef struct ClearInteractionsAndRecords <: AbstractOperator
+    condition::Function = always
+    retriever::Function = get_individuals
+    operator::Function = noop
+    updater::Function = map((_,ind)->(empty!(ind.interactions);
+                                      empty!(ind.records)))
 end

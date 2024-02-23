@@ -1,5 +1,4 @@
 # for use in Counters
-import Base: show
 export AbstractGene, AbstractIndividual, AbstractGeneration, AbstractEnvironment
 abstract type AbstractJevo                              end
 abstract type AbstractState         <: AbstractJevo     end
@@ -16,28 +15,22 @@ abstract type AbstractGene          <: AbstractJevo     end
 abstract type AbstractCreator       <: AbstractJevo     end
 abstract type AbstractGenotype      <: AbstractJevo     end
 abstract type AbstractPhenotype     <: AbstractJevo     end
-abstract type AbstractMeasurement   <: AbstractData     end
 abstract type AbstractCounter       <: AbstractData     end
 abstract type AbstractMatch         <: AbstractData     end
-abstract type AbstractMetric        <: AbstractData     end
 abstract type AbstractRecord        <: AbstractData     end
-abstract type AbstractMutator       <: AbstractOperator end
 # populates the state.matches with matches
 abstract type AbstractMatchMaker    <: AbstractOperator end
-abstract type AbstractScorer        <: AbstractOperator end
 abstract type AbstractPerformer     <: AbstractOperator end
 # Evaluator should enable distributed computing
 abstract type AbstractEvaluator     <: AbstractOperator end
-abstract type AbstractReproducer     <: AbstractOperator end
 abstract type AbstractSelector      <: AbstractOperator end
+abstract type AbstractReproducer    <: AbstractOperator end
+abstract type AbstractMutator       <: AbstractOperator end
+abstract type AbstractMetric        <: AbstractData     end
+abstract type AbstractMeasurement   <: AbstractData     end
 abstract type AbstractCheckpointer  <: AbstractOperator end
 abstract type AbstractReporter      <: AbstractOperator end
 abstract type AbstractAssertor      <: AbstractOperator end # Can apply assertions to objects in state
-
-abstract type AbstractInitializer end
-abstract type AbstractWeights end
-abstract type AbstractLayer end
-abstract type AbstractMutation end
 
 "Override Base.show to avoid printing empty containers"
 function Base.show(io::IO, jevos::Vector{<:AbstractJevo})

@@ -1,6 +1,7 @@
 export find
 import Base: map
 
+noop() = nothing
 noop(x...) = x
 noop(::AbstractState, x) = x
 

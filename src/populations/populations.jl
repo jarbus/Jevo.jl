@@ -4,6 +4,13 @@ mutable struct CompositePopulation <: AbstractPopulation
     populations::Vector{AbstractPopulation}
     data::Vector{AbstractData}
 end
+
+mutable struct Population <: AbstractPopulation
+    id::String
+    individuals::Vector{AbstractIndividual}
+    data::Vector{AbstractData}
+end
+
 # Combine populations into composite
 CompositePopulation(id::String, populations::Vector{<:AbstractPopulation}) =
     CompositePopulation(id, populations, Vector{AbstractData}())
@@ -12,12 +19,6 @@ CompositePopulation(id::String,
                     pops::Vector{<:Tuple{String, Int, <:AbstractCreator, <:AbstractCreator}},
                     counters::Vector{<:AbstractCounter}) =
 CompositePopulation(id, [Population(id, n, gc, dev, counters) for (id, n, gc, dev) in pops])
-
-mutable struct Population <: AbstractPopulation
-    id::String
-    individuals::Vector{AbstractIndividual}
-    data::Vector{AbstractData}
-end
 
 # Create pop with predefined inds and no data
 Population(id::String, individuals::Vector{<:AbstractIndividual}) =

@@ -1,3 +1,7 @@
+abstract type AbstractInitializer end
+abstract type AbstractWeights end
+abstract type AbstractLayer end
+abstract type AbstractMutation end
 """
     @enum Coupling Strict Loose None
 

@@ -14,3 +14,8 @@
 - reproducer creates individuals them
 - mutator replaces the children with new individuals
 - need a retriever to get all children and an update to update all children
+
+# Design of reporters
+logging to txt, writing to hdf5
+for distributed, what if you launch new workers each gen if one of them dies?
+each gen send the children and reconstruct from the cache?

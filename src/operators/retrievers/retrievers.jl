@@ -46,7 +46,7 @@ function (r::PopulationRetriever)(state::AbstractState)
         @assert !isempty(pops) "Failed to retrieve any populations with ids $(r.ids)"
         @assert all(!isempty, pops) "Failed to retrieve a population with id $(r.ids)"
     else
-        pops = get_populations("", state.populations, flatten=true)
+        pops = [[p] for p in get_populations("", state.populations, flatten=true)]
         @assert !isempty(pops) "Failed to retrieve any populations"
     end
     pops
@@ -57,6 +57,7 @@ struct PopulationCreatorRetriever <: AbstractRetriever end
 # (::PopulationCreatorRetriever)(state::AbstractState) = filter(c -> c.type isa AbstractPopulation, state.creators) |> collect
 (::PopulationCreatorRetriever)(state::AbstractState) = filter(c -> c.type <: AbstractPopulation, state.creators) |> collect
 
+get_individuals(state::AbstractState) = get_individuals(state.populations)
 get_individuals(pop::Population) = pop.individuals
 get_individuals(pop::CompositePopulation) = 
     get_individuals.(pop.populations) |> Iterators.flatten |> collect

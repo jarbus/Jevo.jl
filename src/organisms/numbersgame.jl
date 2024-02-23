@@ -1,4 +1,5 @@
-export VectorGenotype, VectorPhenotype, develop, mutate
+export VectorGenotype, VectorPhenotype, develop, mutate, GenotypeSum, measure
+abstract type GenotypeSum <: AbstractMetric end
 mutable struct VectorGenotype <: AbstractGenotype
     numbers::Vector{Float32}
 end
@@ -22,3 +23,9 @@ function mutate(state::State, genotype::VectorGenotype)
 end
 
 develop(c::Creator, genotype::VectorGenotype) = c.type(genotype.numbers)
+
+function measure(::Type{GenotypeSum}, state::AbstractState, args...)
+    sums = [sum(i.genotype.numbers) for i in get_individuals(state)]
+    m = StatisticalMeasurement(GenotypeSum, sums, generation(state))
+    log(m, args...)
+end

@@ -26,7 +26,6 @@ end
 
 
 # Allows specifying state by id, rng, creators, and operators
-# TODO: add automatic generation incrementer at the end of the operators
 function State(id::String, rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator})
     operators = AbstractOperator[operators..., GenerationIncrementer()]
     State(id, rng, creators, operators, AbstractPopulation[], default_counters(), AbstractMatch[], AbstractMetric[], AbstractData[], Dict())
