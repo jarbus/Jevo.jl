@@ -63,3 +63,5 @@ get_individuals(pop::CompositePopulation) =
     get_individuals.(pop.populations) |> Iterators.flatten |> collect
 get_individuals(pops::Vector{<:AbstractPopulation}) =
     get_individuals.(pops) |> Iterators.flatten |> collect
+
+get_timestamps(state::AbstractState, type::Type) = Timestamp[t for t in state.data if t.type == type]

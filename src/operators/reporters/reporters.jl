@@ -19,3 +19,5 @@ function Reporter(type::Type{<:AbstractMetric};
              noop,
              h5, txt, console)
 end
+
+include("./timer.jl")

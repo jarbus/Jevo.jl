@@ -275,6 +275,13 @@ end
         rm("statistics.h5", force=true)
         rm("run.log", force=true)
     end
+    @testset "Timer" begin
+        with_logger(JevoLogger()) do
+            state = State([comp_comp_pop_creator, env_creator],
+                          [TimeReporter(AbstractGeneration), pop_initializer, TimeReporter(AbstractGeneration)])
+            run!(state, 1)
+        end
+    end
     @testset "run multigen" begin
         println("running multigen")
         with_logger(JevoLogger()) do
