@@ -1,5 +1,6 @@
 include("./retrievers/retrievers.jl")
 include("./updaters/updaters.jl")
+include("./macro.jl")
 include("./operator.jl")
 include("./initializers.jl")
 include("./matchmaker/matchmaker.jl")

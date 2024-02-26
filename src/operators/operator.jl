@@ -20,11 +20,16 @@ function operate!(state::AbstractState, operator::AbstractOperator)
     operator.time && (@info "Operator $(operator.condition) took $(time()-start) seconds")
 end
 
-Base.@kwdef struct ClearInteractionsAndRecords <: AbstractOperator
-    condition::Function = always
-    retriever::Function = get_individuals
-    operator::Function = noop
-    updater::Function = map((_,ind)->(empty!(ind.interactions);
-                                      empty!(ind.records)))
-    time::Bool = false
-end
+# Base.@kwdef struct ClearInteractionsAndRecords <: AbstractOperator
+#     condition::Function = always
+#     retriever::Function = get_individuals
+#     operator::Function = noop
+#     updater::Function = map((_,ind)->(empty!(ind.interactions);
+#                                       empty!(ind.records)))
+#     time::Bool = false
+# end
+@define_op "ClearInteractionsAndRecords"
+ClearInteractionsAndRecords() = create_op("ClearInteractionsAndRecords",
+          retriever=get_individuals,
+          updater=map((_,ind)->(empty!(ind.interactions);
+                                empty!(ind.records))))
