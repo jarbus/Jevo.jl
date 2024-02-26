@@ -4,6 +4,7 @@ struct ScalarFitnessEvaluator <: AbstractEvaluator
     retriever::AbstractRetriever
     operator::Function
     updater::AbstractUpdater
+    time::Bool
 end
 
 function make_scalar_fitness_records(::AbstractState,
@@ -36,9 +37,10 @@ function make_scalar_fitness_records(::AbstractState,
     records
 end
 
-function ScalarFitnessEvaluator(ids::Vector{String}=String[])
+function ScalarFitnessEvaluator(ids::Vector{String}=String[]; time::Bool=false)
     ScalarFitnessEvaluator(always,
                            PopulationRetriever(ids),
                            map(make_scalar_fitness_records),
-                           RecordAdder(ids))
+                           RecordAdder(ids),
+                           time)
 end

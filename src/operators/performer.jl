@@ -6,4 +6,5 @@ Base.@kwdef struct Performer <: AbstractPerformer
     operator::Function = noop
     updater::AbstractUpdater = ComputeInteractions()
     data::Vector{<:AbstractData} = AbstractData[]
+    time::Bool = false
 end

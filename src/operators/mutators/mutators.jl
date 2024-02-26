@@ -7,14 +7,15 @@ struct Mutator <: AbstractMutator
     updater::Function   # adds mutated individuals to the respective 
                                # populations
     data::Vector{AbstractData}
+    time::Bool
 end
 
-function Mutator(pop_ids::Vector{String}=String[])
+function Mutator(pop_ids::Vector{String}=String[]; time::Bool=false)
     condition = always
     retriever = PopulationRetriever(pop_ids) # returns vec{vec{pop}}
     operator = noop
     updater = map(map((s,p)->mutate!(s, p)))
-    Mutator(condition, retriever, operator, updater, AbstractData[])
+    Mutator(condition, retriever, operator, updater, AbstractData[], time)
 end
 
 # Mutate all inds made this generation

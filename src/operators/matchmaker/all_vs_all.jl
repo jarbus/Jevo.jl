@@ -5,14 +5,15 @@ struct AllVsAllMatchMaker <: AbstractMatchMaker
     operator::Function
     updater::Union{AbstractUpdater, Function}
     data::Vector{AbstractData}
+    time::Bool
 end
 
-function AllVsAllMatchMaker(ids::Vector{String}=String[])
+function AllVsAllMatchMaker(ids::Vector{String}=String[]; time::Bool=false)
     condition = always
     retriever = PopulationRetriever(ids)
     operator = make_all_v_all_matches
     updater = add_matches!
-    AllVsAllMatchMaker(condition, retriever, operator, updater, AbstractData[])
+    AllVsAllMatchMaker(condition, retriever, operator, updater, AbstractData[], time)
 end
 
 

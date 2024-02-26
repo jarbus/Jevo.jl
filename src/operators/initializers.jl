@@ -12,12 +12,13 @@ struct InitializeAllPopulations <: AbstractOperator
     updater::AbstractUpdater
     rng::Nothing
     data::Vector{AbstractData}
+    time::Bool
 end
-function InitializeAllPopulations()
+function InitializeAllPopulations(;time::Bool=false)
     condition = first_gen
     retriever = PopulationCreatorRetriever()
     operator = create 
     updater = PopulationAdder()
     rng = nothing
-    InitializeAllPopulations(condition, retriever, operator, updater, rng, AbstractData[])
+    InitializeAllPopulations(condition, retriever, operator, updater, rng, AbstractData[], time)
 end

@@ -22,6 +22,7 @@ Base.@kwdef struct GenerationIncrementer <: AbstractOperator
     operator = noop 
     updater::Function = (state, kwargs...) -> get_counter(AbstractGeneration, state) |> inc!
     data::Vector{AbstractData} = AbstractData[]
+    time::Bool = false
 end
 
 

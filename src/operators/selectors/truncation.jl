@@ -4,6 +4,7 @@ struct TruncationSelector <: AbstractSelector
     retriever::AbstractRetriever
     operator::Function
     updater::Function
+    time::Bool
 end
 
 function truncate!(state::AbstractState, pops::Vector{Population}, k::Int)
@@ -19,9 +20,10 @@ function truncate!(state::AbstractState, pops::Vector{Population}, k::Int)
 
 end
 
-function TruncationSelector(k::Int, ids::Vector{String}=String[])
+function TruncationSelector(k::Int, ids::Vector{String}=String[]; time::Bool=false)
     TruncationSelector(always,
                        PopulationRetriever(ids),
                        noop,
-                       map((s,p)->truncate!(s,p,k)))
+                       map((s,p)->truncate!(s,p,k)),
+                       time)
 end

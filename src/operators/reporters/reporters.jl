@@ -4,6 +4,7 @@ struct Reporter <: AbstractReporter
     retriever::Function
     operator::Function
     updater::Function
+    time::Bool
     h5::Bool
     txt::Bool
     console::Bool
@@ -12,12 +13,13 @@ function Reporter(type::Type{<:AbstractMetric};
         condition=always,
         h5=true,
         txt=true,
-        console=false)
+        console=false,
+        time=false)
     Reporter(condition,
              noop,
              (s,_)->measure(type, s, h5, txt, console),
              noop,
-             h5, txt, console)
+             h5, txt, console, time)
 end
 
 include("./timer.jl")

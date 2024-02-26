@@ -4,6 +4,7 @@ struct UniformReproducer <: AbstractReproducer
     retriever::AbstractRetriever
     operator::Function
     updater::Function
+    time::Bool
 end
 function uniform_reproduce!(state::AbstractState, pops::Vector{Population}, size::Int)
     @assert length(pops) == 1 "UniformReproducer only works with a single population"
@@ -19,9 +20,10 @@ function uniform_reproduce!(state::AbstractState, pops::Vector{Population}, size
     end
     @assert length(pop.individuals) == size "Failed to reproduce $(pop.id) uniformly"
 end
-function UniformReproducer(pop_size::Int, ids::Vector{String}=String[])
+function UniformReproducer(pop_size::Int, ids::Vector{String}=String[]; time::Bool=false)
     UniformReproducer(always,
                       PopulationRetriever(ids),
                       noop,
-                      map((s,p)->uniform_reproduce!(s,p,pop_size)))
+                      map((s,p)->uniform_reproduce!(s,p,pop_size)),
+                      time)
 end

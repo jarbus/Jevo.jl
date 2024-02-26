@@ -4,11 +4,12 @@ struct Assertor <: AbstractAssertor
     retriever::AbstractRetriever
     operator::Function
     updater::Function
+    time::Bool
 end
 Assertor(condition::Function,
          retriever::AbstractRetriever,
          operator::Function) =
-    Assertor(condition, retriever, operator, noop)
+    Assertor(condition, retriever, operator, noop, false)
 
 PopSizeAssertor(size::Int,
                 pop_ids::Vector{String}=String[]) =
