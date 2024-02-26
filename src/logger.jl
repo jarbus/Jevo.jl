@@ -1,5 +1,5 @@
-export JevoLogger
-export @h5 
+export JevoLogger, @h5
+
 const H5_LOG_LEVEL = LogLevel(5)
 const datefmt = "yy-mm-dd HH:MM:SS"
 import Base: log
@@ -30,11 +30,15 @@ end
 function Base.CoreLogging.handle_message(logger::HDF5Logger, level, m::AbstractMeasurement, _module, group, id, file, line; kwargs...)
     @assert level.level == H5_LOG_LEVEL.level
     @assert length(kwargs) == 0
+    pidpath = logger.path*".pid"
+    monitor = FileWatching.Pidfile.mkpidlock(pidpath)
     fullpath = joinpath(string(m.generation), string(m.metric))
     for field in fieldnames(typeof(m))
         (field == :metric || field == :generation) && continue
         logger.io[joinpath([fullpath, string(field)])] = getfield(m, field)
     end
+    flush(logger.io)
+    close(monitor)
 end
 
 function Base.log(m::AbstractMeasurement, h5::Bool, txt::Bool, console::Bool)
