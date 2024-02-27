@@ -3,8 +3,8 @@ export TruncationSelector
 TruncationSelector(k::Int, ids::Vector{String}=String[]; kwargs...) =
     create_op("TruncationSelector",
                     retriever=PopulationRetriever(ids),
-                    updater=map((s,p)->truncate!(s,p,k)),
-                    kwargs...)
+                    updater=map((s,p)->truncate!(s,p,k))
+                    ;kwargs...)
 function truncate!(state::AbstractState, pops::Vector{Population}, k::Int)
     @assert k > 0                           "k must be greater than 0"
     @assert length(pops) == 1               "Truncation selection can only be applied to a single Population"

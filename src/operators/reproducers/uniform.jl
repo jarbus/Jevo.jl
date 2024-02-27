@@ -3,7 +3,8 @@ export UniformReproducer
 UniformReproducer(pop_size::Int, ids::Vector{String}=String[]; kwargs...) =
     create_op("UniformReproducer",
           retriever=PopulationRetriever(ids),
-          updater=map((s,p)->uniform_reproduce!(s,p,pop_size)),kwargs...)
+          updater=map((s,p)->uniform_reproduce!(s,p,pop_size))
+          ;kwargs...)
 
 function uniform_reproduce!(state::AbstractState, pops::Vector{Population}, size::Int)
     @assert length(pops) == 1 "UniformReproducer only works with a single population"

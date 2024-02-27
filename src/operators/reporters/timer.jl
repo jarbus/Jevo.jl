@@ -17,5 +17,5 @@ end
 
 TimeReporter(type::Type; kwargs...) = create_op("TimeReporter",
             retriever=(s::AbstractState)->get_timestamps(s, type),
-            updater=(s, ts)->log_time!(s, ts, type),
+            updater=(s, ts)->log_time!(s, ts, type);
             kwargs...)

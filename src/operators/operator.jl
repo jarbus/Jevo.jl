@@ -6,11 +6,11 @@ function operate!(state::AbstractState, operator::AbstractOperator)
     objects = operator.retriever(state)
     objects = operator.operator(state, objects)
     operator.updater(state, objects)
-    operator.time && (@info "Operator $(operator.condition) took $(time()-start) seconds")
+    operator.time && (@info "Operator $(typeof(operator)) took $(round((time()-start),digits=4)) seconds")
 end
 
 @define_op "ClearInteractionsAndRecords"
-ClearInteractionsAndRecords() = create_op("ClearInteractionsAndRecords",
+ClearInteractionsAndRecords(;kwargs...) = create_op("ClearInteractionsAndRecords",
           retriever=get_individuals,
           updater=map((_,ind)->(empty!(ind.interactions);
-                                empty!(ind.records))))
+                                empty!(ind.records)));kwargs...)

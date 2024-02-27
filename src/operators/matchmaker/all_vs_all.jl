@@ -1,13 +1,11 @@
 export AllVsAllMatchMaker
 @define_op "AllVsAllMatchMaker" "AbstractMatchMaker"
-AllVsAllMatchMaker(ids::Vector{String}=String[]; time::Bool=false) =
+AllVsAllMatchMaker(ids::Vector{String}=String[];kwargs...) =
     create_op("AllVsAllMatchMaker",
           condition=always,
           retriever=PopulationRetriever(ids),
           operator=make_all_v_all_matches,
-          updater=add_matches!,
-          data=AbstractData[],
-          time=time)
+          updater=add_matches!;kwargs...)
 
 
 function make_all_v_all_matches(state::AbstractState, pops::Vector{Vector{Population}})

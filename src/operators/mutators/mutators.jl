@@ -4,7 +4,7 @@ export Mutator
 Mutator(ids::Vector{String}=String[]; kwargs...) = 
     create_op("Mutator", 
               retriever=PopulationRetriever(ids),
-              updater=map(map((s,p)->mutate!(s, p))),
+              updater=map(map((s,p)->mutate!(s, p)));
               kwargs...)
 
 # Mutate all inds made this generation

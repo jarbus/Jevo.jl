@@ -4,7 +4,7 @@ ScalarFitnessEvaluator(ids::Vector{String}=String[]; kwargs...) =
     create_op("ScalarFitnessEvaluator",
             retriever=PopulationRetriever(ids),
             operator=map(make_scalar_fitness_records),
-            updater=RecordAdder(ids), kwargs...)
+            updater=RecordAdder(ids); kwargs...)
 
 function make_scalar_fitness_records(::AbstractState,
         population::Vector{<:AbstractPopulation})
