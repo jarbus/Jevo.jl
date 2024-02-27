@@ -20,6 +20,6 @@ end
 
 measure(metric::AbstractMetric, ::AbstractState) = @error "No measure function defined for $(typeof(metric))"
 
-Base.show(io::IO, m::Measurement) = print(io, "gen=$(m.generation) $(m.metric)=$(round(m.value, digits=2)), $(m.generation)")
+Base.show(io::IO, m::Measurement) = print(io, "gen=$(m.generation) $(m.metric)=$(round(m.value, digits=2))")
 Base.show(io::IO, m::StatisticalMeasurement) = print(io, 
     "gen=$(m.generation) $(m.metric): |$(round(m.min, digits=2)), $(round(m.mean, digits=2)) ± $(round(m.std, digits=2)), $(round(m.max, digits=2))|, $(m.n_samples) samples")
