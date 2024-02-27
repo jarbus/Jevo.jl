@@ -58,3 +58,13 @@ function (updater::ComputeInteractions)(::AbstractState, matches::Vector{<:Abstr
         end
     end
 end
+
+function reset_individual!(ind::AbstractIndividual)
+    # Don't shrink arrays when emptying them
+    n_interactions = length(ind.interactions)
+    n_records = length(ind.records)
+    empty!(ind.interactions)
+    empty!(ind.records)
+    sizehint!(ind.interactions, n_interactions)
+    sizehint!(ind.records, n_records)
+end
