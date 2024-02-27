@@ -1,6 +1,6 @@
 export @define_op, create_op
 
-macro define_op(name, supertype="", additional_fields="")
+macro define_op(name, supertype="AbstractOperator", additional_fields="")
     field_defs = [
         :(condition::Function),
         :(retriever::Union{Function, AbstractRetriever}),
@@ -16,20 +16,11 @@ macro define_op(name, supertype="", additional_fields="")
             push!(field_defs, :($(Symbol(name_type[1]))::$(Symbol(name_type[2]))))
         end
     end
-    expr = if supertype == ""
-        quote
-            struct $(Symbol(name)) <: AbstractOperator
-                $(field_defs...)
-            end
-        end
-    else
-        quote
-            struct $(Symbol(name)) <: $(Symbol(supertype))
-                $(field_defs...)
-            end
-        end
-    end
-    return esc(expr)
+    esc(
+        :(struct $(Symbol(name)) <: $(Symbol(supertype))
+            $(field_defs...)
+        end)
+    )
 end
 
 function create_op(type::Type{<:AbstractOperator};
