@@ -43,22 +43,6 @@ function (updater::PopulationUpdater)(state::AbstractState, inds::Vector{<:Vecto
     end
 end
 
-Base.@kwdef struct ComputeInteractions <: AbstractUpdater end
-function (updater::ComputeInteractions)(::AbstractState, matches::Vector{<:AbstractMatch})
-    @assert !isempty(matches) "No matches to compute interactions for"
-    for m in matches 
-        scores = play(m)
-        @assert length(scores) == length(m.individuals) "Number of scores must match number of individuals"
-        for i in eachindex(m.individuals)
-            ind_id = m.individuals[i].id
-            score = scores[i]
-            opponent_ids = @inline get_opponent_ids(m, ind_id)
-            interaction = Interaction(m.id, ind_id, opponent_ids, score)
-            push!(m.individuals[i].interactions, interaction)
-        end
-    end
-end
-
 function reset_individual!(ind::AbstractIndividual)
     # Don't shrink arrays when emptying them
     n_interactions = length(ind.interactions)
@@ -68,3 +52,74 @@ function reset_individual!(ind::AbstractIndividual)
     sizehint!(ind.interactions, n_interactions)
     sizehint!(ind.records, n_records)
 end
+
+###########################
+# PERFORMANCE CRITICAL CODE
+###########################
+
+"""Get id of other individual in a 2-player match"""
+function get_opponent_ids_2player(match::Match, ind_id::Int)
+    ind1_id = match.individuals[1]
+    if ind1_id == ind_id
+        return Int[match.individuals[2].id]
+    end
+    Int[match.individuals[1].id]
+end
+
+function get_opponent_ids(match::Match, ind_id::Int)
+    n_inds = length(match.individuals)
+    n_inds == 2 && return @inline get_opponent_ids_2player(match, ind_id)
+    n_inds == 1 && return Int[]
+    @error("Only 1 or 2 player matches are optimized")
+    # The below code is general-purpose, but not optimized
+    opponent_ids = Array{Int,1}(undef, n_inds - 1)
+    opp_idx = 1
+    for opp in match.individuals
+        opp_id = opp.id
+        if opp_id != ind_id
+            opponent_ids[opp_idx] = opp_id
+            opp_idx += 1
+        end
+    end
+    opponent_ids
+end
+
+function add_interaction_2player!(scores::Vector{T}, match::Match) where T <: AbstractFloat
+    m_id = match.id
+    inds = match.individuals
+    ind1 = inds[1]
+    ind2 = inds[2]
+    ind1_id = ind1.id
+    ind2_id = ind2.id
+    int1 = Interaction(m_id, ind1_id, Int[ind2_id], scores[1])
+    int2 = Interaction(m_id, ind2_id, Int[ind1_id], scores[2])
+    push!(ind1.interactions, int1)
+    push!(ind2.interactions, int2)
+end
+function add_interaction_1player!(scores::Vector{T}, match::Match) where T <: AbstractFloat
+    ind = match.individuals[1]
+    push!(ind.interactions, Interaction(match.id, ind.id, Int[], scores[1]))
+end
+
+function add_interactions!(scores::Vector{T}, match::Match) where T <: AbstractFloat
+    n_inds = length(match.individuals)
+    @assert length(scores) == n_inds "Number of scores must match number of individuals"
+    n_inds == 2 && return @inline add_interaction_2player!(scores, match)
+    n_inds == 1 && return @inline add_interaction_1player!(scores, match)
+    @error("Only 1 or 2 player matches are optimized")
+    # # The below code is general-purpose, but not optimized
+    # for i in eachindex(match.individuals)
+    #     ind = match.individuals[i]
+    #     ind_id = ind.id
+    #     opponent_ids = @inline get_opponent_ids(match, ind_id)
+    #     push!(ind.interactions, Interaction(match.id, ind_id, opponent_ids, scores[i]))
+    # end
+end
+
+function compute_interaction!(m::Match)
+    scores = play(m)
+    @inbounds add_interactions!(scores, m)
+end
+struct ComputeInteractions! <: AbstractUpdater end
+(::ComputeInteractions!)(::AbstractState, matches::Vector{M}) where M <: AbstractMatch =
+    compute_interaction!.(matches)

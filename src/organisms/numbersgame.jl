@@ -22,7 +22,8 @@ function mutate(state::State, genotype::VectorGenotype)
     genotype
 end
 
-develop(c::Creator, genotype::VectorGenotype) = c.type(genotype.numbers)
+develop(::Creator, genotype::VectorGenotype) = VectorPhenotype(genotype.numbers)
+
 
 function measure(::Type{GenotypeSum}, state::AbstractState, args...)
     sums = [sum(i.genotype.numbers) for i in get_individuals(state)]

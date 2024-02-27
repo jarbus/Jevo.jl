@@ -10,9 +10,9 @@ play(environment_creator::AbstractCreator, individuals::Vector{<:AbstractIndivid
 
 function play(env::AbstractEnvironment, phenotypes::Vector{<:AbstractPhenotype})
     is_done = false
-    scores = zeros(Float32, length(phenotypes))
+    scores = zeros(Float64, length(phenotypes))
     while !is_done
-        scores += step!(env, phenotypes)
+        scores .+= step!(env, phenotypes)
         is_done = done(env)
     end
     scores

@@ -10,11 +10,11 @@ function make_scalar_fitness_records(::AbstractState,
         population::Vector{<:AbstractPopulation})
     num_inds = 0
     min_score = Inf
-    scores = Vector{Float32}[]
+    scores = Vector{Float64}[]
     records = Vector{Vector{<:AbstractRecord}}()
     # Compute scores
     for subpop in population
-        push!(scores, Float32[])
+        push!(scores, Float64[])
         for ind in subpop.individuals
             num_inds += 1
             score = mean(interaction.score for interaction in ind.interactions)

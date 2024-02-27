@@ -1,13 +1,13 @@
 export Individual, develop
 
-mutable struct Individual <: AbstractIndividual
+mutable struct Individual{I} <: AbstractIndividual where I <: AbstractInteraction
     id::Int
     generation::Int
     parents::Vector{Int}
     genotype::AbstractGenotype
     developer::AbstractCreator
     records::Vector{AbstractRecord}
-    interactions::Vector{<:AbstractInteraction}
+    interactions::Vector{I}
     data::Vector{AbstractData}
 end
 
@@ -18,7 +18,7 @@ function Individual(
     genotype::AbstractGenotype,
     developer::AbstractCreator;
     records::Vector{AbstractRecord} = AbstractRecord[],
-    interactions::Vector{<:AbstractInteraction} = AbstractInteraction[],
+    interactions::Vector{<:AbstractInteraction} = Interaction[],
     data::Vector{AbstractData} = AbstractData[]
 )
     Individual(id, generation, parents, genotype, developer, records, interactions, data)
