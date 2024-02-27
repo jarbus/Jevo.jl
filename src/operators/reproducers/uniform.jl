@@ -1,11 +1,10 @@
 export UniformReproducer
-struct UniformReproducer <: AbstractReproducer
-    condition::Function
-    retriever::AbstractRetriever
-    operator::Function
-    updater::Function
-    time::Bool
-end
+@define_op "UniformReproducer" "AbstractReproducer"
+UniformReproducer(pop_size::Int, ids::Vector{String}=String[]; kwargs...) =
+    create_op("UniformReproducer",
+          retriever=PopulationRetriever(ids),
+          updater=map((s,p)->uniform_reproduce!(s,p,pop_size)),kwargs...)
+
 function uniform_reproduce!(state::AbstractState, pops::Vector{Population}, size::Int)
     @assert length(pops) == 1 "UniformReproducer only works with a single population"
     @assert 0 < length(pops[1].individuals) < size "Population must have individuals to reproduce and fewer individuals than $size to reproduce uniformly, $(pops[1].id) has $(length(pops[1].individuals)) individuals."
@@ -19,11 +18,4 @@ function uniform_reproduce!(state::AbstractState, pops::Vector{Population}, size
         push!(pop.individuals, child)
     end
     @assert length(pop.individuals) == size "Failed to reproduce $(pop.id) uniformly"
-end
-function UniformReproducer(pop_size::Int, ids::Vector{String}=String[]; time::Bool=false)
-    UniformReproducer(always,
-                      PopulationRetriever(ids),
-                      noop,
-                      map((s,p)->uniform_reproduce!(s,p,pop_size)),
-                      time)
 end

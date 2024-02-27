@@ -1,22 +1,11 @@
 export Mutator
-struct Mutator <: AbstractMutator 
-    condition::Function 
-    retriever::AbstractRetriever # returns vec{vec{ind}} to mutate
-    operator::Function  # returns iterable of mutated individuals,
-                        # does not update the state
-    updater::Function   # adds mutated individuals to the respective 
-                               # populations
-    data::Vector{AbstractData}
-    time::Bool
-end
 
-function Mutator(pop_ids::Vector{String}=String[]; time::Bool=false)
-    condition = always
-    retriever = PopulationRetriever(pop_ids) # returns vec{vec{pop}}
-    operator = noop
-    updater = map(map((s,p)->mutate!(s, p)))
-    Mutator(condition, retriever, operator, updater, AbstractData[], time)
-end
+@define_op "Mutator" "AbstractMutator"
+Mutator(ids::Vector{String}=String[]; kwargs...) = 
+    create_op("Mutator", 
+              retriever=PopulationRetriever(ids),
+              updater=map(map((s,p)->mutate!(s, p))),
+              kwargs...)
 
 # Mutate all inds made this generation
 function mutate!(state::AbstractState, pop::Population)

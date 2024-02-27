@@ -1,18 +1,12 @@
 export Assertor, PopSizeAssertor
-struct Assertor <: AbstractAssertor
-    condition::Function
-    retriever::AbstractRetriever
-    operator::Function
-    updater::Function
-    time::Bool
-end
-Assertor(condition::Function,
-         retriever::AbstractRetriever,
-         operator::Function) =
-    Assertor(condition, retriever, operator, noop, false)
 
-PopSizeAssertor(size::Int,
-                pop_ids::Vector{String}=String[]) =
-    Assertor(always,
-             PopulationRetriever(pop_ids),
-             map(map((s, p)->@assert length(p.individuals) == size)))
+@define_op "Assertor" "AbstractAssertor"
+
+Assertor(kwargs...) = create_op("Assertor", kwargs...)
+
+@define_op "PopSizeAssertor" "AbstractAssertor"
+
+PopSizeAssertor(size::Int, pop_ids::Vector{String}=String[]) = 
+    create_op("PopSizeAssertor",
+               retriever=PopulationRetriever(pop_ids),
+               operator=map(map((s, p)->@assert length(p.individuals) == size)))

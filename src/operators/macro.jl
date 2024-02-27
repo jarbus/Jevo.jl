@@ -41,6 +41,7 @@ function create_op(type::Type{<:AbstractOperator};
         time=false,
         additional_fields...)
     # Convert symbol to type
+    @assert type <: AbstractOperator
     type(condition, retriever, operator, updater, data, time; additional_fields...)
 end
 

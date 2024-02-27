@@ -1,11 +1,5 @@
 export TimeReporter
-struct TimeReporter <: AbstractReporter
-    condition::Function
-    retriever::Function
-    operator::Function
-    updater::Function
-    time::Bool
-end
+
 function log_time!(state::State, timestamps::Vector{Timestamp}, type::Type)
     if isempty(timestamps)
         push!(state.data, Timestamp(type, 0, now(), nothing))
@@ -19,10 +13,9 @@ function log_time!(state::State, timestamps::Vector{Timestamp}, type::Type)
 
     end
 end
-function TimeReporter(type::Type; time::Bool=false)
-    TimeReporter(always,
-            (s::AbstractState)->get_timestamps(s, type),
-            noop,
-            (s, ts)->log_time!(s, ts, type),
-            time)
-end
+@define_op "TimeReporter" "AbstractReporter"
+
+TimeReporter(type::Type; kwargs...) = create_op("TimeReporter",
+            retriever=(s::AbstractState)->get_timestamps(s, type),
+            updater=(s, ts)->log_time!(s, ts, type),
+            kwargs...)

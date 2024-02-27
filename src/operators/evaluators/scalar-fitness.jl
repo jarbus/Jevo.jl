@@ -1,11 +1,10 @@
 export ScalarFitnessEvaluator
-struct ScalarFitnessEvaluator <: AbstractEvaluator
-    condition::Function
-    retriever::AbstractRetriever
-    operator::Function
-    updater::AbstractUpdater
-    time::Bool
-end
+@define_op "ScalarFitnessEvaluator" "AbstractEvaluator"
+ScalarFitnessEvaluator(ids::Vector{String}=String[]; kwargs...) =
+    create_op("ScalarFitnessEvaluator",
+            retriever=PopulationRetriever(ids),
+            operator=map(make_scalar_fitness_records),
+            updater=RecordAdder(ids), kwargs...)
 
 function make_scalar_fitness_records(::AbstractState,
         population::Vector{<:AbstractPopulation})
@@ -35,12 +34,4 @@ function make_scalar_fitness_records(::AbstractState,
     end
     @assert length(population) == length(records)
     records
-end
-
-function ScalarFitnessEvaluator(ids::Vector{String}=String[]; time::Bool=false)
-    ScalarFitnessEvaluator(always,
-                           PopulationRetriever(ids),
-                           map(make_scalar_fitness_records),
-                           RecordAdder(ids),
-                           time)
 end

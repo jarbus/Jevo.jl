@@ -1,20 +1,13 @@
-export AllVsAllMatchMaker, make_matches!
-struct AllVsAllMatchMaker <: AbstractMatchMaker
-    condition::Function
-    retriever::AbstractRetriever
-    operator::Function
-    updater::Union{AbstractUpdater, Function}
-    data::Vector{AbstractData}
-    time::Bool
-end
-
-function AllVsAllMatchMaker(ids::Vector{String}=String[]; time::Bool=false)
-    condition = always
-    retriever = PopulationRetriever(ids)
-    operator = make_all_v_all_matches
-    updater = add_matches!
-    AllVsAllMatchMaker(condition, retriever, operator, updater, AbstractData[], time)
-end
+export AllVsAllMatchMaker
+@define_op "AllVsAllMatchMaker" "AbstractMatchMaker"
+AllVsAllMatchMaker(ids::Vector{String}=String[]; time::Bool=false) =
+    create_op("AllVsAllMatchMaker",
+          condition=always,
+          retriever=PopulationRetriever(ids),
+          operator=make_all_v_all_matches,
+          updater=add_matches!,
+          data=AbstractData[],
+          time=time)
 
 
 function make_all_v_all_matches(state::AbstractState, pops::Vector{Vector{Population}})

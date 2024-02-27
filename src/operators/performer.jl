@@ -1,10 +1,6 @@
 export Performer
 
-Base.@kwdef struct Performer <: AbstractPerformer
-    condition::Function = always
-    retriever::Union{AbstractRetriever,Function} = (state::AbstractState) -> state.matches 
-    operator::Function = noop
-    updater::AbstractUpdater = ComputeInteractions()
-    data::Vector{<:AbstractData} = AbstractData[]
-    time::Bool = false
-end
+@define_op "Performer"
+Performer(kwargs...) = create_op("Performer", 
+                                 retriever=(state::AbstractState) -> state.matches,
+                                 updater=ComputeInteractions(), kwargs...)
