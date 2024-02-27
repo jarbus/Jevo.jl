@@ -1,5 +1,3 @@
-# for use in Counters
-export AbstractGene, AbstractIndividual, AbstractGeneration, AbstractEnvironment
 abstract type AbstractJevo                              end
 abstract type AbstractState         <: AbstractJevo     end
 abstract type AbstractData          <: AbstractJevo     end
@@ -31,6 +29,14 @@ abstract type AbstractMeasurement   <: AbstractData     end
 abstract type AbstractCheckpointer  <: AbstractOperator end
 abstract type AbstractReporter      <: AbstractOperator end
 abstract type AbstractAssertor      <: AbstractOperator end # Can apply assertions to objects in state
+
+# Export all abstract types
+for name in names(@__MODULE__, all=true, imported=false)
+    obj = getfield(@__MODULE__, name)
+    if isa(obj, DataType) && isabstracttype(obj)
+        @eval export $name
+    end
+end
 
 "Override Base.show to avoid printing empty containers"
 function Base.show(io::IO, jevos::Vector{<:AbstractJevo})
