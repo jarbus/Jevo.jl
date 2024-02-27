@@ -48,10 +48,13 @@ function (updater::ComputeInteractions)(::AbstractState, matches::Vector{<:Abstr
     @assert !isempty(matches) "No matches to compute interactions for"
     for m in matches 
         scores = play(m)
-        for (score, ind) in zip(scores, m.individuals)
-            interaction = Interaction(m.id, ind.id, 
-                                    [i.id for i in m.individuals if i !== ind], score)
-            push!(ind.interactions, interaction)
+        @assert length(scores) == length(m.individuals) "Number of scores must match number of individuals"
+        for i in eachindex(m.individuals)
+            ind_id = m.individuals[i].id
+            score = scores[i]
+            opponent_ids = @inline get_opponent_ids(m, ind_id)
+            interaction = Interaction(m.id, ind_id, opponent_ids, score)
+            push!(m.individuals[i].interactions, interaction)
         end
     end
 end

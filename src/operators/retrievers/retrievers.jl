@@ -54,7 +54,6 @@ end
 
 """Retreives all creators of type AbstractPopulation from state.creators"""
 struct PopulationCreatorRetriever <: AbstractRetriever end
-# (::PopulationCreatorRetriever)(state::AbstractState) = filter(c -> c.type isa AbstractPopulation, state.creators) |> collect
 (::PopulationCreatorRetriever)(state::AbstractState) = filter(c -> c.type <: AbstractPopulation, state.creators) |> collect
 
 get_individuals(state::AbstractState) = get_individuals(state.populations)
