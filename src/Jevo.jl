@@ -20,9 +20,9 @@ import Base: show
 
 include("./abstracts.jl")
 include("./utils.jl")
+include("./creators/creator.jl")
 include("./datatypes/datatypes.jl")
 include("./logger.jl")
-include("./creators/creator.jl")
 include("./individuals/individual.jl")
 include("./populations/populations.jl")
 include("./state.jl")

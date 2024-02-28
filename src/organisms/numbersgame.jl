@@ -4,7 +4,7 @@ mutable struct VectorGenotype <: AbstractGenotype
     numbers::Vector{Float32}
 end
 
-mutable struct VectorPhenotype <: AbstractPhenotype
+struct VectorPhenotype <: AbstractPhenotype
     numbers::Vector{Float32}
 end
 

@@ -1,5 +1,5 @@
-struct Match <: AbstractMatch
+struct Match{I,E} <: AbstractMatch where {I <: AbstractIndividual, E <: AbstractEnvironment}
     id::Int
-    individuals::Vector{<:AbstractIndividual}
-    environment_creator::AbstractCreator
+    individuals::Vector{I}
+    environment_creator::Creator{E}
 end

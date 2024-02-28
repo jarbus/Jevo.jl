@@ -114,6 +114,7 @@ function add_interactions!(scores::Vector{T}, match::Match) where T <: AbstractF
     #     opponent_ids = @inline get_opponent_ids(match, ind_id)
     #     push!(ind.interactions, Interaction(match.id, ind_id, opponent_ids, scores[i]))
     # end
+    nothing
 end
 
 function compute_interaction!(m::Match)
@@ -122,4 +123,4 @@ function compute_interaction!(m::Match)
 end
 struct ComputeInteractions! <: AbstractUpdater end
 (::ComputeInteractions!)(::AbstractState, matches::Vector{M}) where M <: AbstractMatch =
-    compute_interaction!.(matches)
+    map(compute_interaction!,matches)

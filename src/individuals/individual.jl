@@ -1,11 +1,14 @@
 export Individual, develop
 
-mutable struct Individual{I} <: AbstractIndividual where I <: AbstractInteraction
+mutable struct Individual{I,G,D} <: AbstractIndividual where 
+    {I <: AbstractInteraction,
+     G <: AbstractGenotype,
+     D <: AbstractCreator}
     id::Int
     generation::Int
     parents::Vector{Int}
-    genotype::AbstractGenotype
-    developer::AbstractCreator
+    genotype::G
+    developer::D
     records::Vector{AbstractRecord}
     interactions::Vector{I}
     data::Vector{AbstractData}
@@ -35,7 +38,8 @@ function Individual(counters::Vector{<:AbstractCounter},
     Individual(id, 0, Int[], genotype_creator(), developer)
 end
 
-develop(ind::AbstractIndividual) = develop(ind.developer, ind.genotype)
+develop(ind::I) where {I <: AbstractIndividual} = develop(ind.developer, ind.genotype)
+develop(inds::Vector{I}) where {I <: AbstractIndividual} = develop.(inds)
 new_id_and_gen(state::AbstractState) = new_id_and_gen(state.counters)
 function new_id_and_gen(counters::Vector{<:AbstractCounter})
     id = find(:type, AbstractIndividual, counters) |> inc!

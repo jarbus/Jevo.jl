@@ -5,10 +5,11 @@ play(match::Match) = play(match.environment_creator, match.individuals)
 step!(env::AbstractEnvironment, args...; kwargs...) =
     @error "step! not implemented for $(typeof(env))"
 
-play(environment_creator::AbstractCreator, individuals::Vector{<:AbstractIndividual}) =
-    play(environment_creator(), develop.(individuals))
+function play(c::Creator{E}, inds::Vector{I}) where {E<:AbstractEnvironment, I<:AbstractIndividual}
+    play(c(), develop(inds))
+end
 
-function play(env::AbstractEnvironment, phenotypes::Vector{<:AbstractPhenotype})
+function play(env::E, phenotypes::Vector{P}) where {E <: AbstractEnvironment, P<:AbstractPhenotype}
     is_done = false
     scores = zeros(Float64, length(phenotypes))
     while !is_done
