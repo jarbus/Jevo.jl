@@ -3,6 +3,12 @@ using HDF5
 using Test
 using StableRNGs
 using Logging
+using LRUCache
+using StatsBase
+using Flux
+
+# Global variable for weight_cache
+weight_cache = WeightCache(maxsize=1_000_000)
 
 @testset "Jevo.jl" begin
 
@@ -297,13 +303,29 @@ rng = StableRNG(1)
     # test creating a genotype
     relu(x) = max(0, x)
     # Naive way to create network
-    Network(NoCoupling, [Dense(Weights((784,784),NetworkGene[]), Weights((784,10),NetworkGene[]), relu)])
+    Network(NoCoupling, [Jevo.Dense(Jevo.Weights((784,784),NetworkGene[]), Jevo.Weights((784,10),NetworkGene[]), relu)])
     # Better interface
-    Network(rng, gene_counter, NoCoupling, [(Dense, (784,10), relu)])
-    # test constructing phenotype from genotype
-    # test forward pass
+    net = Network(rng, gene_counter, NoCoupling, [(Jevo.Dense, (784,10), relu)])
+    # Instantiate weight tensor
+    dense = net.layers[1]
+    @test (10,784) == size(Jevo.tensor(dense.weights))
+    @test mean(Jevo.tensor(dense.weights)) ≈ 0.0 atol=0.01
+    # Test constructing with weight cache
+    @test length(weight_cache) == 0
+    nocache_construction = Jevo.create_layer(dense, weight_cache=weight_cache)
+    @test length(weight_cache) == 2
+    # Test layer construction using cache and confirm the results are the same
+    cache_construction = Jevo.create_layer(dense, weight_cache=weight_cache)
+    @test length(weight_cache) == 2
+    @test nocache_construction.weight == cache_construction.weight
+    @test nocache_construction.bias == cache_construction.bias
+    # Test phenotype creation & forward pass
+    creator = Creator(AbstractModel)
+    model = develop(creator, net)
+    @test model |> typeof <: Flux.Chain
+    @test rand(Float16, 784) |> model |> size == (10,)
     # test mutating genotype
-    # test constructing phenotype from cache
+    # TODO SVD
 end
 
 end

@@ -26,3 +26,9 @@ function Base.map(operation::Union{Function, <:AbstractOperator})
         return [operation(state, obj) for obj in objs]
     end
 end
+
+# We need to overwrite this Flux method to generate Float16 weights and maintain compatibility with the (rng, type, dims...) signature
+function kaiming_normal(rng::AbstractRNG,::Type, dims::Integer...; gain::Real = √2f0)
+  std = Float16(gain / sqrt(first(Flux.nfan(dims...)))) # fan_in
+  return randn(rng, Float16, dims...) .* std
+end
