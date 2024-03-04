@@ -4,15 +4,14 @@ export Mutator
 Mutator(ids::Vector{String}=String[]; kwargs...) = 
     create_op("Mutator", 
               retriever=PopulationRetriever(ids),
-              updater=map(map((s,p)->mutate!(s, p)));
-              kwargs...)
+              updater=map(map((s,p)->mutate!(s, p; kwargs...)));)
 
 # Mutate all inds made this generation
 function mutate!(state::AbstractState, pop::Population; kwargs...)
     gen = generation(state)
     for ind in pop.individuals
         if ind.generation == gen
-            mutate!(state, ind, kwargs...)
+            mutate!(state, ind; kwargs...)
         end
     end
 end
