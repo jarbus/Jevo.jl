@@ -46,11 +46,14 @@ function operate!(state::AbstractState)
         try
             operate!(state, state.operators[i])
         catch e
-            println("Error in operator ", i, " ", state.operators[i], ", serializing state.")
-            serialize("error-state.jld", state)
-            # write operator id to file
-            open("error-operator.txt", "w") do io
-                println(io, state.operators[i])
+            println("Error in operator ", i, " ", state.operators[i])
+            if get(ENV, "NO_SERIALIZE_ON_ERROR", "0") ∈ ["0", "false"]
+                println("Serializing state...")
+                serialize("error-state.jld", state)
+                # write operator id to file
+                open("error-operator.txt", "w") do io
+                    println(io, state.operators[i])
+                end
             end
             rethrow(e)
         end
