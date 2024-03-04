@@ -53,10 +53,8 @@ function reset_individual!(ind::AbstractIndividual)
     sizehint!(ind.records, n_records)
 end
 
-###########################
-# PERFORMANCE CRITICAL CODE
-###########################
-
+############################
+# PERFORMANCE CRITICAL START (measured)
 """Get id of other individual in a 2-player match"""
 function get_opponent_ids_2player(match::Match, ind_id::Int)
     ind1_id = match.individuals[1]
@@ -121,6 +119,8 @@ function compute_interaction!(m::Match)
     scores = play(m)
     @inbounds add_interactions!(scores, m)
 end
+# PERFORMANCE CRITICAL END (measured)
+############################
 struct ComputeInteractions! <: AbstractUpdater end
 (::ComputeInteractions!)(::AbstractState, matches::Vector{M}) where M <: AbstractMatch =
     map(compute_interaction!,matches)
