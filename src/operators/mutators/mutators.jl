@@ -8,17 +8,17 @@ Mutator(ids::Vector{String}=String[]; kwargs...) =
               kwargs...)
 
 # Mutate all inds made this generation
-function mutate!(state::AbstractState, pop::Population)
+function mutate!(state::AbstractState, pop::Population; kwargs...)
     gen = generation(state)
     for ind in pop.individuals
         if ind.generation == gen
-            mutate!(state, ind)
+            mutate!(state, ind, kwargs...)
         end
     end
 end
-function mutate!(state::AbstractState, ind::AbstractIndividual)
-    ind.genotype = mutate(state, ind.genotype)
+function mutate!(state::AbstractState, ind::AbstractIndividual; kwargs...)
+    ind.genotype = mutate(state, ind.genotype; kwargs...)
 end
 
-mutate(::AbstractState, genotype::AbstractGenotype) =
+mutate(::AbstractState, genotype::AbstractGenotype; kwargs...) =
     error("mutate function not implemented for $(typeof(genotype))")
