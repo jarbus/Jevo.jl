@@ -45,10 +45,10 @@ struct Dense <: AbstractLayer
 end
 
 @define_op "NetworkGeneMutator" "AbstractMutator"
-NetworkGeneMutator(ids::Vector{String}=String[]; mr::Float16=Float16(0.001), kwargs...) = 
+NetworkGeneMutator(ids::Vector{String}=String[]; mr::Float16=Float16(0.001), n::Int=-1, kwargs...) = 
     create_op("NetworkGeneMutator", 
               retriever=PopulationRetriever(ids),
-              updater=map(map((s,p)->mutate!(s, p, mr=mr)));
+              updater=map(map((s,p)->mutate!(s, p, mr=mr,n=n)));
               kwargs...)
 
 _WeightCache = Union{LRU{Vector{NetworkGene}, <:Array{Float16}}, Nothing}

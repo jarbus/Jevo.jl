@@ -1,23 +1,17 @@
-function mutate_coupled!(state::State, genotype::Network, mr::Float16)
-    counter = get_counter(AbstractGene, state)
-end
-
-function mutate_uncoupled!(state::State, genotype::Network, mr::Float16)
-    counter = get_counter(AbstractGene, state)
-end
-
-function mutate(state::State, genotype::Network; mr::Float16)
-    # return a new network with added gene
-    rng = state.rng
-    # create a copy of the network
-    new_genotype = deepcopy(genotype)
-    if genotype.coupling == StrictCoupling
-        mutate_coupled!(state, new_genotype, mr)
-    elseif genotype.coupling == NoCoupling
-        mutate_uncoupled!(state, new_genotype, mr)
-    else
-        @error "Coupling scheme not implemented"
+function mutate_weights!(state::State, genotype::Network, mr::Float16; n=-1)
+    gene_counter = get_counter(AbstractGene, state)
+    weights = get_weights(state.rng, genotype, n=n)
+    for weight in weights
+        push!(weight.muts, NetworkGene(state.rng, gene_counter, mr))
     end
+end
+
+function mutate(state::State, genotype::Network; mr::Float16, n::Int=2)
+    @assert genotype.coupling in (StrictCoupling, NoCoupling) "Only strict and no coupling are supported right now"
+    rng = state.rng
+    new_genotype = deepcopy(genotype)
+    genotype.coupling == StrictCoupling && (n = -1)
+    mutate_weights!(state, new_genotype, mr, n=n)
     new_genotype
 end
 

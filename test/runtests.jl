@@ -66,7 +66,7 @@ rng = StableRNG(1)
 #    rm("statistics.h5", force=true)
 #end
 #
-#@testset "general tests using numbers game" begin
+#@testset "numbers game unit and integration" begin
 #    # creators
 #    n_dims = 2
 #    n_inds = 2
@@ -91,7 +91,7 @@ rng = StableRNG(1)
 #    comp_pop_creator = Creator(CompositePopulation, ("species", [("p$i", n_inds, ng_gc, ng_developer)
 #                                                                 for i in 1:n_species], counters))
 #    comp_pop = comp_pop_creator()
-#    @test comp_pop.populations |> length == n_pops
+#    @test comp_pop.populations |> length == n_species
 #    @test all(length(p.individuals) == n_inds for p in comp_pop.populations)
 #    # Create composite composite population, 2 deep binary tree
 #    comp_comp_pop = CompositePopulation("ecosystem",
@@ -296,36 +296,44 @@ rng = StableRNG(1)
 #end
 
 @testset "neural-net" begin
-    state = State()
-    gene_counter = Jevo.get_counter(AbstractGene, state)
-    rng = StableRNG(1)
-    @test gene_counter |> value == 1
-    # test creating a genotype
-    relu(x) = max(0, x)
-    # Naive way to create network
-    Network(NoCoupling, [Jevo.Dense(Jevo.Weights((784,784),NetworkGene[]), Jevo.Weights((784,10),NetworkGene[]), relu)])
-    # Better interface
-    net = Network(rng, gene_counter, NoCoupling, [(Jevo.Dense, (784,10), relu)])
-    # Instantiate weight tensor
-    dense = net.layers[1]
-    @test (10,784) == size(Jevo.tensor(dense.weights))
-    @test mean(Jevo.tensor(dense.weights)) ≈ 0.0 atol=0.01
-    # Test constructing with weight cache
-    @test length(weight_cache) == 0
-    nocache_construction = Jevo.create_layer(dense, weight_cache=weight_cache)
-    @test length(weight_cache) == 2
-    # Test layer construction using cache and confirm the results are the same
-    cache_construction = Jevo.create_layer(dense, weight_cache=weight_cache)
-    @test length(weight_cache) == 2
-    @test nocache_construction.weight == cache_construction.weight
-    @test nocache_construction.bias == cache_construction.bias
-    # Test phenotype creation & forward pass
-    creator = Creator(AbstractModel)
-    model = develop(creator, net)
-    @test model |> typeof <: Flux.Chain
-    @test rand(Float16, 784) |> model |> size == (10,)
-    # test mutating genotype
-    # TODO SVD
+    @testset "unit tests" begin
+        state = State()
+        gene_counter = Jevo.get_counter(AbstractGene, state)
+        rng = StableRNG(1)
+        @test gene_counter |> value == 1
+        # test creating a genotype
+        relu(x) = max(0, x)
+        # Naive way to create network
+        Network(NoCoupling, [Jevo.Dense(Jevo.Weights((784,784),NetworkGene[]), Jevo.Weights((784,10),NetworkGene[]), relu)])
+        # Better interface
+        net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (784,10), relu)])
+        # Instantiate weight tensor
+        dense = net.layers[1]
+        @test (10,784) == size(Jevo.tensor(dense.weights))
+        @test mean(Jevo.tensor(dense.weights)) ≈ 0.0 atol=0.01
+        # Test constructing with weight cache
+        @test length(weight_cache) == 0
+        nocache_construction = Jevo.create_layer(dense, weight_cache=weight_cache)
+        @test length(weight_cache) == 2
+        # Test layer construction using cache and confirm the results are the same
+        cache_construction = Jevo.create_layer(dense, weight_cache=weight_cache)
+        @test length(weight_cache) == 2
+        @test nocache_construction.weight == cache_construction.weight
+        @test nocache_construction.bias == cache_construction.bias
+        # Test phenotype creation & forward pass
+        creator = Creator(AbstractModel)
+        model = develop(creator, net)
+        @test model |> typeof <: Flux.Chain
+        @test rand(Float16, 784) |> model |> size == (10,)
+        # confirm we can get a list of weights 
+        @test length(Jevo.get_weights(rng, net, n=-1)) == 2
+        @test length(Jevo.get_weights(rng, net, n=1)) == 1
+        # Add mutations to each network
+        mutated_net = Jevo.mutate(state, net, mr=Float16(0.01))
+        @test all(map(w ->length(w.muts)==2, Jevo.get_weights(rng, mutated_net, n=-1)))
+        mutated_net = Jevo.mutate(state, mutated_net, mr=Float16(0.01))
+        @test all(map(w ->length(w.muts)==3, Jevo.get_weights(rng, mutated_net, n=-1)))
+    end
 end
 
 end
