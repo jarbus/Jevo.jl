@@ -12,5 +12,3 @@ function step!(::CompareOnOne, phenotypes::Vector{VectorPhenotype})
     return [a_score, b_score]
 end
 (creator::Creator{CompareOnOne})(;kwargs...) = CompareOnOne()
-
-struct CompareOnAll <: AbstractNumbersGame end
