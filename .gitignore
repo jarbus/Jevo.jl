@@ -28,3 +28,4 @@ Manifest.toml
 *.txt
 *.log
 *.h5
+scratch/
