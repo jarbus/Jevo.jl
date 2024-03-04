@@ -1,9 +1,8 @@
-export Dense, NetworkGene, Network, Weights, StrictCoupling, LooseCoupling, NoCoupling, WeightCache, GenotypeCache, AbstractModel
+export Dense, NetworkGene, Network, Weights, StrictCoupling, LooseCoupling, NoCoupling, WeightCache, GenotypeCache, Model
 abstract type AbstractInitializer <: Function end
 abstract type AbstractWeights end
 abstract type AbstractLayer <: AbstractGenotype end
 abstract type AbstractMutation end
-abstract type AbstractModel end
 
 include("./structs.jl")
 include("./traverse.jl")

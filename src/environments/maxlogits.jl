@@ -1,12 +1,12 @@
-export CompareOnOne, AbstractNumbersGame
+export MaxLogits
 struct MaxLogits <: AbstractEnvironment end
 
-function step!(::MaxLogits, models::Vector{Flux.Chain})
+function step!(::MaxLogits, models::Vector{Model})
     @assert length(models) == 2
     inputs = ones(Float16, 5)
     outputs = Vector{Float16}(undef, 2)
-    for (i, p) in enumerate(models)
-        output = p(inputs)
+    for (i, m) in enumerate(models)
+        output = m.chain(inputs)
         @assert length(output) == 1
         outputs[i] = output[1]
     end

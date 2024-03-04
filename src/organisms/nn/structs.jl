@@ -44,12 +44,9 @@ struct Dense <: AbstractLayer
     σ::Any
 end
 
-@define_op "NetworkGeneMutator" "AbstractMutator"
-NetworkGeneMutator(ids::Vector{String}=String[]; mr::Float16=Float16(0.001), n::Int=-1, kwargs...) = 
-    create_op("NetworkGeneMutator", 
-              retriever=PopulationRetriever(ids),
-              updater=map(map((s,p)->mutate!(s, p, mr=mr,n=n)));
-              kwargs...)
+struct Model <: AbstractPhenotype 
+    chain::Chain
+end
 
 _WeightCache = Union{LRU{Vector{NetworkGene}, <:Array{Float16}}, Nothing}
 # so we only need to transmit delta genotypes

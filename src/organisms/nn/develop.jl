@@ -37,7 +37,7 @@ function create_layer(layer::Dense; weight_cache::_WeightCache)
     Flux.Dense(weights, bias, layer.σ)
 end
 
-function develop(::Creator, network::Network)
+function develop(::Creator{Model}, network::Network)
     # get global variable Main.weight_cache for weight cache
     # check if weight_cache is defined
     if !isdefined(Main, :weight_cache)
@@ -46,7 +46,7 @@ function develop(::Creator, network::Network)
     end
 
     weight_cache = Main.weight_cache
-    Chain(create_layer.(network.layers, weight_cache=weight_cache)...)
+    Model(Chain(create_layer.(network.layers, weight_cache=weight_cache)...))
 end
 
 
