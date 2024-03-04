@@ -14,11 +14,12 @@ using LoggingExtras
 using FileWatching
 
 import Base: show
-# using Flux
+using Flux
 # using LinearAlgebra
 # using LowRankApprox  # for approximate SVD
 
 include("./abstracts.jl")
+include("./macro.jl")
 include("./utils.jl")
 include("./creators/creator.jl")
 include("./datatypes/datatypes.jl")

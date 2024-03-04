@@ -1,2 +1,2 @@
 include("./numbersgame.jl")
-include("./nn.jl")
+include("./nn/nn.jl")

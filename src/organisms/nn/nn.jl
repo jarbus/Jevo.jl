@@ -1,4 +1,5 @@
-abstract type AbstractInitializer end
+export Dense, NetworkGene, Network, Weights, StrictCoupling, LooseCoupling, NoCoupling
+abstract type AbstractInitializer <: Function end
 abstract type AbstractWeights end
 abstract type AbstractLayer end
 abstract type AbstractMutation end
@@ -6,26 +7,32 @@ abstract type AbstractMutation end
     @enum Coupling Strict Loose None
 
 # Values
-- `Coupled`: Weights in all sub-layers are mutated using the same initial rng seed
-- `SemiCoupled`: Weights in all sub-layers can be mutated independently or together
-- `UnCoupled`: Weights in all sub-layers are mutated independently
+- `StrictCoupling`: Weights in all sub-layers are mutated using the same initial rng seed
+- `LooseCoupling`: Weights in all sub-layers can be mutated independently or together
+- `NoCoupling`: Weights in all sub-layers are mutated independently
 """
-@enum Coupling Strict Loose None
+@enum Coupling StrictCoupling LooseCoupling NoCoupling
 
 # Weights
 struct NetworkGene <: AbstractMutation
     id::Int
-    seed::Int
-    mr::Real
-    init::AbstractInitializer
+    seed::UInt16
+    mr::Float16
+    init::Union{AbstractInitializer,Function}
 end
 
+# TODO: change init to svd/kaiming_normal where appropriate
+NetworkGene(rng::AbstractRNG, counter::Counter, mr::Float16, init::Function=randn) = 
+    NetworkGene(inc!(counter), rand(rng, UInt16), mr, init)
+
 struct Weights{N} <: AbstractWeights where N <: Int
-    """A weight matrix parameterized by a series of mutations"""
     dims::NTuple{N, Int}
     muts::Vector{NetworkGene}
 end
 
+function Weights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{Int}})
+    Weights(dims, [NetworkGene(rng, counter, Float16(1.0))])
+end
 struct WeightsCollection <: AbstractWeights
     """Concatenation of multiple weight blocks into a single weight tensor, to adjust subsets of weights independently"""
     weights::Array{AbstractWeights}
@@ -39,8 +46,19 @@ end
 
 struct Network <: AbstractLayer
     """A collection and a coupling scheme."""
-    layers::Vector{<:AbstractLayer}
     coupling::Coupling
+    layers::Vector{<:AbstractLayer}
+end
+
+function Network(rng::AbstractRNG, counter::AbstractCounter, coupling::Coupling, layers::Vector)
+    """Create a network with a collection of layers and a coupling scheme"""
+    for l in layers
+        @assert length(l) == 3
+        @assert l[1] <: AbstractLayer "Layer must be a subtype of AbstractLayer, got $(l[1])"
+        @assert typeof(l[2]) <: Tuple{Vararg{Int}} "Dimensions must be a tuple of integers, got $(l[2])"
+        @assert typeof(l[3]) <: Union{AbstractInitializer,Function} "Initializer must be a function or a subtype of AbstractInitializer, got $(l[3])"
+    end
+    Network(coupling, [l[1](l[2], l[3], counter, rng) for l in layers])
 end
 
 function tensor(w::AbstractWeights)
@@ -62,10 +80,15 @@ struct SVDInitializer <: AbstractInitializer
     fn::Function
 end
 
-struct DenseLayer <: AbstractLayer
+struct Dense <: AbstractLayer
     weights::AbstractWeights
     bias::AbstractWeights
     σ::Any
+end
+
+function Dense(dims::Tuple{Vararg{Int}}, σ::Function, counter::AbstractCounter, rng::AbstractRNG)
+    """Create a dense layer with a weight matrix and a bias vector"""
+    Dense(Weights(rng, counter, dims), Weights(rng, counter, (dims[end],)), σ)
 end
 
 struct ResidualBlockLayer <: AbstractLayer
