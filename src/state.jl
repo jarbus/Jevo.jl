@@ -27,9 +27,9 @@ end
 
 
 # Allows specifying state by id, rng, creators, and operators
-function State(id::String, rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator})
+function State(id::String, rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator}; counters::Vector{<:AbstractCounter}=default_counters(), populations::Vector{<:AbstractPopulation}=AbstractPopulation[], matches::Vector{<:AbstractMatch}=AbstractMatch[], metrics::Vector{<:AbstractMetric}=AbstractMetric[], data::Vector{<:AbstractData}=AbstractData[], info::Dict{Any, Any}=Dict())
     operators = AbstractOperator[operators..., GenerationIncrementer()]
-    State(id, rng, creators, operators, AbstractPopulation[], default_counters(), AbstractMatch[], AbstractMetric[], AbstractData[], Dict())
+    State(id, rng, creators, operators, populations, counters, matches, metrics, data, info)
 end
 
 # shorthand to create empty states 
