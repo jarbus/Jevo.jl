@@ -3,11 +3,12 @@
 # possible optimizations: @inbounds, @fastmath
 function get_earliest_cached_weight(dims::Tuple{Vararg{Int}}, genes::Vector{NetworkGene}, weight_cache::_WeightCache)
     """Return the earliest cached weight in the gene list. If none are cached, return a zero tensor of the given dimensions. Allocates memory. Also returns the idx of the earliest cached gene."""
-    arr = zeros(Float16, dims)
+    arr = zeros(Float32, dims)
     weight_cache === nothing && return arr, 0
     for i in length(genes):-1:1
-        if genes[1:i] in keys(weight_cache)
-            arr += weight_cache[genes[1:i]]
+        weights = get(weight_cache, genes[i], nothing)
+        if !isnothing(weights)
+            arr += weights
             return arr, i
         end
     end
@@ -22,16 +23,17 @@ function tensor(w::Weights; weight_cache::_WeightCache=nothing)
     # iteratively apply remaining mutations
     for i in ancestor_idx+1:length(genes)
         gene = genes[i]
-        arr .+= gene.mr .* gene.init(StableRNG(gene.seed), Float16, dims...)
+        rng = StableRNG(gene.seed)
+        gene.init!(rng, Float32, arr, gene.mr)
         # update cache if we are using one
-        yes_weight_cache && (weight_cache[genes[1:i]] = copy(arr))
+        yes_weight_cache && (weight_cache[gene.id] = copy(arr))
     end
     arr
 end
 # PERFORMANCE CRITICAL END
 ############################
 
-function create_layer(layer::Dense; weight_cache::_WeightCache)
+function create_layer(layer::Jevo.Dense; weight_cache::_WeightCache)
     weights = tensor(layer.weights, weight_cache=weight_cache)
     bias = tensor(layer.bias, weight_cache=weight_cache)
     Flux.Dense(weights, bias, layer.σ)
@@ -46,7 +48,7 @@ function develop(::Creator{Model}, network::Network)
     end
 
     weight_cache = Main.weight_cache
-    Model(Chain(create_layer.(network.layers, weight_cache=weight_cache)...))
+    Model(Chain((create_layer(l, weight_cache=weight_cache) for l in network.layers)...))
 end
 
 

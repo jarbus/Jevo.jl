@@ -324,14 +324,14 @@ end
         creator = Creator(Model)
         model = develop(creator, net)
         @test model |> typeof <: Model 
-        @test rand(Float16, 784) |> model.chain |> size == (10,)
+        @test rand(Float32, 784) |> model.chain |> size == (10,)
         # confirm we can get a list of weights 
         @test length(Jevo.get_weights(rng, net, n=-1)) == 2
         @test length(Jevo.get_weights(rng, net, n=1)) == 1
         # Add mutations to each network
-        mutated_net = Jevo.mutate(state, net, mr=Float16(0.01))
+        mutated_net = Jevo.mutate(state, net, mr=Float32(0.01))
         @test all(map(w ->length(w.muts)==2, Jevo.get_weights(rng, mutated_net, n=-1)))
-        mutated_net = Jevo.mutate(state, mutated_net, mr=Float16(0.01))
+        mutated_net = Jevo.mutate(state, mutated_net, mr=Float32(0.01))
         @test all(map(w ->length(w.muts)==3, Jevo.get_weights(rng, mutated_net, n=-1)))
     end
     @testset "integration tests" begin
@@ -358,7 +358,7 @@ end
                 ScalarFitnessEvaluator(["p1", "p2"]), 
                 TruncationSelector(1),
                 UniformReproducer(n_inds),
-                Mutator(;mr=Float16(0.01), n=2),
+                Mutator(;mr=Float32(0.01), n=2),
                 PopSizeAssertor(n_inds),
                 ClearInteractionsAndRecords()])
         run!(state, 1)

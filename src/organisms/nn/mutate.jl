@@ -1,4 +1,4 @@
-function mutate_weights!(state::State, genotype::Network, mr::Float16; n=-1)
+function mutate_weights!(state::State, genotype::Network, mr::Float32; n=-1)
     gene_counter = get_counter(AbstractGene, state)
     weights = get_weights(state.rng, genotype, n=n)
     for weight in weights
@@ -6,7 +6,7 @@ function mutate_weights!(state::State, genotype::Network, mr::Float16; n=-1)
     end
 end
 
-function mutate(state::State, genotype::Network; mr::Float16, n::Int=2)
+function mutate(state::State, genotype::Network; mr::Float32, n::Int=2)
     @assert genotype.coupling in (StrictCoupling, NoCoupling) "Only strict and no coupling are supported right now"
     rng = state.rng
     new_genotype = deepcopy(genotype)

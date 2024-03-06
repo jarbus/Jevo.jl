@@ -12,8 +12,8 @@
 struct NetworkGene <: AbstractMutation
     id::Int
     seed::UInt16
-    mr::Float16
-    init::Union{AbstractInitializer,Function}
+    mr::Float32
+    init!::Union{AbstractInitializer,Function}
 end
 
 struct Weights{N} <: AbstractWeights where N <: Int
@@ -48,7 +48,7 @@ struct Model <: AbstractPhenotype
     chain::Chain
 end
 
-_WeightCache = Union{LRU{Vector{NetworkGene}, <:Array{Float16}}, Nothing}
+_WeightCache = Union{LRU{Int, <:Array{Float32}}, Nothing}
 # so we only need to transmit delta genotypes
 GenotypeCache = Union{LRU{Int, Network}, Nothing}
 

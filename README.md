@@ -2,10 +2,13 @@
 
 [![Build Status](https://github.com/jarbus/Jevo.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/jarbus/Jevo.jl/actions/workflows/CI.yml?query=branch%3Amaster)
 
+# WARNING: DO NOT USE CROSSOVER, WE ARE CACHING WEIGHTS BASED ON THE LAST GENE ID, CROSSOVER of GENE IDS CAN BREAK THIS
+
 # Guidelines:
 
 - Minimize architectural complexity, maximize code reuse
 - All Counters use the highest level appropriate type (AbstractIndividual, AbstractGene, etc)
+- randn is much faster for float32 than float16, so even though it takes up more memory, we use float32 for weights
 
 # Design of population operators
 

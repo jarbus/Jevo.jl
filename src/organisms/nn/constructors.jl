@@ -1,13 +1,13 @@
 # TODO: change init to svd/kaiming_normal where appropriate
-NetworkGene(rng::AbstractRNG, counter::Counter, mr::Float16, init::Function=Jevo.kaiming_normal) = 
-    NetworkGene(inc!(counter), rand(rng, UInt16), mr, init)
+NetworkGene(rng::AbstractRNG, counter::Counter, mr::Float32, init!::Function=Jevo.apply_kaiming_normal_noise!) = 
+    NetworkGene(inc!(counter), rand(rng, UInt16), mr, init!)
 
 function Weights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{Int}})
-    Weights(dims, [NetworkGene(rng, counter, Float16(1.0))])
+    Weights(dims, [NetworkGene(rng, counter, Float32(1.0))])
 end
 
 function WeightCache(;maxsize::Int, by::Function=sizeof)
-    LRU{Vector{NetworkGene}, Array{Float16}}(maxsize=maxsize, by=by)
+    LRU{Int, Array{Float32}}(maxsize=maxsize, by=by)
 end
 
 function Network(rng::AbstractRNG, counter::AbstractCounter, coupling::Coupling, layers::Vector)

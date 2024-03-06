@@ -27,8 +27,17 @@ function Base.map(operation::Union{Function, <:AbstractOperator})
     end
 end
 
-# We need to overwrite this Flux method to generate Float16 weights and maintain compatibility with the (rng, type, dims...) signature
+# We need to overwrite this Flux method to generate Float32 weights and maintain compatibility with the (rng, type, dims...) signature
 function kaiming_normal(rng::AbstractRNG,::Type, dims::Integer...; gain::Real = √2f0)
-  std = Float16(gain / sqrt(first(Flux.nfan(dims...)))) # fan_in
-  return randn(rng, Float16, dims...) .* std
+  std = Float32(gain / sqrt(first(Flux.nfan(dims...)))) # fan_in
+  return randn(rng, Float32, dims...) .* std
+end
+
+function apply_kaiming_normal_noise!(rng::AbstractRNG, ::Type, arr::Array{Float32}, mr::Float32; gain::Real = √2f0)
+    dims = size(arr)
+    std = Float32(gain / sqrt(first(Flux.nfan(dims...))))
+    scalar = std * mr
+    @fastmath @inbounds @simd for i in 1:length(arr)
+        arr[i] += randn(rng, Float32) * scalar
+    end
 end
