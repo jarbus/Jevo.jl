@@ -4,6 +4,10 @@ using Random
 using StableRNGs
 using LRUCache
 using StatsBase
+
+# Neural Nets
+using CUDA
+using Flux
 # For checkpointing and handling exceptions
 using Serialization
 # For logging
@@ -12,9 +16,11 @@ using HDF5
 using Logging
 using LoggingExtras
 using FileWatching
+# For MNIST
+using MLDatasets
+using OneHotArrays
 
 import Base: show
-using Flux
 # using LinearAlgebra
 # using LowRankApprox  # for approximate SVD
 

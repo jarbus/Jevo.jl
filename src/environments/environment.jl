@@ -11,7 +11,7 @@ end
 
 function play(env::E, phenotypes::Vector{P}) where {E <: AbstractEnvironment, P<:AbstractPhenotype}
     is_done = false
-    scores = zeros(Float64, length(phenotypes))
+    scores = zeros(Float32, length(phenotypes))
     while !is_done
         scores .+= step!(env, phenotypes)
         is_done = done(env)

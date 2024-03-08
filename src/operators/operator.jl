@@ -1,4 +1,5 @@
-export ClearInteractionsAndRecords
+export ClearInteractionsAndRecords, Operator
+struct Operator <: AbstractOperator end
 
 function operate!(state::AbstractState, operator::AbstractOperator)
     !operator.condition(state) && return

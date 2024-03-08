@@ -16,36 +16,36 @@ struct NetworkGene <: AbstractMutation
     init!::Union{AbstractInitializer,Function}
 end
 
-struct Weights{N} <: AbstractWeights where N <: Int
-    dims::NTuple{N, Int}
+struct Weights <: AbstractWeights
+    dims::Tuple{Vararg{Int}}
     muts::Vector{NetworkGene}
 end
 
-struct WeightsCollection <: AbstractWeights
+struct WeightsCollection{T} <: AbstractWeights where T <: AbstractWeights
     """Concatenation of multiple weight blocks into a single weight tensor, to adjust subsets of weights independently"""
-    weights::Array{AbstractWeights}
+    weights::Array{T}
 end
 
-struct FactorWeight <: AbstractWeights
+struct FactorWeight{T} <: AbstractWeights where T <: AbstractWeights
     """Low-rank factorization of a weight matrix"""
-    A::AbstractWeights
-    B::AbstractWeights
+    A::T
+    B::T
 end
 
 struct Network <: AbstractLayer
     """A collection and a coupling scheme."""
     coupling::Coupling
-    layers::Vector{<:AbstractLayer}
+    layers::Vector
 end
 
-struct Dense <: AbstractLayer
-    weights::AbstractWeights
-    bias::AbstractWeights
-    σ::Any
+struct Dense{T} <: AbstractLayer where T <: AbstractWeights
+    weights::T
+    bias::T
+    σ::Function
 end
 
 struct Model <: AbstractPhenotype 
-    chain::Chain
+    chain
 end
 
 _WeightCache = Union{LRU{Int, <:Array{Float32}}, Nothing}

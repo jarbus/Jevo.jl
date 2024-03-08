@@ -21,9 +21,11 @@ function JevoLogger(;hdf5_path::String="statistics.h5", log_path::String="run.lo
     filelogger = FormatLogger(log_path) do io, args
         println(io, "$(Dates.format(now(), datefmt)) $(args.message)")
     end
-    TeeLogger(
-        EarlyFilteredLogger(log->log.level == H5_LOG_LEVEL, HDF5Logger(hdf5_path)),
-        EarlyFilteredLogger(log->log.level != H5_LOG_LEVEL, filelogger))
+    MinLevelLogger(
+        TeeLogger(
+            EarlyFilteredLogger(log->log.level == H5_LOG_LEVEL, HDF5Logger(hdf5_path)),
+            EarlyFilteredLogger(log->log.level ∈ (Info, Warn, Error) , filelogger)),
+        Info)
 end
 
 
