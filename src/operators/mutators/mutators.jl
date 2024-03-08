@@ -1,10 +1,11 @@
 export Mutator
 
 @define_op "Mutator" "AbstractMutator"
-Mutator(ids::Vector{String}=String[]; kwargs...) = 
+Mutator(ids::Vector{String}=String[]; time::Bool=false, kwargs...) = 
     create_op("Mutator", 
               retriever=PopulationRetriever(ids),
-              updater=map(map((s,p)->mutate!(s, p; kwargs...)));)
+              updater=map(map((s,p)->mutate!(s, p; kwargs...))),
+              time=time;)
 
 # Mutate all inds made this generation
 function mutate!(state::AbstractState, pop::Population; kwargs...)

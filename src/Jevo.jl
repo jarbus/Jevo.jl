@@ -36,5 +36,4 @@ include("./state.jl")
 include("./organisms/organisms.jl")
 include("./environments/environments.jl")
 include("./operators/operators.jl")
-
 end

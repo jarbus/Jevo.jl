@@ -199,9 +199,16 @@ end
   assertor = PopSizeAssertor(n_inds)
   ind_resetter = ClearInteractionsAndRecords()
   reporter = Reporter(GenotypeSum)
-  # TODO add tests for no ids
-  # TODO add test to confirm elitism
-  # TODO unit test clone
+
+  @testset "Clone" begin
+    state = State([comp_comp_pop_creator, env_creator], [pop_initializer, ava])
+    run!(state, 1)
+    # Clone an individual
+    ind = Jevo.find_population("p1", state).individuals[1]
+    clone = Jevo.clone(state, ind)
+    @test clone.id != ind.id
+    @test clone.generation == 2
+  end
 
   @testset "MatchMaker" begin
       @testset "AllVsAll" begin
@@ -254,6 +261,8 @@ end
       @test length(Jevo.find_population("p1", state).individuals) == k
       @test length(Jevo.find_population("p2", state).individuals) == n_inds
       @test length(Jevo.find_population("p3", state).individuals) == n_inds
+      @test Jevo.find_population("p3", state).individuals[1].generation == 0
+      @test Jevo.find_population("p3", state).individuals[2].generation == 1
   end
   @testset "Mutator" begin
       # comp_pop_creator has n_species pops with n_inds inds
@@ -386,7 +395,34 @@ end
                 PopSizeAssertor(n_inds),
                 ClearInteractionsAndRecords()])
         run!(state, 1)
+    end
+    @testset "mnist" begin
+        n_env_inputs = 784
+        n_species = 1
+        n_inds = 3
+        empty!(weight_cache)
 
+        state = State()
+        gene_counter = Jevo.get_counter(AbstractGene, state)
+        geno_creator = Creator(Network, (rng, gene_counter, StrictCoupling, [(Jevo.Dense, (n_env_inputs,10), relu)]))
+        geno = geno_creator()
+        phen_creator = Creator(Model)
+        phen = develop(phen_creator, geno)
+        net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (n_env_inputs,10), relu)])
+        comp_pop_creator = Creator(CompositePopulation, ("species", [("p$i", n_inds, geno_creator, phen_creator) for i in 1:n_species], state.counters))
+        comp_pop = comp_pop_creator()
+        env_creator = Creator(MNISTEnv)
+        state = State([comp_pop_creator, env_creator], 
+              [ InitializeAllPopulations(), 
+                SoloMatchMaker(["p1"]), 
+                Performer(),
+                ScalarFitnessEvaluator(["p1"]), 
+                TruncationSelector(1),
+                UniformReproducer(n_inds),
+                Mutator(;mr=Float32(0.01), n=2),
+                PopSizeAssertor(n_inds),
+                ClearInteractionsAndRecords()])
+        run!(state, 1)
     end
     @testset "nn confirm improvement" begin
         # TODO
