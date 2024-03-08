@@ -15,16 +15,20 @@ end
 function tensor(w::Weights; weight_cache::_WeightCache=nothing)::Array{Float32}
     # ADD MUTS that have have not been cached
     dims, genes = w.dims, w.muts
+    n_genes = length(genes)
     # get earliest cached weight or zero tensor if none found
     arr, ancestor_idx = @inline get_earliest_cached_weight(dims, genes, weight_cache)
     yes_weight_cache = !isnothing(weight_cache)
     # iteratively apply remaining mutations
-    @inbounds @fastmath @simd for i in ancestor_idx+1:length(genes)
+    @inbounds @fastmath @simd for i in ancestor_idx+1:n_genes
         gene = genes[i]
+        gid = gene.id
         rng = StableRNG(gene.seed)
         gene.init!(rng, Float32, arr, gene.mr)
         # update cache if we are using one
-        yes_weight_cache && (weight_cache[gene.id] = copy(arr))
+        if yes_weight_cache && i != n_genes && gid ∉ keys(weight_cache)
+            weight_cache[gid] = copy(arr)
+        end
     end
     arr
 end
