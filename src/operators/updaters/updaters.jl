@@ -122,5 +122,10 @@ end
 # PERFORMANCE CRITICAL END (measured)
 ############################
 struct ComputeInteractions! <: AbstractUpdater end
-(::ComputeInteractions!)(::AbstractState, matches::Vector{M}) where M <: AbstractMatch =
-    map(compute_interaction!,matches)
+function (::ComputeInteractions!)(::AbstractState, matches::Vector{M}) where M <: AbstractMatch
+    n_matches = length(matches)
+    outs = map(compute_interaction!,matches)
+    empty!(matches)
+    sizehint!(matches, n_matches)
+    outs
+end
