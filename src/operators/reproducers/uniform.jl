@@ -11,12 +11,15 @@ function uniform_reproduce!(state::AbstractState, pops::Vector{Population}, size
     @assert 0 < length(pops[1].individuals) < size "Population must have individuals to reproduce and fewer individuals than $size to reproduce uniformly, $(pops[1].id) has $(length(pops[1].individuals)) individuals."
     pop = pops[1]
     n_parents = length(pop.individuals)
-    ind_counter = get_counter(AbstractIndividual, state)
+
+    # initialize rest of individuals as undefined
+    IndType = typeof(pop.individuals[1])
+    append!(pop.individuals, Vector{IndType}(undef, size-n_parents))
     # choose a random parent and push to individuals
-    for _ in (n_parents+1):size
+    Threads.@threads for i in (n_parents+1):size
         parent = pop.individuals[rand(1:n_parents)]
         child = clone(state, parent)
-        push!(pop.individuals, child)
+        pop.individuals[i] = child
     end
     @assert length(pop.individuals) == size "Failed to reproduce $(pop.id) uniformly"
 end

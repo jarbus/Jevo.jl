@@ -10,7 +10,7 @@ Mutator(ids::Vector{String}=String[]; time::Bool=false, kwargs...) =
 # Mutate all inds made this generation
 function mutate!(state::AbstractState, pop::Population; kwargs...)
     gen = generation(state)
-    for ind in pop.individuals
+    Threads.@threads for ind in pop.individuals
         if ind.generation == gen
             mutate!(state, ind; kwargs...)
         end
