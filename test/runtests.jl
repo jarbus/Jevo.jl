@@ -394,6 +394,7 @@ end
                 Mutator(;mr=Float32(0.01), n=2),
                 PopSizeAssertor(n_inds),
                 ClearInteractionsAndRecords()])
+        @test length(state.matches) == 0
         run!(state, 1)
     end
     @testset "mnist" begin
