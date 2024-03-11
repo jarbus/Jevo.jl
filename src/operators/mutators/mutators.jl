@@ -10,14 +10,17 @@ Mutator(ids::Vector{String}=String[]; time::Bool=false, kwargs...) =
 # Mutate all inds made this generation
 function mutate!(state::AbstractState, pop::Population; kwargs...)
     gen = generation(state)
-    Threads.@threads for ind in pop.individuals
+    # Prevent using the same RNG twice from different threads
+    rngs = [StableRNG(rand(state.rng, UInt)) for i in 1:length(pop.individuals)]
+    Threads.@threads for i in 1:length(pop.individuals)
+        ind = pop.individuals[i]
         if ind.generation == gen
-            mutate!(state, ind; kwargs...)
+            mutate!(rngs[i], state, ind; kwargs...)
         end
     end
 end
-function mutate!(state::AbstractState, ind::AbstractIndividual; kwargs...)
-    ind.genotype = mutate(state, ind.genotype; kwargs...)
+function mutate!(rng::AbstractRNG, state::AbstractState, ind::AbstractIndividual; kwargs...)
+    ind.genotype = mutate(rng, state, ind.genotype; kwargs...)
 end
 
 mutate(::AbstractState, genotype::AbstractGenotype; kwargs...) =
