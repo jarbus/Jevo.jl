@@ -1,3 +1,9 @@
+function get_binding(dims::NTuple{N, Int}, genes::Vector{NetworkGene}, idx::Int=length(genes))::WeightBinding where {N}
+    length(genes) == 0 && error("No genes found")
+    idx == 1 && return WeightBinding(dims, genes[1].seed, nothing)
+    WeightBinding(dims, genes[idx].seed, genes[idx-1].seed)
+end
+
 ############################
 # PERFORMANCE CRITICAL START  (suspected)
 # possible optimizations: @inbounds, @fastmath
@@ -5,7 +11,8 @@ function get_earliest_cached_weight(dims::NTuple{N, Int}, genes::Vector{NetworkG
     """Return the earliest cached weight in the gene list. If none are cached, return a zero tensor of the given dimensions. Allocates memory. Also returns the idx of the earliest cached gene."""
     isnothing(weight_cache) && return zeros(Float32, dims), 0
     @inbounds @fastmath @simd for i in length(genes):-1:1
-        weights = @inline get(weight_cache, genes[i].id, nothing)
+        binding = get_binding(dims, genes, i)
+        weights = @inline get(weight_cache, binding, nothing)
         if !isnothing(weights)
             return copy(weights), i
         end
@@ -27,7 +34,8 @@ function tensor(w::Weights; weight_cache::_WeightCache=nothing)::Array{Float32}
         gene.init!(rng, Float32, arr, gene.mr)
         # update cache if we are using one
         if yes_weight_cache && i != n_genes && gid ∉ keys(weight_cache)
-            weight_cache[gid] = copy(arr)
+            binding = get_binding(dims, genes, i)
+            weight_cache[binding] = copy(arr)
         end
     end
     arr

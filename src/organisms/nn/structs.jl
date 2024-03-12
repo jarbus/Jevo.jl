@@ -48,7 +48,16 @@ struct Model <: AbstractPhenotype
     chain
 end
 
-_WeightCache = Union{LRU{Int, <:Array{Float32}}, Nothing}
+"""
+We identify weights of a layer by their dimensions and the last two rng seeds used to generate them.
+"""
+struct WeightBinding 
+    dims::Tuple{Vararg{Int}}
+    last_seed::UInt16
+    second_to_last_seed::Union{UInt16,Nothing}
+end
+
+_WeightCache = Union{LRU{WeightBinding, <:Array{Float32}}, Nothing}
 # so we only need to transmit delta genotypes
 GenotypeCache = Union{LRU{Int, Network}, Nothing}
 

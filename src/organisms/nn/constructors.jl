@@ -7,7 +7,7 @@ function Weights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{
 end
 
 function WeightCache(;maxsize::Int, by::Function=sizeof)
-    LRU{Int, Array{Float32}}(maxsize=maxsize, by=by)
+    LRU{WeightBinding, Array{Float32}}(maxsize=maxsize, by=by)
 end
 
 function Network(rng::AbstractRNG, counter::AbstractCounter, coupling::Coupling, layers::Vector)
