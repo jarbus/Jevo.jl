@@ -1,6 +1,6 @@
 # TODO: change init to svd/kaiming_normal where appropriate
 NetworkGene(rng::AbstractRNG, counter::Counter, mr::Float32, init!::Function=Jevo.apply_kaiming_normal_noise!) = 
-    NetworkGene(inc!(counter), rand(rng, UInt16), mr, init!)
+    NetworkGene(inc!(counter), rand(rng, UInt64), mr, init!)
 
 function Weights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{Int}})
     Weights(dims, [NetworkGene(rng, counter, Float32(1.0))])

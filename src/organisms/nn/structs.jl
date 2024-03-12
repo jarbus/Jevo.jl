@@ -11,7 +11,7 @@
 # Weights
 struct NetworkGene <: AbstractMutation
     id::Int
-    seed::UInt16
+    seed::UInt64
     mr::Float32
     init!::Union{AbstractInitializer,Function}
 end
@@ -53,8 +53,8 @@ We identify weights of a layer by their dimensions and the last two rng seeds us
 """
 struct WeightBinding 
     dims::Tuple{Vararg{Int}}
-    last_seed::UInt16
-    second_to_last_seed::Union{UInt16,Nothing}
+    last_seed::UInt64
+    second_to_last_seed::Union{UInt64,Nothing}
 end
 
 _WeightCache = Union{LRU{WeightBinding, <:Array{Float32}}, Nothing}
