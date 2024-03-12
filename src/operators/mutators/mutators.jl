@@ -22,6 +22,3 @@ end
 function mutate!(rng::AbstractRNG, state::AbstractState, ind::AbstractIndividual; kwargs...)
     ind.genotype = mutate(rng, state, ind.genotype; kwargs...)
 end
-
-mutate(::AbstractState, genotype::AbstractGenotype; kwargs...) =
-    error("mutate function not implemented for $(typeof(genotype))")
