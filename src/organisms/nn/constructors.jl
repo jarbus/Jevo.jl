@@ -1,4 +1,3 @@
-# TODO: change init to svd/kaiming_normal where appropriate
 NetworkGene(rng::AbstractRNG, counter::Counter, mr::Float32, init!::Function=Jevo.apply_kaiming_normal_noise!) = 
     NetworkGene(inc!(counter), rand(rng, UInt64), mr, init!)
 

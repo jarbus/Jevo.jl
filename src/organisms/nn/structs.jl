@@ -44,6 +44,31 @@ struct Dense{T} <: AbstractLayer where T <: AbstractWeights
     σ::Function
 end
 
+# Transformer stuff
+# ignore scale for embed, ignore bias for decoder
+struct Embed{T} <: AbstractLayer where T <: AbstractWeights
+    weights::T
+end
+struct EmbedDecoder{T} <: AbstractLayer where T <: AbstractWeights
+    weights::T
+end
+struct TransformerDecoder <: AbstractLayer
+    blocks::Tuple{Vararg{AbstractLayer}}
+end
+struct TransformerDecoderBlock <: AbstractLayer
+    attention # postnorm residual
+    ff # postnorm residual Chain Dense Dense
+end
+struct PostNormResidual <: AbstractLayer
+    layer # ff or attention
+    norm # layer norm
+end
+struct SelfAttention <: AbstractLayer
+    n_heads::Int
+    qkv::Dense
+    out::Dense
+end
+
 struct Model <: AbstractPhenotype 
     chain
 end
@@ -60,5 +85,3 @@ end
 _WeightCache = Union{LRU{WeightBinding, <:Array{Float32}}, Nothing}
 # so we only need to transmit delta genotypes
 GenotypeCache = Union{LRU{Int, Network}, Nothing}
-
-

@@ -6,7 +6,6 @@ end
 
 ############################
 # PERFORMANCE CRITICAL START  (suspected)
-# possible optimizations: @inbounds, @fastmath
 function get_earliest_cached_weight(dims::NTuple{N, Int}, genes::Vector{NetworkGene}, weight_cache::_WeightCache)::Tuple{Array{Float32}, Int} where {N}
     """Return the earliest cached weight in the gene list. If none are cached, return a zero tensor of the given dimensions. Allocates memory. Also returns the idx of the earliest cached gene."""
     isnothing(weight_cache) && return zeros(Float32, dims), 0
