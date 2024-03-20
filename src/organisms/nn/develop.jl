@@ -58,5 +58,5 @@ function develop(::Creator{Model}, network::Network)
     end
 
     weight_cache::_WeightCache = Main.weight_cache
-    Chain((create_layer(l, weight_cache=weight_cache) for l in network.layers)...) |> Model
+    Flux.Chain((create_layer(l, weight_cache=weight_cache) for l in network.layers)...) |> Model
 end

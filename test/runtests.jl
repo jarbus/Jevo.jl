@@ -326,89 +326,109 @@ rng = StableRNG(1)
         # Naive way to create network
         Network(NoCoupling, [Jevo.Dense(Jevo.Weights((784,784),NetworkGene[]), Jevo.Weights((784,10),NetworkGene[]), relu)])
         # Better interface
-        net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (784,10), relu)])
+        net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu))])
         dense = net.layers[1]
-    #
-    #     @testset "binding" begin
-    #         net_bind = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (784,10), relu)])
-    #         dense_bind = net_bind.layers[1]
-    #         @test length(dense_bind.weights.muts) == 1
-    #         seed = dense_bind.weights.muts[1].seed
-    #         binding = Jevo.get_binding((784,10), dense_bind.weights.muts)
-    #         @test binding.dims == (784,10)
-    #         @test binding.last_seed == seed
-    #         @test isnothing(binding.second_to_last_seed)
-    #         push!(dense_bind.weights.muts, Jevo.NetworkGene(2, 2, 0.1, Jevo.apply_kaiming_normal_noise!))
-    #         binding = Jevo.get_binding((784,10), dense_bind.weights.muts)
-    #         @test binding.dims == (784,10)
-    #         @test binding.last_seed == dense_bind.weights.muts[2].seed
-    #         @test binding.second_to_last_seed == seed
-    #     end
-    #     @testset "tensor()" begin
-    #         @test (10,784) == size(Jevo.tensor(dense.weights))
-    #         @test mean(Jevo.tensor(dense.weights)) ≈ 0.0 atol=0.01
-    #     end
-    #     # Test constructing with weight cache
-    #     @testset "weight cache" begin
-    #         push!(dense.weights.muts, deepcopy(dense.weights.muts[1]))
-    #         push!(dense.bias.muts, deepcopy(dense.bias.muts[1]))
-    #         @test length(deepcopy(dense.weights.muts)) == 2
-    #         @test length(deepcopy(dense.bias.muts)) == 2
-    #         @test length(weight_cache) == 0
-    #         nocache_construction = Jevo.create_layer(dense, weight_cache=weight_cache)
-    #         @testset "restore from unaltered cache" begin
-    #             @test length(weight_cache) == 2
-    #             # Test layer construction using cache and confirm the results are the same
-    #             cache_construction = Jevo.create_layer(dense, weight_cache=weight_cache)
-    #             @test length(weight_cache) == 2
-    #             @test nocache_construction.weight == cache_construction.weight
-    #             @test nocache_construction.bias == cache_construction.bias
-    #         end
-    #         @testset "restore from altered cache" begin
-    #             # Modify weight cache, then confirm that the results are different
-    #             for arr in values(weight_cache)
-    #                 arr .-= 999
-    #             end
-    #             # Add a mutation to the gene to restore from a parent 
-    #             push!(dense.weights.muts, Jevo.NetworkGene(3, 3, 0.1, Jevo.apply_kaiming_normal_noise!))
-    #             cache_construction = Jevo.create_layer(dense, weight_cache=weight_cache)
-    #             @test nocache_construction.weight != cache_construction.weight
-    #             @test all(cache_construction.weight .< -900)
-    #         end
-    #     end
-    #     # Test phenotype creation & forward pass
-    #     @testset "develop & forward pass" begin
-    #         net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (784,10), relu)])
-    #         dense = net.layers[1]
-    #         creator = Creator(Model)
-    #         model = develop(creator, net)
-    #         @test model |> typeof <: Model 
-    #         @test rand(Float32, 784) |> model.chain |> size == (10,)
-    #         # confirm we can get a list of weights 
-    #         @test length(Jevo.get_weights(rng, net, n=-1)) == 2
-    #         @test length(Jevo.get_weights(rng, net, n=1)) == 1
-    #         # Add mutations to each network
-    #         mutated_net = Jevo.mutate(rng, state, net, mr=Float32(0.01))
-    #         @test all(map(w ->length(w.muts)==2, Jevo.get_weights(rng, mutated_net, n=-1)))
-    #         mutated_net = Jevo.mutate(rng, state, mutated_net, mr=Float32(0.01))
-    #         @test all(map(w ->length(w.muts)==3, Jevo.get_weights(rng, mutated_net, n=-1)))
-    #     end
+
+        @testset "binding" begin
+            net_bind = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu))])
+            dense_bind = net_bind.layers[1]
+            @test length(dense_bind.weights.muts) == 1
+            seed = dense_bind.weights.muts[1].seed
+            binding = Jevo.get_binding((784,10), dense_bind.weights.muts)
+            @test binding.dims == (784,10)
+            @test binding.last_seed == seed
+            @test isnothing(binding.second_to_last_seed)
+            push!(dense_bind.weights.muts, Jevo.NetworkGene(2, 2, 0.1, Jevo.apply_kaiming_normal_noise!))
+            binding = Jevo.get_binding((784,10), dense_bind.weights.muts)
+            @test binding.dims == (784,10)
+            @test binding.last_seed == dense_bind.weights.muts[2].seed
+            @test binding.second_to_last_seed == seed
+        end
+        @testset "tensor()" begin
+            @test (10,784) == size(Jevo.tensor(dense.weights))
+            @test mean(Jevo.tensor(dense.weights)) ≈ 0.0 atol=0.01
+        end
+        # Test constructing with weight cache
+        @testset "weight cache" begin
+            push!(dense.weights.muts, deepcopy(dense.weights.muts[1]))
+            push!(dense.bias.muts, deepcopy(dense.bias.muts[1]))
+            @test length(deepcopy(dense.weights.muts)) == 2
+            @test length(deepcopy(dense.bias.muts)) == 2
+            @test length(weight_cache) == 0
+            nocache_construction = Jevo.create_layer(dense, weight_cache=weight_cache)
+            @testset "restore from unaltered cache" begin
+                @test length(weight_cache) == 2
+                # Test layer construction using cache and confirm the results are the same
+                cache_construction = Jevo.create_layer(dense, weight_cache=weight_cache)
+                @test length(weight_cache) == 2
+                @test nocache_construction.weight == cache_construction.weight
+                @test nocache_construction.bias == cache_construction.bias
+            end
+            @testset "restore from altered cache" begin
+                # Modify weight cache, then confirm that the results are different
+                for arr in values(weight_cache)
+                    arr .-= 999
+                end
+                # Add a mutation to the gene to restore from a parent 
+                push!(dense.weights.muts, Jevo.NetworkGene(3, 3, 0.1, Jevo.apply_kaiming_normal_noise!))
+                cache_construction = Jevo.create_layer(dense, weight_cache=weight_cache)
+                @test nocache_construction.weight != cache_construction.weight
+                @test all(cache_construction.weight .< -900)
+            end
+        end
+        # Test phenotype creation & forward pass
+        @testset "develop & forward pass" begin
+            net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu))])
+            dense = net.layers[1]
+            creator = Creator(Model)
+            model = develop(creator, net)
+            @test model |> typeof <: Model 
+            @test rand(Float32, 784) |> model.chain |> size == (10,)
+            # confirm we can get a list of weights 
+            @test length(Jevo.get_weights(rng, net, n=-1)) == 2
+            @test length(Jevo.get_weights(rng, net, n=1)) == 1
+            # Add mutations to each network
+            mutated_net = Jevo.mutate(rng, state, net, mr=Float32(0.01))
+            @test all(map(w ->length(w.muts)==2, Jevo.get_weights(rng, mutated_net, n=-1)))
+            mutated_net = Jevo.mutate(rng, state, mutated_net, mr=Float32(0.01))
+            @test all(map(w ->length(w.muts)==3, Jevo.get_weights(rng, mutated_net, n=-1)))
+        end
         @testset "Transformer" begin
             state = State()
             gene_counter = Jevo.get_counter(AbstractGene, state)
-            attn_args = (n_heads=2, head_dim=5, hidden_dim=10)
+            n_blocks = 2
+            n_heads = 2
+            head_dim = 5
+            hidden_dim = 10
+            vocab_size = 5
+            ff_dim = 20
+
+            attn_args = (n_heads=n_heads, head_dim=head_dim, hidden_dim=hidden_dim)
+            block_args = (attn_args..., ff_dim=ff_dim)
+            tfr_args = (block_args..., n_blocks=n_blocks, vocab_size=5)
             # Construct each of the pieces of a transformer
             # Embed, EmbedDecoder, SelfAttention, PostNormResidual, TransformerDecoderBlock, Transformer
             rng = StableRNG(1)
-            embed, embed_decoder = Jevo.create_embeds(rng, gene_counter, (10, 5))
+            embed, embed_decoder = Jevo.create_embeds(rng, gene_counter, (vocab_size, head_dim))
             sa = Jevo.SelfAttention(rng, gene_counter; attn_args...) 
-            trf = Jevo.Transformer(rng, gene_counter;
-                              n_blocks=2,
-                              attn_args...,
-                              ff_dim=10,
-                              vocab_size=5)
-            # TODO get_weights
-            # TODO mutate
+            pnr_sa = Jevo.PostNormResidual(rng, gene_counter, sa; hidden_dim=hidden_dim)
+            db = Jevo.TransformerDecoderBlock(rng, gene_counter; block_args...)
+            trf = Jevo.Transformer(rng, gene_counter; tfr_args...)
+            net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Transformer, tfr_args)])
+            weights = Jevo.get_weights(rng, net, n=-1)
+            dims = [w.dims for w in weights]
+            println(dims)
+            @test (hidden_dim,vocab_size) in dims # embed
+            @test (vocab_size,) in dims # embed bias
+            # make sure (10,5) is in dims exactly once, we don't want to
+            # double count when sharing weights for embed/embeddecoder
+            @test sum([d == (hidden_dim,vocab_size) for d in dims]) == 1
+            @test (hidden_dim,ff_dim) in dims # ff
+            @test (ff_dim,hidden_dim) in dims
+            @test (3*head_dim*n_heads, hidden_dim) in dims # qkv
+            @test (head_dim*n_heads, hidden_dim) in dims   # out
+            @test (hidden_dim,) in dims # layernorm
+            mutated_net = Jevo.mutate(rng, state, net, mr=Float32(0.01))
         end
     end
     # @testset "integration tests" begin

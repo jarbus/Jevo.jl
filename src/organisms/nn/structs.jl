@@ -53,12 +53,19 @@ struct EmbedDecoder{T} <: AbstractLayer where T <: AbstractWeights
     weights::T
     bias::Union{Nothing,T}
 end
-struct Transformer <: AbstractLayer
-    blocks::Tuple{Vararg{AbstractLayer}}
+struct LayerNorm{T} <: AbstractLayer where T <: Union{Nothing, <:AbstractWeights}
+    hidden_dim::Int
+    scale::T
+    bias::T
 end
 struct TransformerDecoderBlock <: AbstractLayer
     attention # postnorm residual
     ff # postnorm residual Chain Dense Dense
+end
+struct Transformer <: AbstractLayer
+    embed::Embed
+    blocks::Tuple{Vararg{TransformerDecoderBlock}}
+    embeddecoder::EmbedDecoder
 end
 struct PostNormResidual <: AbstractLayer
     layer # ff or attention
@@ -68,6 +75,10 @@ struct SelfAttention <: AbstractLayer
     n_heads::Int
     qkv::Dense
     out::Dense
+end
+
+struct Chain <: AbstractLayer
+    layers::Tuple{Vararg{<:AbstractLayer}}
 end
 
 struct Model <: AbstractPhenotype 

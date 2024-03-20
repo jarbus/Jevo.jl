@@ -16,6 +16,7 @@ function get_weights(rng::AbstractRNG, network::Network; n::Int=-1)
     # get all weights recursively
     weights = Weights[]
     add_weights!(weights, network)
+    weights = unique(weights)
     n == -1 && return weights
     shuffle!(rng, weights)
     weights[1:n]
@@ -27,7 +28,7 @@ function add_weights!(weights::Vector{Weights}, node::Union{Network,<:AbstractLa
         add_weights!(weights, getfield(node, field))
     end
 end
-function add_weights!(weights::Vector{Weights}, arr::Array)
+function add_weights!(weights::Vector{Weights}, arr::Union{Array,Tuple})
     for element in arr
         add_weights!(weights, element)
     end
