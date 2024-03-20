@@ -417,7 +417,6 @@ rng = StableRNG(1)
             net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Transformer, tfr_args)])
             weights = Jevo.get_weights(rng, net, n=-1)
             dims = [w.dims for w in weights]
-            println(dims)
             @test (hidden_dim,vocab_size) in dims # embed
             @test (vocab_size,) in dims # embed bias
             # make sure (10,5) is in dims exactly once, we don't want to

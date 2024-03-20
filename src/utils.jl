@@ -41,3 +41,9 @@ function apply_kaiming_normal_noise!(rng::AbstractRNG, ::Type, arr::Array{Float3
         arr[i] += randn(rng, Float32) * scalar
     end
 end
+
+function apply_gaussian_normal_noise!(rng::AbstractRNG, ::Type, arr::Array{Float32}, mr::Float32)
+    @fastmath @inbounds @simd for i in 1:length(arr)
+        arr[i] += randn(rng, Float32) * mr
+    end
+end

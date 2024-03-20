@@ -1,8 +1,8 @@
-NetworkGene(rng::AbstractRNG, counter::Counter, mr::Float32, init!::Function=Jevo.apply_kaiming_normal_noise!) = 
-    NetworkGene(inc!(counter), rand(rng, UInt64), mr, init!)
+NetworkGene(rng::AbstractRNG, counter::Counter, mr::Float32, init::Function=Jevo.apply_kaiming_normal_noise!) = 
+    NetworkGene(inc!(counter), rand(rng, UInt64), mr, init)
 
-function Weights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{Int}})
-    Weights(dims, [NetworkGene(rng, counter, Float32(1.0))])
+function Weights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{Int}}; init::Function=Jevo.apply_kaiming_normal_noise!)
+    Weights(dims, [NetworkGene(rng, counter, 1f0, init)])
 end
 
 function WeightCache(;maxsize::Int, by::Function=sizeof)
@@ -28,8 +28,8 @@ end
 function create_embeds(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{Int}})
     """Create an embed layer with a (hidden_dim, vocab_dim) weight matrix"""
     @assert length(dims) == 2 "Embed layer must have 2 dimensions, got $(length(dims))"
-    embeds = Weights(rng, counter, dims)
-    bias = Weights(rng, counter, (dims[2],))
+    embeds = Weights(rng, counter, dims, init=apply_gaussian_normal_noise!)
+    bias = Weights(rng, counter, (dims[2],), init=apply_gaussian_normal_noise!)
     Embed(embeds), EmbedDecoder(embeds, bias)
 end
 
