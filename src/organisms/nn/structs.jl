@@ -51,8 +51,9 @@ struct Embed{T} <: AbstractLayer where T <: AbstractWeights
 end
 struct EmbedDecoder{T} <: AbstractLayer where T <: AbstractWeights
     weights::T
+    bias::Union{Nothing,T}
 end
-struct TransformerDecoder <: AbstractLayer
+struct Transformer <: AbstractLayer
     blocks::Tuple{Vararg{AbstractLayer}}
 end
 struct TransformerDecoderBlock <: AbstractLayer
