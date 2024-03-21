@@ -100,6 +100,7 @@ GenotypeCache = Union{LRU{Int, Network}, Nothing}
 
 struct TransformerPhenotype <: AbstractPhenotype
     textenc::Transformers.TextEncoders.TransformerTextEncoder
+    posembed::Transformers.Layers.AbstractEmbedding
     embed::Transformers.Layers.Embed
     trf::Transformers.Layers.Transformer
     embeddecoder::Transformers.Layers.EmbedDecoder

@@ -7,6 +7,7 @@ using StatsBase
 using Flux
 using Transformers
 using Transformers.TextEncoders
+using Transformers.Datasets: batched
 
 # Global variable for weight_cache
 weight_cache = WeightCache(maxsize=1_000_000)
@@ -402,15 +403,17 @@ rng = StableRNG(1)
             n_heads = 2
             head_dim = 5
             hidden_dim = 10
-            vocab_size = 5
             ff_dim = 20
             startsym = "<s>"
             endsym = "</s>"
             unksym = "<unk>"
+            labels = string.(1:5)
+            vocab = [unksym, startsym, endsym, labels...]
+            vocab_size = length(vocab)
 
             attn_args = (n_heads=n_heads, head_dim=head_dim, hidden_dim=hidden_dim)
             block_args = (attn_args..., ff_dim=ff_dim)
-            tfr_args = (block_args..., n_blocks=n_blocks, vocab_size=5)
+            tfr_args = (block_args..., n_blocks=n_blocks, vocab_size=vocab_size)
             # Construct each of the pieces of a transformer
             # Embed, EmbedDecoder, SelfAttention, PostNormResidual, TransformerDecoderBlock, Transformer
             rng = StableRNG(1)
@@ -439,17 +442,19 @@ rng = StableRNG(1)
             Jevo.create_layer(sa; weight_cache=weight_cache)
             Jevo.create_layer(pnr_sa; weight_cache=weight_cache)
             Jevo.create_layer(db; weight_cache=weight_cache)
-            Jevo.create_layer(trf; weight_cache=weight_cache)
-            vocab = string.(1:vocab_size)
+            Jevo.create_layer((db,db); weight_cache=weight_cache)
+
             textenc = TransformerTextEncoder(split, vocab; startsym, endsym, unksym, padsym=unksym)
             creator = Creator(Jevo.TransformerPhenotype, (;textenc=textenc))
             trf_p = develop(creator, net)
-            # create sequence of 5 random integers
-            seq = rand(vocab, 5)
-            decoder_input = (token = lookup(textenc, seq))
-            trf_p(decoder_input, nothing)
-            # TODO POSITIONAL ENCODING
-            # TODO MASKING
+            seq = "1 2 1"
+            logits = trf_p(seq)
+            @test size(logits) == (8, 5, 1)
+            # batching & masking
+            sample_batch = batched([(seq,) for i in 1:100])[1]
+            logits = trf_p(sample_batch)
+            @test size(logits) == (8, 5, 100)
+            # TODO TEST EXTENSIVELY
         end
     end
     # @testset "integration tests" begin

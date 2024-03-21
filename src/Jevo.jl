@@ -9,6 +9,7 @@ using StatsBase
 using CUDA
 using Flux
 using Transformers
+using Transformers.TextEncoders
 # For checkpointing and handling exceptions
 using Serialization
 # For logging

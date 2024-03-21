@@ -82,14 +82,9 @@ function create_layer(layer::Jevo.SelfAttention; weight_cache::_WeightCache)
     )
 end
 
-function create_layer(layer::Jevo.Transformer; weight_cache::_WeightCache)
-    embed = create_layer(layer.embed, weight_cache=weight_cache)
-    blocks = Tuple(create_layer(b, weight_cache=weight_cache) for b in layer.blocks)
-    embeddecoder = create_layer(layer.embeddecoder, weight_cache=weight_cache)
-    Flux.Chain(
-        Transformers.Transformer(blocks),
-        embeddecoder
-    )
+function create_layer(geno_blocks::Tuple{Vararg{TransformerDecoderBlock}}; weight_cache::_WeightCache)
+    pheno_blocks = Tuple(create_layer(b, weight_cache=weight_cache) for b in geno_blocks)
+    Transformers.Transformer(pheno_blocks)
 end
 
 # Chain
@@ -118,18 +113,27 @@ function develop(::Creator{Model}, network::Network)
     Flux.Chain((create_layer(l, weight_cache=weight_cache) for l in network.layers)...) |> Model
 end
 
-function develop(c::Creator{TransformerPhenotype}, trf::Transformer)
+function develop(c::Creator{TransformerPhenotype}, net::Network)
+    trf = net.layers[1]
+    @assert trf isa Transformer
     weight_cache = get_weight_cache()
     TransformerPhenotype(
         c.kwargs.textenc,
+        Transformers.Layers.SinCosPositionEmbed(trf.embed.weights.dims[1]),
         create_layer(trf.embed, weight_cache=weight_cache),
         create_layer(trf.blocks, weight_cache=weight_cache),
         create_layer(trf.embeddecoder, weight_cache=weight_cache),
     )
 end
 
-function (trf::TransformerPhenotype)(input, mask=nothing)
-    embeds = trf.embed(input)
+function (trf::TransformerPhenotype)(seq::Union{String, Vector{String}, Vector{Vector{String}}})
+    input = encode(trf.textenc, seq)
+    println(size(input.token))
+    println(size(input.attention_mask))
+    mask = get(input, :attention_mask, nothing)
+    embeds = trf.embed(input.token)
+    pos_embed = trf.posembed(embeds)
+    embeds = embeds .+ pos_embed
     logits = trf.trf(embeds, mask)
-    trf.embeddecoder(logits)
+    trf.embeddecoder(logits.hidden_state)
 end
