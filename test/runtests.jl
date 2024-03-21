@@ -5,6 +5,8 @@ using StableRNGs
 # using Logging
 using StatsBase
 using Flux
+using Transformers
+using Transformers.TextEncoders
 
 # Global variable for weight_cache
 weight_cache = WeightCache(maxsize=1_000_000)
@@ -402,6 +404,9 @@ rng = StableRNG(1)
             hidden_dim = 10
             vocab_size = 5
             ff_dim = 20
+            startsym = "<s>"
+            endsym = "</s>"
+            unksym = "<unk>"
 
             attn_args = (n_heads=n_heads, head_dim=head_dim, hidden_dim=hidden_dim)
             block_args = (attn_args..., ff_dim=ff_dim)
@@ -428,6 +433,23 @@ rng = StableRNG(1)
             @test (head_dim*n_heads, hidden_dim) in dims   # out
             @test (hidden_dim,) in dims # layernorm
             mutated_net = Jevo.mutate(rng, state, net, mr=Float32(0.01))
+            # TODO ADD TEST FOR GAUSSIAN VS KAIMING INIT
+            Jevo.create_layer(embed; weight_cache=weight_cache)
+            Jevo.create_layer(embed_decoder; weight_cache=weight_cache)
+            Jevo.create_layer(sa; weight_cache=weight_cache)
+            Jevo.create_layer(pnr_sa; weight_cache=weight_cache)
+            Jevo.create_layer(db; weight_cache=weight_cache)
+            Jevo.create_layer(trf; weight_cache=weight_cache)
+            vocab = string.(1:vocab_size)
+            textenc = TransformerTextEncoder(split, vocab; startsym, endsym, unksym, padsym=unksym)
+            creator = Creator(Jevo.TransformerPhenotype, (;textenc=textenc))
+            trf_p = develop(creator, net)
+            # create sequence of 5 random integers
+            seq = rand(vocab, 5)
+            decoder_input = (token = lookup(textenc, seq))
+            trf_p(decoder_input, nothing)
+            # TODO POSITIONAL ENCODING
+            # TODO MASKING
         end
     end
     # @testset "integration tests" begin

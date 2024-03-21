@@ -50,7 +50,7 @@ struct Embed{T} <: AbstractLayer where T <: AbstractWeights
     weights::T
 end
 struct EmbedDecoder{T} <: AbstractLayer where T <: AbstractWeights
-    weights::T
+    embed::Embed{T}
     bias::Union{Nothing,T}
 end
 struct LayerNorm{T} <: AbstractLayer where T <: Union{Nothing, <:AbstractWeights}
@@ -97,3 +97,10 @@ end
 _WeightCache = Union{LRU{WeightBinding, <:Array{Float32}}, Nothing}
 # so we only need to transmit delta genotypes
 GenotypeCache = Union{LRU{Int, Network}, Nothing}
+
+struct TransformerPhenotype <: AbstractPhenotype
+    textenc::Transformers.TextEncoders.TransformerTextEncoder
+    embed::Transformers.Layers.Embed
+    trf::Transformers.Layers.Transformer
+    embeddecoder::Transformers.Layers.EmbedDecoder
+end

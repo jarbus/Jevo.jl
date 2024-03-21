@@ -42,6 +42,60 @@ end
 # PERFORMANCE CRITICAL END
 ############################
 
+function create_layer(layer::Jevo.Embed; weight_cache::_WeightCache)
+    weights = @inline tensor(layer.weights, weight_cache=weight_cache)
+    Transformers.Embed(weights; scale=nothing)
+end
+
+function create_layer(layer::Jevo.EmbedDecoder; weight_cache::_WeightCache)
+    embed = create_layer(layer.embed, weight_cache=weight_cache)
+    bias = @inline tensor(layer.bias, weight_cache=weight_cache)
+    Transformers.EmbedDecoder(embed, bias)
+end
+
+function create_layer(layer::Jevo.TransformerDecoderBlock; weight_cache::_WeightCache)
+    Transformers.Layers.TransformerDecoderBlock(
+        create_layer(layer.attention, weight_cache=weight_cache),
+        create_layer(layer.ff, weight_cache=weight_cache),
+    )
+end
+
+# PostNormResidual
+function create_layer(layer::Jevo.PostNormResidual; weight_cache::_WeightCache)
+    l = create_layer(layer.layer, weight_cache=weight_cache)
+    norm = create_layer(layer.norm, weight_cache=weight_cache)
+    Transformers.Layers.PostNormResidual(l, norm)
+end
+
+# LayerNorm
+function create_layer(layer::Jevo.LayerNorm; weight_cache::_WeightCache)
+    @assert isnothing(layer.scale) && isnothing(layer.bias) "LayerNorm scale and bias must be nothing, we aren't evolving these yet"
+    Transformers.Layers.LayerNorm(layer.hidden_dim)
+end
+
+# SelfAttention
+function create_layer(layer::Jevo.SelfAttention; weight_cache::_WeightCache)
+    Transformers.Layers.SelfAttention(
+        Transformers.NeuralAttentionlib.CausalMultiheadQKVAttenOp(layer.n_heads),
+        Transformers.Layers.NSplit(3, create_layer(layer.qkv, weight_cache=weight_cache)),
+        create_layer(layer.out, weight_cache=weight_cache)
+    )
+end
+
+function create_layer(layer::Jevo.Transformer; weight_cache::_WeightCache)
+    embed = create_layer(layer.embed, weight_cache=weight_cache)
+    blocks = Tuple(create_layer(b, weight_cache=weight_cache) for b in layer.blocks)
+    embeddecoder = create_layer(layer.embeddecoder, weight_cache=weight_cache)
+    Flux.Chain(
+        Transformers.Transformer(blocks),
+        embeddecoder
+    )
+end
+
+# Chain
+create_layer(layer::Jevo.Chain; weight_cache::_WeightCache) =
+    Flux.Chain((create_layer(l, weight_cache=weight_cache) for l in layer.layers)...)
+
 function create_layer(layer::Jevo.Dense; weight_cache::_WeightCache)
     weights = @inline tensor(layer.weights, weight_cache=weight_cache)
     bias = @inline tensor(layer.bias, weight_cache=weight_cache)
@@ -49,14 +103,33 @@ function create_layer(layer::Jevo.Dense; weight_cache::_WeightCache)
 end
 create_layer(f::Function; kwargs...) = f
 
-function develop(::Creator{Model}, network::Network)
+function get_weight_cache()
     # get global variable Main.weight_cache for weight cache
     # check if weight_cache is defined
     if !isdefined(Main, :weight_cache)
         @warn "No weight cache found, looking specifically for a variable called `weight_cache` in the global scope. Main has the following variables: $(names(Main))"
         Main.weight_cache = nothing
     end
+    Main.weight_cache
+end
 
-    weight_cache::_WeightCache = Main.weight_cache
+function develop(::Creator{Model}, network::Network)
+    weight_cache = get_weight_cache()
     Flux.Chain((create_layer(l, weight_cache=weight_cache) for l in network.layers)...) |> Model
+end
+
+function develop(c::Creator{TransformerPhenotype}, trf::Transformer)
+    weight_cache = get_weight_cache()
+    TransformerPhenotype(
+        c.kwargs.textenc,
+        create_layer(trf.embed, weight_cache=weight_cache),
+        create_layer(trf.blocks, weight_cache=weight_cache),
+        create_layer(trf.embeddecoder, weight_cache=weight_cache),
+    )
+end
+
+function (trf::TransformerPhenotype)(input, mask=nothing)
+    embeds = trf.embed(input)
+    logits = trf.trf(embeds, mask)
+    trf.embeddecoder(logits)
 end

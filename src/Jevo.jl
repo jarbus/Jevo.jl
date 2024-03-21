@@ -8,6 +8,7 @@ using StatsBase
 # Neural Nets
 using CUDA
 using Flux
+using Transformers
 # For checkpointing and handling exceptions
 using Serialization
 # For logging
@@ -17,7 +18,7 @@ using Logging
 using LoggingExtras
 using FileWatching
 # For MNIST
-using MLDatasets
+#using MLDatasets
 using OneHotArrays
 
 import Base: show

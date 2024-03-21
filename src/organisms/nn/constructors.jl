@@ -30,7 +30,8 @@ function create_embeds(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{V
     @assert length(dims) == 2 "Embed layer must have 2 dimensions, got $(length(dims))"
     embeds = Weights(rng, counter, dims, init=apply_gaussian_normal_noise!)
     bias = Weights(rng, counter, (dims[2],), init=apply_gaussian_normal_noise!)
-    Embed(embeds), EmbedDecoder(embeds, bias)
+    embed = Embed(embeds)
+    embed, EmbedDecoder(embed, bias)
 end
 
 function SelfAttention(rng::AbstractRNG, counter::AbstractCounter;
