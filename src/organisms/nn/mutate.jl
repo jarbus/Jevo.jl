@@ -2,7 +2,8 @@ function mutate_weights!(rng::AbstractRNG, state::State, genotype::Network, mr::
     gene_counter = get_counter(AbstractGene, state)
     weights = get_weights(rng, genotype, n=n)
     for weight in weights
-        push!(weight.muts, NetworkGene(rng, gene_counter, mr))
+        init = weight.muts[1].init!
+        push!(weight.muts, NetworkGene(rng, gene_counter, mr, init))
     end
 end
 
