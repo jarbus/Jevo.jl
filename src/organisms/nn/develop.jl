@@ -44,12 +44,12 @@ end
 
 function create_layer(layer::Jevo.Embed; weight_cache::_WeightCache)
     weights = @inline tensor(layer.weights, weight_cache=weight_cache)
-    Transformers.Embed(weights; scale=nothing)
+    Transformers.Embed(weights; scale=nothing) |> todevice
 end
 
 function create_layer(layer::Jevo.EmbedDecoder; weight_cache::_WeightCache)
     embed = create_layer(layer.embed, weight_cache=weight_cache)
-    bias = @inline tensor(layer.bias, weight_cache=weight_cache)
+    bias = @inline tensor(layer.bias, weight_cache=weight_cache) |> todevice
     Transformers.EmbedDecoder(embed, bias)
 end
 
@@ -84,7 +84,7 @@ end
 
 function create_layer(geno_blocks::Tuple{Vararg{TransformerDecoderBlock}}; weight_cache::_WeightCache)
     pheno_blocks = Tuple(create_layer(b, weight_cache=weight_cache) for b in geno_blocks)
-    Transformers.Transformer(pheno_blocks)
+    Transformers.Transformer(pheno_blocks) |> todevice
 end
 
 # Chain
@@ -129,7 +129,7 @@ end
 function (trf::TransformerPhenotype)(input)
     mask = get(input, :attention_mask, nothing)
     embeds = trf.embed(input.token)
-    pos_embed = trf.posembed(embeds)
+    pos_embed = trf.posembed(embeds) |> todevice
     embeds = embeds .+ pos_embed
     logits = trf.trf(embeds, mask)
     trf.embeddecoder(logits.hidden_state)

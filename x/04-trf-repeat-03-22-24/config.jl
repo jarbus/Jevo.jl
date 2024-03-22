@@ -3,7 +3,10 @@ using CUDA
 using StableRNGs
 using Logging
 using Flux
+using Transformers
 using Transformers.TextEncoders
+
+enable_gpu(CUDA.functional()) 
 rng = StableRNG(1)
 global_logger(JevoLogger())
 
