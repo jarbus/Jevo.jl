@@ -23,6 +23,7 @@ function get_weights(rng::AbstractRNG, network::Network; n::Int=-1)
 end
 add_weights!(weights::Vector{Weights}, ::Any) = nothing
 add_weights!(weights::Vector{Weights}, weight::Weights) = push!(weights, weight)
+add_weights!(weights::Vector{Weights}, factor::FactorWeight) = add_weights!(weights, [factor.A, factor.B])
 function add_weights!(weights::Vector{Weights}, node::Union{Network,<:AbstractLayer})
     for field in fieldnames(typeof(node))
         add_weights!(weights, getfield(node, field))

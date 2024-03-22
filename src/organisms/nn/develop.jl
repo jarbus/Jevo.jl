@@ -39,6 +39,11 @@ function tensor(w::Weights; weight_cache::_WeightCache=nothing)::Array{Float32}
     end
     arr
 end
+function tensor(fw::FactorWeight; weight_cache::_WeightCache=nothing)::Array{Float32}
+    A = tensor(fw.A, weight_cache=weight_cache)
+    B = tensor(fw.B, weight_cache=weight_cache)
+    A * B
+end
 # PERFORMANCE CRITICAL END
 ############################
 

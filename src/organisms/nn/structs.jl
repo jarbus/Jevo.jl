@@ -39,9 +39,9 @@ struct Network <: AbstractLayer
     layers::Vector
 end
 
-struct Dense{T} <: AbstractLayer where T <: AbstractWeights
-    weights::T
-    bias::T
+struct Dense{W,B} <: AbstractLayer where {T <: AbstractWeights, B <: AbstractWeights}
+    weights::W
+    bias::B
     σ::Function
 end
 
