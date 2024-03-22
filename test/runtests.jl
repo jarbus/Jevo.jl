@@ -463,7 +463,6 @@ rng = StableRNG(1)
             @test length(Jevo.step!(env, [trf_p])) == 1
             @test length(Jevo.play(env, [trf_p])) == 1
             seq, logits = infer(trf_p, "1 2 1")
-            println(seq)
             # TODO TEST EXTENSIVELY
         end
     end

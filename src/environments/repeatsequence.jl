@@ -33,10 +33,6 @@ function loss(input, trf)
 end
 preprocess(trf::TransformerPhenotype, batch) = encode(trf.textenc, batch)
 
-function infer(trf::Individual, seq::String)
-    # TODO
-end
-
 function infer(trf::TransformerPhenotype, str::String; max_len::Int=10, n_logits::Int=3, print_output::Bool=false)
     decoder_onehot = encode(trf.textenc, str).token
     decoder_tokens = decode(trf.textenc, decoder_onehot)
@@ -55,8 +51,15 @@ function infer(trf::TransformerPhenotype, str::String; max_len::Int=10, n_logits
     seq_str = join(seq, " ")
     !print_output && return (seq_str, logits)
     println(seq_str)
+    # print vocab
+    for l in trf.textenc.vocab.list
+        print(l, "\t")
+    end
+    # print logits
     for logit in logits
-        println(logit)
+        for v in logit
+            print(v, "\t")
+        end
     end
 
 end
