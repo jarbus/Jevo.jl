@@ -55,11 +55,13 @@ function infer(trf::TransformerPhenotype, str::String; max_len::Int=10, n_logits
     for l in trf.textenc.vocab.list
         print(l, "\t")
     end
+    println()
     # print logits
     for logit in logits
         for v in logit
             print(v, "\t")
         end
+        println()
     end
 
 end
@@ -72,6 +74,6 @@ function step!(env::RepeatSequence, models::Vector{TransformerPhenotype})
     trf = models[1]
     input_batch = preprocess(trf, batch)
     l = loss(input_batch, trf)
-    [l]
+    [-l] # this framework maximizes fitness, so we report loss as negative fitness
 end
 (creator::Creator{RepeatSequence})(;kwargs...) = RepeatSequence(creator.kwargs...)

@@ -12,10 +12,11 @@ global_logger(JevoLogger())
 
 rm("statistics.h5", force=true)
 
-n_inds = 10
+n_inds = 500
 n_species = 1
 n_tokens = 3
 k = 1
+n_generations = 1_000
 
 startsym = "<s>"
 endsym = "</s>"
@@ -26,16 +27,16 @@ vocab_size = length(vocab)
 
 trf_args = (
   n_blocks = 2,
-  n_heads = 2,
-  head_dim = 5,
-  hidden_dim = 10,
-  ff_dim = 20,
+  n_heads = 8,
+  head_dim = 64,
+  hidden_dim = 256,
+  ff_dim = 512,
   vocab_size = vocab_size,
  )
 
 env_args = (
   vocab_size = vocab_size,
-  batch_size = 100,
+  batch_size = 1000,
   seq_len = 2,
   n_repeat = 4,
 )
@@ -72,13 +73,13 @@ BestReporter() = create_op("Reporter",
 state = State([comp_pop_creator, env_creator], 
       [InitializeAllPopulations(), 
         SoloMatchMaker(["p1"]), 
-        Performer(),
+        Performer(time=true),
         ScalarFitnessEvaluator(["p1"]), 
         TruncationSelector(k),
         BestReporter(),
         UniformReproducer(n_inds),
-        Mutator(;mr=.01f0, n=2),
+        Mutator(;mr=.005f0, n=2),
         PopSizeAssertor(n_inds),
         ClearInteractionsAndRecords(),
        ])
-run!(state, 1)
+run!(state, n_generations)
