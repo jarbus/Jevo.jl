@@ -448,12 +448,22 @@ rng = StableRNG(1)
             creator = Creator(Jevo.TransformerPhenotype, (;textenc=textenc))
             trf_p = develop(creator, net)
             seq = "1 2 1"
-            logits = trf_p(seq)
+            input = preprocess(trf_p, seq)
+            logits = trf_p(input)
             @test size(logits) == (8, 5, 1)
             # batching & masking
             sample_batch = batched([(seq,) for i in 1:100])[1]
-            logits = trf_p(sample_batch)
+            input_batch = preprocess(trf_p, sample_batch)
+            logits = trf_p(input_batch)
             @test size(logits) == (8, 5, 100)
+            env = RepeatSequence(vocab_size=vocab_size,
+                                 seq_len=8,
+                                 batch_size=7,
+                                 n_repeat=3)
+            @test length(Jevo.step!(env, [trf_p])) == 1
+            @test length(Jevo.play(env, [trf_p])) == 1
+            seq, logits = infer(trf_p, "1 2 1")
+            println(seq)
             # TODO TEST EXTENSIVELY
         end
     end

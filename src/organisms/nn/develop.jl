@@ -126,10 +126,7 @@ function develop(c::Creator{TransformerPhenotype}, net::Network)
     )
 end
 
-function (trf::TransformerPhenotype)(seq::Union{String, Vector{String}, Vector{Vector{String}}})
-    input = encode(trf.textenc, seq)
-    println(size(input.token))
-    println(size(input.attention_mask))
+function (trf::TransformerPhenotype)(input)
     mask = get(input, :attention_mask, nothing)
     embeds = trf.embed(input.token)
     pos_embed = trf.posembed(embeds)
