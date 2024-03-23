@@ -180,10 +180,12 @@ function develop(c::Creator{TransformerPhenotype}, net::Network)
     trf = net.layers[1]
     @assert trf isa Transformer
     weight_cache = get_weight_cache()
+    embed = create_layer(trf.embed, weight_cache=weight_cache)
+    hidden_dim = size(embed.embeddings, 1)
     TransformerPhenotype(
         c.kwargs.textenc,
-        Transformers.Layers.SinCosPositionEmbed(trf.embed.weights.dims[1]),
-        create_layer(trf.embed, weight_cache=weight_cache),
+        Transformers.Layers.SinCosPositionEmbed(hidden_dim),
+        embed,
         create_layer(trf.blocks, weight_cache=weight_cache),
         create_layer(trf.embeddecoder, weight_cache=weight_cache),
     )

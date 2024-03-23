@@ -8,7 +8,7 @@ function mr_symbol(mr::Float32)
 end
 
 get_weight_symbols(weights::Weights) = 
-    lpad(string(weights.dims), 10) * " " *
+    lpad(string(weights.dims), 15) * " " *
         join([mr_symbol(w.mr) for w in weights.muts]) * "\n"
 get_weight_symbols(factorized_weights::FactorWeight) =
     get_weight_symbols(factorized_weights.A) * get_weight_symbols(factorized_weights.B)
@@ -26,7 +26,7 @@ get_weight_symbols(c::Chain) =
 get_weight_symbols(tdb::TransformerDecoderBlock) =
     get_weight_symbols(tdb.attention) * get_weight_symbols(tdb.ff)
 
-get_weight_symbols(t::Transformer) =
+get_weight_symbols(t::Transformer) = "Transformer\n" *
     "embed\n"* get_weight_symbols(t.embed) *
     "blocks\n" * join([get_weight_symbols(b) for b in t.blocks]) *
     "embeddecoder\n" * get_weight_symbols(t.embeddecoder) 

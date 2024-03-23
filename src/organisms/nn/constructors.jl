@@ -33,7 +33,7 @@ end
 function create_embeds(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{Int}}; rank::Int=-1)
     """Create an embed layer with a (hidden_dim, vocab_dim) weight matrix"""
     @assert length(dims) == 2 "Embed layer must have 2 dimensions, got $(length(dims))"
-    embeds = Weights(rng, counter, dims, init=apply_gaussian_normal_noise!)
+    embeds = Weights(rng, counter, dims, init=apply_gaussian_normal_noise!, rank=rank)
     bias = Weights(rng, counter, (dims[2],), init=apply_gaussian_normal_noise!)
     embed = Embed(embeds)
     embed, EmbedDecoder(embed, bias)

@@ -50,9 +50,9 @@ end
 struct Embed{T} <: AbstractLayer where T <: AbstractWeights
     weights::T
 end
-struct EmbedDecoder{T} <: AbstractLayer where T <: AbstractWeights
-    embed::Embed{T}
-    bias::Union{Nothing,T}
+struct EmbedDecoder{W, B} <: AbstractLayer where {W <: AbstractWeights, B <: AbstractWeights}
+    embed::Embed{W}
+    bias::Union{Nothing,B}
 end
 struct LayerNorm{T} <: AbstractLayer where T <: Union{Nothing, <:AbstractWeights}
     hidden_dim::Int
