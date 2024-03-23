@@ -10,6 +10,9 @@ using CUDA
 using Flux
 using Transformers
 using Transformers.TextEncoders
+# LORA
+using LinearAlgebra
+using LowRankApprox
 # For checkpointing and handling exceptions
 using Serialization
 # For logging
