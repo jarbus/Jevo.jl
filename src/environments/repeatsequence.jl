@@ -8,15 +8,15 @@ Base.@kwdef struct RepeatSequence <: AbstractEnvironment
     n_repeat::Int
 end
 
-function sample_sequence(vocab_size, seq_len, n_repeat)
-    seq = rand(1:vocab_size, seq_len)
+function sample_sequence(vocab_size, seq_len, n_repeat, i)
+    seq = rand(StableRNG(i), 1:vocab_size, seq_len)
     repeat_seq = join(repeat(seq, n_repeat), " ")
     repeat_seq
 end
 function sample_batch(env::RepeatSequence)
     # Each string is enclosed in a tuple for the batch
     # If we were using encoder-decoder, we would have a tuple of two strings
-    seqs = [(sample_sequence(env.vocab_size, env.seq_len, env.n_repeat),) for _ in 1:env.batch_size]
+    seqs = [(sample_sequence(env.vocab_size, env.seq_len, env.n_repeat, i),) for i in 1:env.batch_size]
     batch = batched(seqs)
     batch[1] # get decoder batch
 
