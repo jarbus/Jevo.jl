@@ -64,7 +64,7 @@ function factorized_tensor(;full_dims::Tuple{Vararg{Int}},
     @assert length(full_dims) == 2 "Only 2D tensors are supported"
     @assert length(lora_dims) == 2 "Only 2D tensors are supported"
     @assert lora_dims[1] == rank || lora_dims[2] == rank "Rank must be in the dimensions of the factorized tensor"
-    if lora_dims[1] == full_dims[1]
+    if lora_dims[1] == full_dims[1] && lora_dims[2] != full_dims[2]
         idx = 1
     elseif lora_dims[2] == full_dims[2]
         idx = 2
@@ -83,7 +83,7 @@ function factorized_tensor(;full_dims::Tuple{Vararg{Int}},
         gid = gene.id
         rng = StableRNG(gene.seed)
         mut = get_factors(rng, scratch, rank, gene, idx)
-        @assert size(mut) == size(arr) "size(mut)=$(size(mut)) != size(arr)=$(size(arr))"
+        @assert size(mut) == size(arr) "size(mut)=$(size(mut)) != size(arr)=$(size(arr)), size(scratch)=$(size(scratch)) size(full_dims)=$(full_dims), size(lora_dims)=$(lora_dims), idx=$idx, rank=$rank"
         arr .+= mut
         # update cache if we are using one
         if yes_weight_cache && i != n_genes && gid ∉ keys(weight_cache)

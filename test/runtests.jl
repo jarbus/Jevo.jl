@@ -380,7 +380,7 @@ end
             end
         end
         # Test phenotype creation & forward pass
-        @testset "develop & forward pass" begin
+        @testset "develop & forward pass full rank" begin
             net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu))])
             dense = net.layers[1]
             creator = Creator(Model)
@@ -395,6 +395,29 @@ end
             @test all(map(w ->length(w.muts)==2, Jevo.get_weights(rng, mutated_net, n=-1)))
             mutated_net = Jevo.mutate(rng, state, mutated_net, mr=Float32(0.01))
             @test all(map(w ->length(w.muts)==3, Jevo.get_weights(rng, mutated_net, n=-1)))
+        end
+        @testset "low rank develop + fwd" begin
+            creator = Creator(Model)
+            full_model = develop(creator, Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu))]))
+            recon_full_model = develop(creator, Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu, rank=10))]))
+            lora_model = develop(creator, Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu, rank=1))]))
+
+            @test rand(Float32, 784) |> full_model.chain |> size == (10,)
+            @test rand(Float32, 784) |> recon_full_model.chain |> size == (10,)
+            @test rand(Float32, 784) |> lora_model.chain |> size == (10,)
+
+            dense = full_model.chain.layers[1]
+            f_m, f_std = mean(dense.weight), std(dense.weight)
+            dense = recon_full_model.chain.layers[1]
+            r_m, r_std = mean(dense.weight), std(dense.weight)
+            dense = lora_model.chain.layers[1]
+            lora_m, lora_std = mean(dense.weight), std(dense.weight)
+
+            @test r_m ≈ f_m atol=0.01
+            @test r_std ≈ f_std atol=0.01
+            @test lora_m ≈ f_m atol=0.01
+            @test !isapprox(lora_std, f_std, atol=0.01)
+
         end
         @testset "Transformer" begin
             state = State()
