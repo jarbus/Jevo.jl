@@ -9,6 +9,7 @@ include("./traverse.jl")
 include("./constructors.jl")
 include("./develop.jl")
 include("./mutate.jl")
+include("./utils.jl")
 
 struct SVDInitializer <: AbstractInitializer
     """Initialize a weight matrix by sampling rows/columns from a singular value decomposition of an existing initializer `fn`.

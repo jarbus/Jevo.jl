@@ -1,4 +1,4 @@
-export TransformerPhenotype
+export TransformerPhenotype, Transformer
 """
     @enum Coupling Strict Loose None
 

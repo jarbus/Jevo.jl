@@ -445,6 +445,7 @@ end
             pnr_sa = Jevo.PostNormResidual(rng, gene_counter, sa; hidden_dim=hidden_dim)
             db = Jevo.TransformerDecoderBlock(rng, gene_counter; block_args...)
             trf = Jevo.Transformer(rng, gene_counter; tfr_args...)
+            visualize(trf) # make sure it doesn't error
             net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Transformer, tfr_args)])
             weights = Jevo.get_weights(rng, net, n=-1)
             dims = [w.dims for w in weights]
