@@ -398,9 +398,20 @@ end
         end
         @testset "low rank develop + fwd" begin
             creator = Creator(Model)
-            full_model = develop(creator, Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu))]))
-            recon_full_model = develop(creator, Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu, rank=10))]))
-            lora_model = develop(creator, Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu, rank=1))]))
+            full_net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu))])
+            full_model = develop(creator, full_net)
+            recon_full_net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu, rank=10))])
+            recon_full_model = develop(creator, recon_full_net)
+            lora_net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu, rank=1))])
+            println(lora_net.layers[1])
+            # TODO add a test to make sure that get_factors is deterministic
+            Main.weight_cache = WeightCache(maxsize=1_000_000)
+            lora_model = develop(creator, lora_net)
+            lora_model2 = develop(creator, lora_net)
+            @test length(weight_cache) == 0 # don't add parent
+            # confirm developing the same model twice results in the same layers
+            @test lora_model.chain.layers[1].weight == lora_model2.chain.layers[1].weight
+            @test lora_model.chain.layers[1].bias == lora_model2.chain.layers[1].bias
 
             @test rand(Float32, 784) |> full_model.chain |> size == (10,)
             @test rand(Float32, 784) |> recon_full_model.chain |> size == (10,)

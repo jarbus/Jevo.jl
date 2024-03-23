@@ -42,9 +42,10 @@ end
 
 function get_factors(rng::AbstractRNG, scratch::Array, rank::Int, gene::NetworkGene, idx::Int)
     # zero-out-array
-    scratch .= 0
+    scratch .= 0f0
     gene.init!(rng, Float32, scratch, gene.mr)
     @assert any(scratch .!= 0) "Gene did not initialize any values"
+    Random.seed!(gene.seed)
     U, S, V = psvd(scratch, rank=rank)
     S_diag = diagm(0=>S)
     if idx == 1
