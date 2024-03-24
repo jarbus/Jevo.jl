@@ -118,9 +118,13 @@ function create_layer(layer::Jevo.EmbedDecoder; weight_cache::_WeightCache)
 end
 
 function create_layer(layer::Jevo.TransformerDecoderBlock; weight_cache::_WeightCache)
+    attn_layer = Threads.@spawn create_layer(layer.attention, weight_cache=weight_cache)
+    ff_layer = create_layer(layer.ff, weight_cache=weight_cache)
+    wait(attn_layer)
+    wait(ff_layer)
     Transformers.Layers.TransformerDecoderBlock(
-        create_layer(layer.attention, weight_cache=weight_cache),
-        create_layer(layer.ff, weight_cache=weight_cache),
+        attn_layer.result,
+        ff_layer.result
     )
 end
 
@@ -147,8 +151,11 @@ function create_layer(layer::Jevo.SelfAttention; weight_cache::_WeightCache)
 end
 
 function create_layer(geno_blocks::Tuple{Vararg{TransformerDecoderBlock}}; weight_cache::_WeightCache)
-    pheno_blocks = Tuple(create_layer(b, weight_cache=weight_cache) for b in geno_blocks)
-    Transformers.Transformer(pheno_blocks) |> todevice
+    pheno_blocks = Vector{Transformers.Layers.TransformerDecoderBlock}(undef, length(geno_blocks))
+    Threads.@threads for i in eachindex(geno_blocks)
+        pheno_blocks[i] = create_layer(geno_blocks[i], weight_cache=weight_cache)
+    end
+    Transformers.Transformer(Tuple(pheno_blocks)) |> todevice
 end
 
 # Chain
