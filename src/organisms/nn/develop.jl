@@ -119,7 +119,7 @@ end
 
 function create_layer(layer::Jevo.TransformerDecoderBlock; weight_cache::_WeightCache)
     attn_layer = Threads.@spawn create_layer(layer.attention, weight_cache=weight_cache)
-    ff_layer = create_layer(layer.ff, weight_cache=weight_cache)
+    ff_layer = Threads.@spawn create_layer(layer.ff, weight_cache=weight_cache)
     wait(attn_layer)
     wait(ff_layer)
     Transformers.Layers.TransformerDecoderBlock(
