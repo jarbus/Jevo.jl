@@ -395,6 +395,8 @@ end
             @test all(map(w ->length(w.muts)==2, Jevo.get_weights(rng, mutated_net, n=-1)))
             mutated_net = Jevo.mutate(rng, state, mutated_net, mr=Float32(0.01))
             @test all(map(w ->length(w.muts)==3, Jevo.get_weights(rng, mutated_net, n=-1)))
+            mutated_net = Jevo.mutate(rng, state, mutated_net, mr=(0.1f0, 0.01f0,0.001f0))
+            @test all(map(w ->length(w.muts)==4, Jevo.get_weights(rng, mutated_net, n=-1)))
         end
         @testset "low rank develop + fwd" begin
             creator = Creator(Model)

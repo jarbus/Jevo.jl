@@ -7,11 +7,12 @@ function mutate_weights!(rng::AbstractRNG, state::State, genotype::Network, mr::
     end
 end
 
-function mutate(rng::AbstractRNG, state::State, genotype::Network; mr::Float32, n::Int=2)
+function mutate(rng::AbstractRNG, state::State, genotype::Network; mr::Union{Float32,Tuple{Vararg{Float32}}}, n::Int=2)
     @assert genotype.coupling in (StrictCoupling, NoCoupling) "Only strict and no coupling are supported right now"
     new_genotype = deepcopy(genotype)
     genotype.coupling == StrictCoupling && (n = -1)
-    mutate_weights!(rng, state, new_genotype, mr, n=n)
+    mrf0 = mr isa Float32 ? mr : rand(rng, mr)
+    mutate_weights!(rng, state, new_genotype, mrf0, n=n)
     new_genotype
 end
 
