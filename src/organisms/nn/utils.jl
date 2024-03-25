@@ -1,10 +1,10 @@
 export visualize
 function mr_symbol(mr::Float32)
     mr == 1.0f0 && return "#"
-    mr >= 0.1 && return "0"
-    mr >= 0.01 && return "O"
-    mr >= 0.001 && return "o"
-    mr >= 0.0001 && return "."
+    mr >= 0.1f0 && return "0"
+    mr >= 0.01f0 && return "O"
+    mr >= 0.001f0 && return "o"
+    mr >= 0.0001f0 && return "."
 end
 
 get_weight_symbols(weights::Weights) = 
