@@ -1,7 +1,8 @@
 function get_binding(dims::NTuple{N, Int}, genes::Vector{NetworkGene}, idx::Int=length(genes))::WeightBinding where {N}
     length(genes) == 0 && error("No genes found")
-    idx == 1 && return WeightBinding(dims, genes[1].seed, nothing)
-    WeightBinding(dims, genes[idx].seed, genes[idx-1].seed)
+    bind_end = @inline max(idx-10, 1)
+    ids = @inline Tuple(g.id for g in genes[idx:-1:bind_end])
+    WeightBinding(dims, ids)
 end
 
 ############################

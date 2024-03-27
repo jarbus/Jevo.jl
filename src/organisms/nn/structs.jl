@@ -91,8 +91,7 @@ We identify weights of a layer by their dimensions and the last two rng seeds us
 """
 struct WeightBinding 
     dims::Tuple{Vararg{Int}}
-    last_seed::UInt64
-    second_to_last_seed::Union{UInt64,Nothing}
+    ids::Tuple{Vararg{UInt64}}
 end
 
 _WeightCache = Union{LRU{WeightBinding, <:Array{Float32}}, Nothing}

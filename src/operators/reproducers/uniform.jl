@@ -16,7 +16,6 @@ function uniform_reproduce!(state::AbstractState, pops::Vector{Population}, size
     IndType = typeof(pop.individuals[1])
     append!(pop.individuals, Vector{IndType}(undef, size-n_parents))
     # choose a random parent and push to individuals
-    # TODO use rng seed for each child
     rngs = [rand(state.rng, UInt) for i in (n_parents+1):size]
     Threads.@threads for i in (n_parents+1):size
         rng = StableRNG(rngs[i-n_parents])

@@ -3,7 +3,11 @@ function mutate_weights!(rng::AbstractRNG, state::State, genotype::Network, mr::
     weights = get_weights(rng, genotype, n=n)
     for weight in weights
         init = weight.muts[1].init!
-        push!(weight.muts, NetworkGene(rng, gene_counter, mr, init))
+        if rand(rng) > 0.05 # Generate new gene with 95% probability
+            push!(weight.muts, NetworkGene(rng, gene_counter, mr, init))
+        else # Re-apply existing gene with 5% probability
+            push!(weight.muts, NetworkGene(gene_counter, weight.muts[end].seed, mr, init))
+        end
     end
 end
 

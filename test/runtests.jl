@@ -333,19 +333,19 @@ end
         dense = net.layers[1]
 
         @testset "binding" begin
+            state = State()
+            gene_counter = Jevo.get_counter(AbstractGene, state)
             net_bind = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu))])
             dense_bind = net_bind.layers[1]
             @test length(dense_bind.weights.muts) == 1
             seed = dense_bind.weights.muts[1].seed
             binding = Jevo.get_binding((784,10), dense_bind.weights.muts)
             @test binding.dims == (784,10)
-            @test binding.last_seed == seed
-            @test isnothing(binding.second_to_last_seed)
-            push!(dense_bind.weights.muts, Jevo.NetworkGene(2, 2, 0.1, Jevo.apply_kaiming_normal_noise!))
+            @test binding.ids == (1,)
+            push!(dense_bind.weights.muts, Jevo.NetworkGene(3, 2, 0.1, Jevo.apply_kaiming_normal_noise!))
             binding = Jevo.get_binding((784,10), dense_bind.weights.muts)
             @test binding.dims == (784,10)
-            @test binding.last_seed == dense_bind.weights.muts[2].seed
-            @test binding.second_to_last_seed == seed
+            @test binding.ids == (UInt64(3),UInt64(1))
         end
         @testset "tensor()" begin
             @test (10,784) == size(Jevo.tensor(dense.weights))
