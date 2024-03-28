@@ -7,9 +7,34 @@ function mr_symbol(mr::Float32)
     mr >= 0.0001f0 && return "."
 end
 
-get_weight_symbols(weights::Weights) = 
-    lpad(string(weights.dims), 15) * " " *
-        join([mr_symbol(w.mr) for w in weights.muts]) * "\n"
+function gene_symbol(prev_gene::NetworkGene, gene::NetworkGene)
+    if gene.seed == prev_gene.seed
+        if gene.mr == prev_gene.mr
+            return "─"
+        elseif gene.mr > prev_gene.mr
+            return "<"
+        else
+            return ">"
+        end
+    else
+        return mr_symbol(gene.mr)
+    end
+end
+
+function get_symbols(genes::Vector{NetworkGene})
+    @assert length(genes) >= 1
+    symbols = String[mr_symbol(genes[1].mr)]
+    for i in 2:length(genes)
+        push!(symbols, gene_symbol(genes[i-1], genes[i]))
+    end
+    return join(symbols)
+end
+
+function get_weight_symbols(weights::Weights)
+    str = lpad(string(weights.dims), 15) * " "
+    str *= get_symbols(weights.muts) * "\n"
+end
+
 get_weight_symbols(factorized_weights::FactorWeight) =
     get_weight_symbols(factorized_weights.A) * get_weight_symbols(factorized_weights.B)
 get_weight_symbols(pnr::PostNormResidual) = get_weight_symbols(pnr.layer)
