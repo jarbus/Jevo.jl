@@ -1,12 +1,20 @@
 function mutate_weights!(rng::AbstractRNG, state::State, genotype::Network, mr::Float32; n=-1)
     gene_counter = get_counter(AbstractGene, state)
+    genepool = nothing
+    try
+        genepool = findone(GenePool, state.data)
+    catch
+        @warn("Gene pool not found in state for mutation, should only occur in testing")
+        genepool = nothing
+    end
     weights = get_weights(rng, genotype, n=n)
     for weight in weights
         init = weight.muts[1].init!
-        if rand(rng) > 0.05 # Generate new gene with 95% probability
+        if isnothing(genepool) || rand(rng) > 0.1 # Generate new gene with 90% probability
             push!(weight.muts, NetworkGene(rng, gene_counter, mr, init))
-        else # Re-apply existing gene with 5% probability
-            push!(weight.muts, NetworkGene(gene_counter, weight.muts[end].seed, mr, init))
+        else # Re-apply existing gene with 10% probability
+            gp_gene = rand(rng, genepool, weight.dims)
+            push!(weight.muts, NetworkGene(gene_counter, gp_gene.seed, mr, init, gp_gene.poolinfo))
         end
     end
 end

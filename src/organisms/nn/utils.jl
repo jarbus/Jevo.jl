@@ -7,25 +7,18 @@ function mr_symbol(mr::Float32)
     mr >= 0.0001f0 && return "."
 end
 
-function gene_symbol(prev_gene::NetworkGene, gene::NetworkGene)
-    if gene.seed == prev_gene.seed
-        if gene.mr == prev_gene.mr
-            return "─"
-        elseif gene.mr > prev_gene.mr
-            return "<"
-        else
-            return ">"
-        end
-    else
+function gene_symbol(gene::NetworkGene)
+    if gene.poolinfo.host_id == -1
         return mr_symbol(gene.mr)
     end
+    return "[" * string(gene.poolinfo.host_id) *"-"*string(gene.poolinfo.depth) * "]"
 end
 
 function get_symbols(genes::Vector{NetworkGene})
     @assert length(genes) >= 1
     symbols = String[mr_symbol(genes[1].mr)]
     for i in 2:length(genes)
-        push!(symbols, gene_symbol(genes[i-1], genes[i]))
+        push!(symbols, gene_symbol(genes[i]))
     end
     return join(symbols)
 end

@@ -8,6 +8,7 @@ include("./structs.jl")
 include("./traverse.jl")
 include("./constructors.jl")
 include("./develop.jl")
+include("./pooler.jl")
 include("./mutate.jl")
 include("./utils.jl")
 

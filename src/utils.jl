@@ -14,6 +14,14 @@ function find(attr::Symbol, match::Any, v::Vector)
     @assert false "Failed to retrieve an element from $(typeof(v)) where el.$(attr) == $match"
 end
 
+function findone(type::Type, v::Vector)
+    matches = filter(x -> x isa type, v)
+    @assert length(matches) == 1 "Found $(length(matches)) elements of type $type"
+    matches[1]
+end
+
+
+
 get_counter(type::Type, state::AbstractState) = find(:type, type, state.counters)
 function get_creators(type::Type, state::AbstractState)
     creators = [c for c in state.creators if c.type <: type]

@@ -9,12 +9,22 @@ export TransformerPhenotype, Transformer
 """
 @enum Coupling StrictCoupling LooseCoupling NoCoupling
 
-# Weights
+Base.@kwdef struct PoolInfo
+    host_id::Int = -1 # -1 for initial host, host_id when copied
+    depth::Int  = -1 # how far back in the genome do we go
+end
+
+# Can't use costly dict or vector, these need to be high perf
 struct NetworkGene <: AbstractMutation
     id::Int
     seed::UInt64
     mr::Float32
     init!::Union{AbstractInitializer,Function}
+    poolinfo::PoolInfo
+end
+
+Base.@kwdef struct GenePool <: AbstractData
+    genes::Dict{Tuple{Vararg{Int}}, Vector{NetworkGene}} = Dict()
 end
 
 struct Weights <: AbstractWeights
@@ -87,7 +97,7 @@ struct Model <: AbstractPhenotype
 end
 
 """
-We identify weights of a layer by their dimensions and the last two rng seeds used to generate them.
+We identify weights of a layer by their dimensions and the last two ids used to generate them.
 """
 struct WeightBinding 
     dims::Tuple{Vararg{Int}}

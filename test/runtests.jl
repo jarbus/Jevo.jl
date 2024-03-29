@@ -342,7 +342,7 @@ end
             binding = Jevo.get_binding((784,10), dense_bind.weights.muts)
             @test binding.dims == (784,10)
             @test binding.ids == (1,)
-            push!(dense_bind.weights.muts, Jevo.NetworkGene(3, 2, 0.1, Jevo.apply_kaiming_normal_noise!))
+            push!(dense_bind.weights.muts, Jevo.NetworkGene(3, UInt64(2), 0.1f0, Jevo.apply_kaiming_normal_noise!))
             binding = Jevo.get_binding((784,10), dense_bind.weights.muts)
             @test binding.dims == (784,10)
             @test binding.ids == (UInt64(3),UInt64(1))
@@ -373,7 +373,7 @@ end
                     arr .-= 999
                 end
                 # Add a mutation to the gene to restore from a parent 
-                push!(dense.weights.muts, Jevo.NetworkGene(3, 3, 0.1, Jevo.apply_kaiming_normal_noise!))
+                push!(dense.weights.muts, Jevo.NetworkGene(3, UInt64(3), 0.1f0, Jevo.apply_kaiming_normal_noise!))
                 cache_construction = Jevo.create_layer(dense, weight_cache=weight_cache)
                 @test nocache_construction.weight != cache_construction.weight
                 @test all(cache_construction.weight .< -900)
@@ -414,23 +414,23 @@ end
             # confirm developing the same model twice results in the same layers
             @test lora_model.chain.layers[1].weight == lora_model2.chain.layers[1].weight
             @test lora_model.chain.layers[1].bias == lora_model2.chain.layers[1].bias
-
+        
             @test rand(Float32, 784) |> full_model.chain |> size == (10,)
             @test rand(Float32, 784) |> recon_full_model.chain |> size == (10,)
             @test rand(Float32, 784) |> lora_model.chain |> size == (10,)
-
+        
             dense = full_model.chain.layers[1]
             f_m, f_std = mean(dense.weight), std(dense.weight)
             dense = recon_full_model.chain.layers[1]
             r_m, r_std = mean(dense.weight), std(dense.weight)
             dense = lora_model.chain.layers[1]
             lora_m, lora_std = mean(dense.weight), std(dense.weight)
-
+        
             @test r_m ≈ f_m atol=0.01
             @test r_std ≈ f_std atol=0.01
             @test lora_m ≈ f_m atol=0.01
             @test !isapprox(lora_std, f_std, atol=0.01)
-
+        
         end
         @testset "Transformer" begin
             state = State()
@@ -450,6 +450,17 @@ end
             attn_args = (n_heads=n_heads, head_dim=head_dim, hidden_dim=hidden_dim)
             block_args = (attn_args..., ff_dim=ff_dim)
             tfr_args = (block_args..., n_blocks=n_blocks, vocab_size=vocab_size)
+
+
+            expected_weight_dims = [
+                (hidden_dim, vocab_size), # embed
+                (vocab_size,), # embed bias
+                (hidden_dim, ff_dim), # ff
+                (ff_dim, hidden_dim),
+                (3*head_dim*n_heads, hidden_dim), # qkv
+                (head_dim*n_heads, hidden_dim),   # out
+                (hidden_dim,), # layernorm
+            ]
             # Construct each of the pieces of a transformer
             # Embed, EmbedDecoder, SelfAttention, PostNormResidual, TransformerDecoderBlock, Transformer
             rng = StableRNG(1)
@@ -458,20 +469,25 @@ end
             pnr_sa = Jevo.PostNormResidual(rng, gene_counter, sa; hidden_dim=hidden_dim)
             db = Jevo.TransformerDecoderBlock(rng, gene_counter; block_args...)
             trf = Jevo.Transformer(rng, gene_counter; tfr_args...)
-            visualize(trf) # make sure it doesn't error
+            net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Transformer, tfr_args)])
+            @testset "visualize" begin
+            weights = Jevo.get_weights(rng, net, n=-1)
+            for w in weights
+                last_mut = w.muts[end]
+                push!(w.muts, NetworkGene(rand(Int), last_mut.seed, rand([2f0, 1f0, 0.01f0]), last_mut.init!))
+            end
+            println(visualize(net)) # make sure it doesn't error
+            end
             net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Transformer, tfr_args)])
             weights = Jevo.get_weights(rng, net, n=-1)
             dims = [w.dims for w in weights]
-            @test (hidden_dim,vocab_size) in dims # embed
-            @test (vocab_size,) in dims # embed bias
+            for dim in expected_weight_dims
+                @test dim in dims
+            end
+
             # make sure (10,5) is in dims exactly once, we don't want to
             # double count when sharing weights for embed/embeddecoder
             @test sum([d == (hidden_dim,vocab_size) for d in dims]) == 1
-            @test (hidden_dim,ff_dim) in dims # ff
-            @test (ff_dim,hidden_dim) in dims
-            @test (3*head_dim*n_heads, hidden_dim) in dims # qkv
-            @test (head_dim*n_heads, hidden_dim) in dims   # out
-            @test (hidden_dim,) in dims # layernorm
             mutated_net = Jevo.mutate(rng, state, net, mr=Float32(0.01))
             # TODO ADD TEST FOR GAUSSIAN VS KAIMING INIT
             Jevo.create_layer(embed; weight_cache=weight_cache)
@@ -480,7 +496,7 @@ end
             Jevo.create_layer(pnr_sa; weight_cache=weight_cache)
             Jevo.create_layer(db; weight_cache=weight_cache)
             Jevo.create_layer((db,db); weight_cache=weight_cache)
-
+            
             textenc = TransformerTextEncoder(split, vocab; startsym, endsym, unksym, padsym=unksym)
             creator = Creator(Jevo.TransformerPhenotype, (;textenc=textenc))
             trf_p = develop(creator, net)
@@ -514,6 +530,50 @@ end
                 net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Transformer, lora_tfr_args)])
                 lora_tfr_p = develop(Creator(Jevo.TransformerPhenotype, (;textenc=textenc)), net)
             end
+
+            @testset "GenePooler" begin
+                # Conduct random mutation using gene pool to confirm that gene pool genes are used
+                n_env_inputs = 5
+                n_species = 2
+                n_inds = 3
+
+                gene_counter = Jevo.get_counter(AbstractGene, state)
+                geno_creator = Creator(Network, (rng, gene_counter, StrictCoupling, [(Jevo.Transformer, tfr_args)]))
+                geno = geno_creator()
+                phen_creator = Creator(Model)
+
+                comp_pop_creator = Creator(CompositePopulation, ("species", [("p$i", n_inds, geno_creator, phen_creator) for i in 1:n_species], state.counters))
+                state = State([comp_pop_creator], 
+                      [ InitializeAllPopulations(), 
+                        GenePooler(n_back=2),
+                        UniformReproducer(n_inds+n_inds),
+                        Mutator(;mr=Float32(0.01), n=2),
+                       ])
+                run!(state, 1)
+                genepool = Jevo.findone(Jevo.GenePool, state.data)
+                @test length(genepool.genes) > 0
+                for dim in expected_weight_dims
+                    @test dim in keys(genepool.genes)
+                end
+                for genes in values(genepool.genes), gene in genes
+                    @assert gene.poolinfo.host_id > -1
+                    @assert gene.poolinfo.depth < 3
+                end
+                new_gene = false
+                gene_from_gene_pool = false
+                for ind in Jevo.get_individuals(state)
+                    visualize(ind.genotype)
+                    for weight in Jevo.get_weights(rng, ind.genotype, n=-1), gene in weight.muts
+                        if gene.poolinfo.host_id > -1
+                            gene_from_gene_pool = true
+                        else
+                            new_gene = true
+                        end
+                    end
+                end
+                @test gene_from_gene_pool == true
+                @test new_gene == true
+            end
         end
     end
     @testset "integration tests" begin
@@ -540,6 +600,7 @@ end
                 Performer(),
                 ScalarFitnessEvaluator(["p1", "p2"]), 
                 TruncationSelector(1),
+                GenePooler(n_back=2),
                 UniformReproducer(n_inds),
                 Mutator(;mr=Float32(0.01), n=2),
                 PopSizeAssertor(n_inds),
@@ -569,6 +630,7 @@ end
     #             Performer(),
     #             ScalarFitnessEvaluator(["p1"]), 
     #             TruncationSelector(1),
+    #             GenePooler(n_back=2),
     #             UniformReproducer(n_inds),
     #             Mutator(;mr=Float32(0.01), n=2),
     #             PopSizeAssertor(n_inds),
