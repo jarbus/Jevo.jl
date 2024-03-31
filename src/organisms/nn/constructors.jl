@@ -54,9 +54,8 @@ function SelfAttention(rng::AbstractRNG, counter::AbstractCounter;
 end
 function LayerNorm(rng::AbstractRNG, counter::AbstractCounter; hidden_dim::Int)
     """Create a layer norm with scale and bias"""
-    # TODO evolve these
-    scale = nothing
-    bias = nothing
+    scale = Weights(rng, counter, (hidden_dim,), init=apply_one!)
+    bias = Weights(rng, counter, (hidden_dim,), init=apply_zero!)
     LayerNorm(hidden_dim, scale, bias)
 end
 

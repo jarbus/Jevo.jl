@@ -47,3 +47,15 @@ function apply_gaussian_normal_noise!(rng::AbstractRNG, ::Type, arr::Array{Float
         arr[i] += randn(rng, Float32) * mr
     end
 end
+
+apply_zero!(rng::AbstractRNG, t::Type, arr::Array{Float32}, ::Float32) =
+    apply_constant!(rng, t, arr, 0f0)
+
+    apply_one!(rng::AbstractRNG, t::Type, arr::Array{Float32}, ::Float32) =
+    apply_constant!(rng, t, arr, 1f0)
+
+function apply_constant!(rng::AbstractRNG, ::Type, arr::Array{Float32}, v::Float32)
+    @fastmath @inbounds @simd for i in 1:length(arr)
+        arr[i] += v
+    end
+end

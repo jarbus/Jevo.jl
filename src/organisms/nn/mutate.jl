@@ -1,8 +1,18 @@
+"""
+If initialized with ones or zeros, then just mutate with Gaussian noise
+"""
+function compute_init(fn::Function)
+    if fn == apply_one! || fn == apply_zero!
+        return apply_gaussian_normal_noise!
+    end
+    fn
+end
+
 function mutate_weights!(rng::AbstractRNG, state::State, genotype::Network, mr::Float32; n=-1)
     gene_counter = get_counter(AbstractGene, state)
     weights = get_weights(rng, genotype, n=n)
     for weight in weights
-        init = weight.muts[1].init!
+        init = compute_init(weight.muts[1].init!)
         if rand(rng) > 0.05 # Generate new gene with 95% probability
             push!(weight.muts, NetworkGene(rng, gene_counter, mr, init))
         else # Re-apply existing gene with 5% probability

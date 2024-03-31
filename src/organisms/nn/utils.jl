@@ -37,7 +37,8 @@ end
 
 get_weight_symbols(factorized_weights::FactorWeight) =
     get_weight_symbols(factorized_weights.A) * get_weight_symbols(factorized_weights.B)
-get_weight_symbols(pnr::PostNormResidual) = get_weight_symbols(pnr.layer)
+get_weight_symbols(pnr::PostNormResidual) = get_weight_symbols(pnr.layer) * get_weight_symbols(pnr.norm)
+get_weight_symbols(ln::LayerNorm) = "layernorm\n" * get_weight_symbols(ln.scale) * get_weight_symbols(ln.bias)
 get_weight_symbols(sa::SelfAttention) =
     "qkv\n" * get_weight_symbols(sa.qkv) *
     "out\n" * get_weight_symbols(sa.out)

@@ -138,8 +138,9 @@ end
 
 # LayerNorm
 function create_layer(layer::Jevo.LayerNorm; weight_cache::_WeightCache)
-    @assert isnothing(layer.scale) && isnothing(layer.bias) "LayerNorm scale and bias must be nothing, we aren't evolving these yet"
-    Transformers.Layers.LayerNorm(layer.hidden_dim)
+    scale = @inline tensor(layer.scale, weight_cache=weight_cache)
+    bias = @inline tensor(layer.bias, weight_cache=weight_cache)
+    Transformers.Layers.LayerNorm(scale, bias, Float32(1e-7))
 end
 
 # SelfAttention
