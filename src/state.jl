@@ -34,11 +34,11 @@ end
 
 # shorthand to create empty states 
 State() = State("", StableRNG(1234), AbstractCreator[], AbstractOperator[])
-function State(creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator})
+function State(rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator})
     if get(ENV, "JULIA_TEST_MODE", "false") != "true"
         println("Creating state with seed 1")
     end
-    State("", StableRNG(1), creators, operators)
+    State("", rng, creators, operators)
 end
 
 function operate!(state::AbstractState) 
