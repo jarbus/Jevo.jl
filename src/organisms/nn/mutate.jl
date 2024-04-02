@@ -11,8 +11,16 @@ end
 function mutate_weights!(rng::AbstractRNG, state::State, genotype::Network, mr::Union{Float32,Tuple{Vararg{Float32}}}; n=-1)
     gene_counter = get_counter(AbstractGene, state)
     weights = get_weights(rng, genotype, n=n)
+    # Compute a maximum mutation rate, don't add genes
+    # with mutation rates higher than this
+    # This guarantees that we generate some mutations with small
+    # updates and some with large updates. If we sampled uniformly,
+    # we would generate a lot of mutations with at least one 
+    # large update
+    max_mr = rand(rng, mr)
     for weight in weights
         mrf0 = mr isa Float32 ? mr : rand(rng, mr)
+        mrf0 > max_mr && continue
         init = compute_init(weight.muts[1].init!)
         if rand(rng) > 0.05 # Generate new gene with 95% probability
             push!(weight.muts, NetworkGene(rng, gene_counter, mrf0, init))
