@@ -33,6 +33,11 @@ struct FactorWeight{T} <: AbstractWeights where T <: AbstractWeights
     B::T
 end
 
+struct CompositeWeight{T} <: AbstractWeights where T <: AbstractWeights
+    """A collection of weights which are added together. Each element must develop to the same size"""
+    weights::Vector{T}
+end
+
 struct Network <: AbstractLayer
     """A collection and a coupling scheme."""
     coupling::Coupling

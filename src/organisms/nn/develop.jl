@@ -45,6 +45,9 @@ function tensor(fw::FactorWeight; weight_cache::_WeightCache=nothing)::Array{Flo
     B = @inline tensor(fw.B, weight_cache=weight_cache)
     A * B
 end
+function tensor(cw::CompositeWeight; weight_cache::_WeightCache=nothing)::Array{Float32}
+    sum(tensor(w, weight_cache=weight_cache) for w in cw.weights)
+end
 # PERFORMANCE CRITICAL END
 ############################
 
