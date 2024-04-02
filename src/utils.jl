@@ -33,6 +33,11 @@ function kaiming_normal(rng::AbstractRNG,::Type, dims::Integer...; gain::Real = 
   return randn(rng, Float32, dims...) .* std
 end
 
+# initialize factors with 2^(1/4) gain so when multiplied together,
+# the resulting matrix has 2^(1/2) gain
+apply_kaiming_normal_noise_factored!(rng::AbstractRNG, ::Type, arr::Array{Float32}, mr::Float32) =
+    apply_kaiming_normal_noise!(rng, Float32, arr, mr, gain=2^(1/4))
+    
 function apply_kaiming_normal_noise!(rng::AbstractRNG, ::Type, arr::Array{Float32}, mr::Float32; gain::Real = √2f0)
     dims = size(arr)
     std = Float32(gain / sqrt(first(Flux.nfan(dims...))))

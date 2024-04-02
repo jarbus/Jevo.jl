@@ -400,11 +400,11 @@ end
         end
         @testset "low rank develop + fwd" begin
             creator = Creator(Model)
-            full_net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu))])
+            full_net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,100), σ=relu))])
             full_model = develop(creator, full_net)
-            recon_full_net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu, rank=10))])
+            recon_full_net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,100), σ=relu, rank=100))])
             recon_full_model = develop(creator, recon_full_net)
-            lora_net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu, rank=1))])
+            lora_net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,100), σ=relu, rank=32))])
             println(lora_net.layers[1])
             # TODO add a test to make sure that get_factors is deterministic
             Main.weight_cache = WeightCache(maxsize=1_000_000)
@@ -415,9 +415,9 @@ end
             @test lora_model.chain.layers[1].weight == lora_model2.chain.layers[1].weight
             @test lora_model.chain.layers[1].bias == lora_model2.chain.layers[1].bias
 
-            @test rand(Float32, 784) |> full_model.chain |> size == (10,)
-            @test rand(Float32, 784) |> recon_full_model.chain |> size == (10,)
-            @test rand(Float32, 784) |> lora_model.chain |> size == (10,)
+            @test rand(Float32, 784) |> full_model.chain |> size == (100,)
+            @test rand(Float32, 784) |> recon_full_model.chain |> size == (100,)
+            @test rand(Float32, 784) |> lora_model.chain |> size == (100,)
 
             dense = full_model.chain.layers[1]
             f_m, f_std = mean(dense.weight), std(dense.weight)
@@ -429,7 +429,7 @@ end
             @test r_m ≈ f_m atol=0.01
             @test r_std ≈ f_std atol=0.01
             @test lora_m ≈ f_m atol=0.01
-            @test !isapprox(lora_std, f_std, atol=0.01)
+            @test lora_std ≈ f_std atol=0.01
 
         end
         @testset "Transformer" begin

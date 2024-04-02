@@ -7,8 +7,8 @@ function Weights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{
     rank == -1 && return Weights(dims, [NetworkGene(rng, counter, 1f0, init)])
     @assert length(dims) == 2 "Factorized weights must have 2 dimensions, got $(length(dims))"
     FactorWeight(
-        Weights(rng, counter, (dims[1], rank), init=init),
-        Weights(rng, counter, (rank, dims[2]), init=init)
+        Weights(rng, counter, (dims[1], rank), init=apply_kaiming_normal_noise_factored!),
+        Weights(rng, counter, (rank, dims[2]), init=apply_kaiming_normal_noise_factored!)
     )
 end
 

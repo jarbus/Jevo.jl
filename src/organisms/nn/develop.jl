@@ -40,68 +40,9 @@ function tensor(w::Weights; weight_cache::_WeightCache=nothing)::Array{Float32}
     end
     arr
 end
-
-function get_factors(rng::AbstractRNG, scratch::Array, rank::Int, gene::NetworkGene, idx::Int)
-    # zero-out-array
-    scratch .= 0f0
-    gene.init!(rng, Float32, scratch, gene.mr)
-    @assert any(scratch .!= 0) "Gene did not initialize any values"
-    Random.seed!(gene.seed)
-    U, S, V = psvd(scratch, rank=rank)
-    S_diag = diagm(0=>S)
-    if idx == 1
-        return U * sqrt(S_diag)
-    elseif idx == 2
-        return sqrt(S_diag) * V'
-    else
-        error("Invalid index for factorized tensor: $idx")
-    end
-end
-function factorized_tensor(;full_dims::Tuple{Vararg{Int}},
-        rank::Int,
-        lora_dims::Tuple{Vararg{Int}},
-        genes::Vector{NetworkGene},
-        weight_cache::_WeightCache=nothing)::Array{Float32}
-    """Performs psvd on full-rank matrix to generate factors"""
-    @assert length(full_dims) == 2 "Only 2D tensors are supported"
-    @assert length(lora_dims) == 2 "Only 2D tensors are supported"
-    @assert lora_dims[1] == rank || lora_dims[2] == rank "Rank must be in the dimensions of the factorized tensor"
-    if lora_dims[1] == full_dims[1] && lora_dims[2] != full_dims[2]
-        idx = 1
-    elseif lora_dims[2] == full_dims[2]
-        idx = 2
-    else
-        error("Invalid dimensions for factorized tensor: lora=$lora_dims, full=$full_dims")
-    end
-    # ADD MUTS that have have not been cached
-    n_genes = length(genes)
-    # get earliest cached weight or zero tensor if none found
-    arr, ancestor_idx = @inline get_earliest_cached_weight(lora_dims, genes, weight_cache)
-    yes_weight_cache = !isnothing(weight_cache)
-    # iteratively apply remaining mutations
-    scratch = zeros(Float32, full_dims) # we use this to generate random numbers for SVD
-    @inbounds @fastmath @simd for i in ancestor_idx+1:n_genes
-        gene = genes[i]
-        gid = gene.id
-        rng = StableRNG(gene.seed)
-        mut = get_factors(rng, scratch, rank, gene, idx)
-        @assert size(mut) == size(arr) "size(mut)=$(size(mut)) != size(arr)=$(size(arr)), size(scratch)=$(size(scratch)) size(full_dims)=$(full_dims), size(lora_dims)=$(lora_dims), idx=$idx, rank=$rank"
-        arr .+= mut
-        # update cache if we are using one
-        if yes_weight_cache && i != n_genes && gid ∉ keys(weight_cache)
-            binding = get_binding(lora_dims, genes, i)
-            weight_cache[binding] = copy(arr)
-        end
-    end
-    arr
-end
-
 function tensor(fw::FactorWeight; weight_cache::_WeightCache=nothing)::Array{Float32}
-    full_dims = (fw.A.dims[1], fw.B.dims[2])
-    A = factorized_tensor(full_dims=full_dims, rank=fw.A.dims[2], lora_dims=fw.A.dims,
-                          genes=fw.A.muts, weight_cache=weight_cache)
-    B = factorized_tensor(full_dims=full_dims, rank=fw.B.dims[1], lora_dims=fw.B.dims,
-                          genes=fw.B.muts, weight_cache=weight_cache)
+    A = @inline tensor(fw.A, weight_cache=weight_cache)
+    B = @inline tensor(fw.B, weight_cache=weight_cache)
     A * B
 end
 # PERFORMANCE CRITICAL END
