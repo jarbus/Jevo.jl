@@ -17,11 +17,16 @@ function find_highest_mr(weights::Vector{Weights}, lookback::Int)
     @assert max_mr >= 0 "max_mr must be non-negative"
     max_mr
 end
-compute_max_mr(::Vector{Weights}, mr::Float32, ::Int) = mr
+compute_max_mr(::AbstractRNG, ::Vector{Weights}, mr::Float32, ::Int) = mr
 # NOTE that this automatically sets the max mutation rate to the highest mutation rate for the first 20 muts or so
 # since initialization is an MR of 1
-compute_max_mr(weights::Vector{Weights}, mr::Tuple{Vararg{Float32}}, lookback::Int) =
-    lookback < 0 ? rand(mr) : find_highest_mr(weights, lookback)
+function compute_max_mr(rng::AbstractRNG, weights::Vector{Weights}, mr::Tuple{Vararg{Float32}}, lookback::Int)
+    lookback < 0 && return rand(rng, mr) 
+    highest_mr = find_highest_mr(weights, lookback)
+    highest_mr >= 1f0 && return rand(rng, mr)
+    # find random highest mr less than the highest mr
+    rand(rng, filter(x -> x <= highest_mr, mr))
+end
 sample_mr(::AbstractRNG, mr::Float32) = mr
 sample_mr(rng::AbstractRNG, mr::Tuple{Vararg{Float32}}) = rand(rng, mr)
 
@@ -34,7 +39,7 @@ function mutate_weights!(rng::AbstractRNG, state::State, genotype::Network, mr::
     # updates and some with large updates. If we sampled uniformly,
     # we would generate a lot of mutations with at least one 
     # large update
-    max_mr = compute_max_mr(weights, mr, lookback)
+    max_mr = compute_max_mr(rng, weights, mr, lookback)
     for weight in weights
         mrf0 = sample_mr(rng, mr)
         mrf0 > max_mr && continue
