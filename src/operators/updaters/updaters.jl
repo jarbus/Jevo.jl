@@ -115,17 +115,19 @@ function add_interactions!(scores::Vector{T}, match::Match) where T <: AbstractF
     nothing
 end
 
-function compute_interaction!(m::Match)
-    scores = play(m)
-    @inbounds add_interactions!(scores, m)
+function compute_interactions!(matches::Vector{<:AbstractMatch})
+    for m in matches
+        scores = play(m) 
+        @inbounds add_interactions!(scores, m)
+    end
 end
 # PERFORMANCE CRITICAL END (measured)
 ############################
 struct ComputeInteractions! <: AbstractUpdater end
 function (::ComputeInteractions!)(::AbstractState, matches::Vector{M}) where M <: AbstractMatch
     n_matches = length(matches)
-    outs = map(compute_interaction!,matches)
+    compute_interactions!(matches)
     empty!(matches)
     sizehint!(matches, n_matches)
-    outs
+    nothing
 end

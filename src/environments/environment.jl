@@ -4,8 +4,7 @@ done(::AbstractEnvironment)::Bool = true
 play(match::Match) = play(match.environment_creator, match.individuals)
 
 function play(c::Creator{E}, inds::Vector{I}) where {E<:AbstractEnvironment, I<:AbstractIndividual}
-    task = Threads.@spawn develop(inds)
-    phenotypes = fetch(task)
+    phenotypes = develop(inds)
     play(c(), phenotypes)
 end
 
