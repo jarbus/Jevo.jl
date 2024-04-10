@@ -29,13 +29,23 @@ rng = StableRNG(1)
   catch
       @test true
   end
-
 end
+
 
 @testset "state" begin
   state = State()
   Jevo.operate!(state)
   @test Jevo.get_counter(AbstractGeneration, state) |> value == 2
+end
+
+@testset "checkpoint" begin
+
+    checkpointname = "test-checkpoint.jls"
+    state = State(rng, AbstractCreator[], [Checkpointer(checkpointname, interval=5)])
+    run!(state, 10)
+    @test generation(state) == 11
+    state = restore_from_checkpoint(checkpointname)
+    @test generation(state) == 6
 end
 
 @testset "HDF5Logger" begin
