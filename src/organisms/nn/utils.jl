@@ -1,10 +1,12 @@
 export visualize
 function mr_symbol(mr::Float32)
-    mr == 1.0f0 && return "#"
+    mr == 1.0f0 && return "#"  
     mr >= 0.1f0 && return "0"
-    mr >= 0.01f0 && return "O"
-    mr >= 0.001f0 && return "o"
-    mr >= 0.0001f0 && return "."
+    mr >= 0.01f0 && return "8"
+    mr >= 0.001f0 && return "O"
+    mr >= 0.0001f0 && return "1"
+    mr >= 0.00001f0 && return "o"
+    mr >= 0.000001f0 && return "."
 end
 
 function gene_symbol(prev_gene::NetworkGene, gene::NetworkGene)
