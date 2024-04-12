@@ -24,8 +24,12 @@ using FileWatching
 # For MNIST
 #using MLDatasets
 using OneHotArrays
+using Reexport
+using XPlot
+@reexport using XPlot
 
 import Base: show
+
 # using LinearAlgebra
 # using LowRankApprox  # for approximate SVD
 

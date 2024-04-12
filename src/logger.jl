@@ -29,21 +29,21 @@ function JevoLogger(;hdf5_path::String="statistics.h5", log_path::String="run.lo
 end
 
 
-function Base.CoreLogging.handle_message(logger::HDF5Logger, level, m::AbstractMeasurement, _module, group, id, file, line; kwargs...)
+function Base.CoreLogging.handle_message(logger::HDF5Logger, level, m::XPlot.AbstractMeasurement, _module, group, id, file, line; kwargs...)
     @assert level.level == H5_LOG_LEVEL.level
     @assert length(kwargs) == 0
     pidpath = logger.path*".pid"
     monitor = FileWatching.Pidfile.mkpidlock(pidpath, wait=true)
-    fullpath = joinpath(string(m.generation), string(m.metric))
+    fullpath = joinpath(string(m.iteration), string(m.metric))
     for field in fieldnames(typeof(m))
-        (field == :metric || field == :generation) && continue
+        (field == :metric || field == :iteration) && continue
         logger.io[joinpath([fullpath, string(field)])] = getfield(m, field)
     end
     flush(logger.io)
     close(monitor)
 end
 
-function Base.log(m::AbstractMeasurement, h5::Bool, txt::Bool, console::Bool)
+function Base.log(m::XPlot.AbstractMeasurement, h5::Bool, txt::Bool, console::Bool)
     h5 && @h5 m
     txt && @info m
     console && println(m)
