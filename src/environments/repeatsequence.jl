@@ -74,13 +74,22 @@ function infer(trf::TransformerPhenotype, str::String; max_len::Int=10, n_logits
 end
 
 
+function get_preprocessed_batch(env, tfr)
+    # get global variable Main.weight_cache for weight cache
+    # check if weight_cache is defined
+    if !isdefined(Main, :preprocessed_batch)
+        @warn "Creating variable Main.preprocessed_batch"
+        Main.preprocessed_batch = preprocess(tfr, sample_batch(env))
+    end
+    Main.preprocessed_batch
+end
+
 function step!(env::RepeatSequence, models::Vector{TransformerPhenotype})
 
     @assert length(models) == 1 "Only one model is supported for now"
-    batch = sample_batch(env)
-    trf = models[1]
-    input_batch = preprocess(trf, batch)
-    l = loss(input_batch, trf)
+    tfr = models[1]
+    input_batch = get_preprocessed_batch(env, tfr)
+    l = loss(input_batch, tfr)
     [-l] # this framework maximizes fitness, so we report loss as negative fitness
 end
 (creator::Creator{RepeatSequence})(;kwargs...) = RepeatSequence(creator.kwargs...)
