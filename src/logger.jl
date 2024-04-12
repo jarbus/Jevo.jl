@@ -33,7 +33,7 @@ function Base.CoreLogging.handle_message(logger::HDF5Logger, level, m::AbstractM
     @assert level.level == H5_LOG_LEVEL.level
     @assert length(kwargs) == 0
     pidpath = logger.path*".pid"
-    monitor = FileWatching.Pidfile.mkpidlock(pidpath)
+    monitor = FileWatching.Pidfile.mkpidlock(pidpath, wait=true)
     fullpath = joinpath(string(m.generation), string(m.metric))
     for field in fieldnames(typeof(m))
         (field == :metric || field == :generation) && continue
