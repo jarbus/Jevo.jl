@@ -43,7 +43,11 @@ end
 function tensor(fw::FactorWeight; weight_cache::_WeightCache=nothing)::Array{Float32}
     A = @inline tensor(fw.A, weight_cache=weight_cache)
     B = @inline tensor(fw.B, weight_cache=weight_cache)
-    A * B
+    Transformers.tocpudevice(todevice(A) * todevice(B))
+end
+function tensor(cw::CompositeWeight; weight_cache::_WeightCache=nothing)::Array{Float32}
+    gpu_weights = [todevice(tensor(w, weight_cache=weight_cache)) for w in cw.weights]
+    reduce(+, gpu_weights) |> Transformers.tocpudevice
 end
 # PERFORMANCE CRITICAL END
 ############################
@@ -60,13 +64,11 @@ function create_layer(layer::Jevo.EmbedDecoder; weight_cache::_WeightCache)
 end
 
 function create_layer(layer::Jevo.TransformerDecoderBlock; weight_cache::_WeightCache)
-    attn_layer = Threads.@spawn create_layer(layer.attention, weight_cache=weight_cache)
-    ff_layer = Threads.@spawn create_layer(layer.ff, weight_cache=weight_cache)
-    wait(attn_layer)
-    wait(ff_layer)
+    attn_layer = create_layer(layer.attention, weight_cache=weight_cache)
+    ff_layer = create_layer(layer.ff, weight_cache=weight_cache)
     Transformers.Layers.TransformerDecoderBlock(
-        attn_layer.result,
-        ff_layer.result
+        attn_layer,
+        ff_layer
     )
 end
 
@@ -95,7 +97,7 @@ end
 
 function create_layer(geno_blocks::Tuple{Vararg{TransformerDecoderBlock}}; weight_cache::_WeightCache)
     pheno_blocks = Vector{Transformers.Layers.TransformerDecoderBlock}(undef, length(geno_blocks))
-    Threads.@threads for i in eachindex(geno_blocks)
+    for i in eachindex(geno_blocks)
         pheno_blocks[i] = create_layer(geno_blocks[i], weight_cache=weight_cache)
     end
     Transformers.Transformer(Tuple(pheno_blocks)) |> todevice

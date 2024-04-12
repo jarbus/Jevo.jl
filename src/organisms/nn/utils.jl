@@ -1,10 +1,12 @@
 export visualize
 function mr_symbol(mr::Float32)
-    mr == 1.0f0 && return "#"
+    mr == 1.0f0 && return "#"  
     mr >= 0.1f0 && return "0"
-    mr >= 0.01f0 && return "O"
-    mr >= 0.001f0 && return "o"
-    mr >= 0.0001f0 && return "."
+    mr >= 0.01f0 && return "8"
+    mr >= 0.001f0 && return "O"
+    mr >= 0.0001f0 && return "1"
+    mr >= 0.00001f0 && return "o"
+    mr >= 0.000001f0 && return "."
 end
 
 function gene_symbol(prev_gene::NetworkGene, gene::NetworkGene)
@@ -37,6 +39,8 @@ end
 
 get_weight_symbols(factorized_weights::FactorWeight) =
     get_weight_symbols(factorized_weights.A) * get_weight_symbols(factorized_weights.B)
+get_weight_symbols(composite_weights::CompositeWeight) =
+    join([get_weight_symbols(w) for w in composite_weights.weights])
 get_weight_symbols(pnr::PostNormResidual) = get_weight_symbols(pnr.layer) * get_weight_symbols(pnr.norm)
 get_weight_symbols(ln::LayerNorm) = "layernorm\n" * get_weight_symbols(ln.scale) * get_weight_symbols(ln.bias)
 get_weight_symbols(sa::SelfAttention) =

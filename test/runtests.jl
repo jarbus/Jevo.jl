@@ -29,13 +29,23 @@ rng = StableRNG(1)
   catch
       @test true
   end
-
 end
+
 
 @testset "state" begin
   state = State()
   Jevo.operate!(state)
   @test Jevo.get_counter(AbstractGeneration, state) |> value == 2
+end
+
+@testset "checkpoint" begin
+
+    checkpointname = "test-checkpoint.jls"
+    state = State(rng, AbstractCreator[], [Checkpointer(checkpointname, interval=5)])
+    run!(state, 10)
+    @test generation(state) == 11
+    state = restore_from_checkpoint(checkpointname)
+    @test generation(state) == 6
 end
 
 @testset "HDF5Logger" begin
@@ -395,8 +405,12 @@ end
             @test all(map(w ->length(w.muts)==2, Jevo.get_weights(rng, mutated_net, n=-1)))
             mutated_net = Jevo.mutate(rng, state, mutated_net, mr=Float32(0.01))
             @test all(map(w ->length(w.muts)==3, Jevo.get_weights(rng, mutated_net, n=-1)))
-            mutated_net = Jevo.mutate(rng, state, mutated_net, mr=(0.1f0, 0.01f0,0.001f0))
-            @test all(map(w ->length(w.muts)==4, Jevo.get_weights(rng, mutated_net, n=-1)))
+            mut_strengths = [0.1f0, 0.01f0, 0.001f0]
+            mutated_net = Jevo.mutate(rng, state, mutated_net, mr=Tuple(mut_strengths), lookback=1)
+            @test Jevo.find_highest_mr(Jevo.get_weights(rng, mutated_net, n=-1), 100) == 1f0
+            @test Jevo.find_highest_mr(Jevo.get_weights(rng, mutated_net, n=-1), 1) ∈ mut_strengths
+
+
         end
         @testset "low rank develop + fwd" begin
             creator = Creator(Model)
@@ -485,7 +499,8 @@ end
             creator = Creator(Jevo.TransformerPhenotype, (;textenc=textenc))
             trf_p = develop(creator, net)
             seq = "1 2 1"
-            input = preprocess(trf_p, seq)
+            one_batch_seq = batched([(seq,)])[1]
+            input = preprocess(trf_p, one_batch_seq)
             logits = trf_p(input)
             @test size(logits) == (8, 5, 1)
             # batching & masking
