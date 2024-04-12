@@ -499,7 +499,8 @@ end
             creator = Creator(Jevo.TransformerPhenotype, (;textenc=textenc))
             trf_p = develop(creator, net)
             seq = "1 2 1"
-            input = preprocess(trf_p, seq)
+            one_batch_seq = batched([(seq,)])[1]
+            input = preprocess(trf_p, one_batch_seq)
             logits = trf_p(input)
             @test size(logits) == (8, 5, 1)
             # batching & masking
