@@ -4,8 +4,10 @@ add_matches!(state::AbstractState, matches::Vector{Match}) = append!(state.match
 
 
 struct PopulationAdder <: AbstractUpdater end
-(::PopulationAdder)(state::AbstractState, pops::Vector{<:AbstractPopulation}) =
+function (::PopulationAdder)(state::AbstractState, pops::Vector{<:AbstractPopulation})
+    @assert length(state.populations) == 0 "We only expect to add populations to the state once"
     append!(state.populations, pops)
+end
     
 Base.@kwdef struct PopulationUpdater <: AbstractUpdater
     ids::Vector{String} = String[] # ids of populations to update
