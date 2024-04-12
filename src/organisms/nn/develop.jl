@@ -43,7 +43,7 @@ end
 function tensor(fw::FactorWeight; weight_cache::_WeightCache=nothing)::Array{Float32}
     A = @inline tensor(fw.A, weight_cache=weight_cache)
     B = @inline tensor(fw.B, weight_cache=weight_cache)
-    A * B
+    Transformers.tocpudevice(todevice(A) * todevice(B))
 end
 function tensor(cw::CompositeWeight; weight_cache::_WeightCache=nothing)::Array{Float32}
     sum(tensor(w, weight_cache=weight_cache) for w in cw.weights)
