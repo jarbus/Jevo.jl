@@ -8,11 +8,18 @@ Base.@kwdef struct RepeatSequence <: AbstractEnvironment
     n_repeat::Int
 end
 
+# ==== PERFORMANCE CRITICAL BEGIN (on server cpus, which are slow af
 function sample_sequence(vocab_size, seq_len, n_repeat, i)
-    seq = rand(StableRNG(i), 1:vocab_size, seq_len)
-    repeat_seq = join(repeat(seq, n_repeat), " ")
+    rng = StableRNG(i)
+    seq = Vector{String}(undef, seq_len)
+    for i in 1:seq_len
+        seq[i] = string(rand(rng, 1:vocab_size))
+    end
+    concat_seq = join(seq, " ")
+    repeat_seq = join((concat_seq for i = 1:n_repeat), " ")
     repeat_seq
 end
+# ==== PERFORMANCE CRITICAL END
 function sample_batch(env::RepeatSequence)
     # Each string is enclosed in a tuple for the batch
     # If we were using encoder-decoder, we would have a tuple of two strings
