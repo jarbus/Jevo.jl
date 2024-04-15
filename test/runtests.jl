@@ -52,7 +52,7 @@ end
   rm("statistics.h5", force=true)
   with_logger(Jevo.HDF5Logger("statistics.h5")) do
       m = Measurement(GenotypeSum, 1, 1)
-      sm = StatisticalMeasurement(GenotypeSum, [1,2,3], 1)
+      sm = StatisticalMeasurement(GenotypeSum, [1,2,3], 2)
       @h5 m
       @h5 sm
   end
