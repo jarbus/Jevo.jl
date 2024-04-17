@@ -21,7 +21,7 @@ function get_weights(rng::AbstractRNG, network::Network; n::Int=-1)
     shuffle!(rng, weights)
     weights[1:n]
 end
-add_weights!(weights::Vector{Weights}, ::Any) = nothing
+add_weights!(weights::Vector{Weights}, ::Any) = nothing # don't recurse for anything that's not a weight
 add_weights!(weights::Vector{Weights}, weight::Weights) = push!(weights, weight)
 add_weights!(weights::Vector{Weights}, factor::FactorWeight) = add_weights!(weights, [factor.A, factor.B])
 add_weights!(weights::Vector{Weights}, comp::CompositeWeight) = add_weights!(weights, comp.weights)
