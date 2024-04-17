@@ -21,6 +21,7 @@ using HDF5
 using Logging
 using LoggingExtras
 using FileWatching
+using PhylogeneticTrees
 # For MNIST
 #using MLDatasets
 using OneHotArrays
@@ -45,4 +46,5 @@ include("./state.jl")
 include("./organisms/organisms.jl")
 include("./environments/environments.jl")
 include("./operators/operators.jl")
+include("./phylo/phylo.jl")
 end

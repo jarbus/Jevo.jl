@@ -1,3 +1,4 @@
+start_time = time()
 using Jevo
 using HDF5
 using Test
@@ -8,6 +9,8 @@ using Flux
 using Transformers
 using Transformers.TextEncoders
 using Transformers.Datasets: batched
+using PhylogeneticTrees
+start_time = time()
 
 # Global variable for weight_cache
 weight_cache = WeightCache(maxsize=1_000_000)
@@ -38,3 +41,6 @@ end
 include("./test-writers.jl")
 include("./test-ng-integration.jl")
 include("./test-nn.jl")
+include("./test-phylo.jl")
+end_time = time()
+println("Tests passed in $(end_time - start_time) seconds.")

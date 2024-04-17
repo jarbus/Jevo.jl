@@ -2,18 +2,18 @@ export Population, CompositePopulation
 mutable struct CompositePopulation <: AbstractPopulation
     id::String
     populations::Vector{AbstractPopulation}
-    data::Vector{AbstractData}
+    data::Vector
 end
 
 mutable struct Population <: AbstractPopulation
     id::String
     individuals::Vector{AbstractIndividual}
-    data::Vector{AbstractData}
+    data::Vector
 end
 
 # Combine populations into composite
 CompositePopulation(id::String, populations::Vector{<:AbstractPopulation}) =
-    CompositePopulation(id, populations, Vector{AbstractData}())
+    CompositePopulation(id, populations, [])
 # Create composite population using genotype creator
 CompositePopulation(id::String,
                     pops::Vector{<:Tuple{String, Int, <:AbstractCreator, <:AbstractCreator}},
@@ -22,7 +22,7 @@ CompositePopulation(id, [Population(id, n, gc, dev, counters) for (id, n, gc, de
 
 # Create pop with predefined inds and no data
 Population(id::String, individuals::Vector{<:AbstractIndividual}) =
-    Population(id, individuals, AbstractData[])
+    Population(id, individuals, [])
 
 # Create n inds using genotype creator, updates counters
 Population(id::String, n::Int, genotype_creator::AbstractCreator, developer::AbstractCreator, counters::Vector{<:AbstractCounter}) =
