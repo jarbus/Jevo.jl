@@ -16,15 +16,9 @@ generation(state::AbstractState) = find(:type, AbstractGeneration, state.counter
 first_gen(state::AbstractState) = generation(state) == 1
 always(state::AbstractState) = true
 
-Base.@kwdef struct GenerationIncrementer <: AbstractOperator
-    condition = always
-    retriever = noop
-    operator = noop 
-    updater::Function = (state, kwargs...) -> get_counter(AbstractGeneration, state) |> inc!
-    data::Vector{AbstractData} = AbstractData[]
-    time::Bool = false
-end
-
+@define_op "GenerationIncrementer"
+GenerationIncrementer(;kwargs...) = create_op("GenerationIncrementer",
+    updater=(state, _)->(get_counter(AbstractGeneration, state) |> inc!; println(generation(state))); kwargs...)
 
 # Allows specifying state by id, rng, creators, and operators
 function State(id::String, rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator}; counters::Vector{<:AbstractCounter}=default_counters(), populations::Vector{<:AbstractPopulation}=AbstractPopulation[], matches::Vector{<:AbstractMatch}=AbstractMatch[], metrics::Vector{<:AbstractMetric}=AbstractMetric[], data::Vector{<:AbstractData}=AbstractData[], info::Dict{Any, Any}=Dict())

@@ -4,15 +4,13 @@ using Random
 using StableRNGs
 using LRUCache
 using StatsBase
+using Distributed
 
 # Neural Nets
 using CUDA
 using Flux
 using Transformers
 using Transformers.TextEncoders
-# LORA
-using LinearAlgebra
-using LowRankApprox
 # For checkpointing and handling exceptions
 using Serialization
 # For logging
@@ -21,6 +19,7 @@ using HDF5
 using Logging
 using LoggingExtras
 using FileWatching
+using PhylogeneticTrees
 # For MNIST
 #using MLDatasets
 using OneHotArrays
@@ -42,6 +41,7 @@ include("./logger.jl")
 include("./individuals/individual.jl")
 include("./populations/populations.jl")
 include("./state.jl")
+include("./phylo/phylo.jl")
 include("./organisms/organisms.jl")
 include("./environments/environments.jl")
 include("./operators/operators.jl")

@@ -38,7 +38,9 @@ function Individual(counters::Vector{<:AbstractCounter},
     Individual(id, 0, Int[], genotype_creator(), developer)
 end
 
-develop(ind::I) where {I <: AbstractIndividual} = develop(ind.developer, ind.genotype)
+# we allow dispatching on the parameterized individual type, this is the general fallback
+develop(creator::Creator, ind::Individual) = develop(creator, ind.genotype)
+develop(ind::I) where {I <: AbstractIndividual} = develop(ind.developer, ind)
 develop(inds::Vector{I}) where {I <: AbstractIndividual} = develop.(inds)
 new_id_and_gen(state::AbstractState) = new_id_and_gen(state.counters)
 function new_id_and_gen(counters::Vector{<:AbstractCounter})

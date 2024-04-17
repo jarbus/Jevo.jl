@@ -118,8 +118,10 @@ function add_interactions!(scores::Vector{T}, match::Match) where T <: AbstractF
 end
 
 function compute_interactions!(matches::Vector{<:AbstractMatch})
-    for m in matches
-        scores = play(m) 
+    @assert workers()[1] > 1 "Jevo must be run with at least one worker process"
+    futures = [@spawnat(:any, play(m)) for m in matches]
+    for (f, m) in zip(futures, matches)
+        scores = fetch(f)
         @inbounds add_interactions!(scores, m)
     end
 end

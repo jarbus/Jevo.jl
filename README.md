@@ -10,6 +10,8 @@
 - All Counters use the highest level appropriate type (AbstractIndividual, AbstractGene, etc)
 - randn is much faster for float32 than float16, so even though it takes up more memory, we use float32 for weights
 - Any multi-threaded operation that uses RNG should generate a new RNG object for each iteration/thread in the main process, to ensure that the same random numbers are not used in different threads
+- All evaluations are done solely on workers, and evolutionary operations are done on the main process. A worker can be on the same machine as the main process, or on a different machine.
+
 
 # Design of population operators
 
@@ -23,3 +25,7 @@
 logging to txt, writing to hdf5
 for distributed, what if you launch new workers each gen if one of them dies?
 each gen send the children and reconstruct from the cache?
+
+# Design of phylo
+- we store phylo tree and delta cache with population, because those are NOT LRU
+- we store genotype cache and weight cache outside of population because those ARE LRU

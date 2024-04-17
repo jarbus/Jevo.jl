@@ -1,20 +1,13 @@
-function get_binding(dims::NTuple{N, Int}, genes::Vector{NetworkGene}, idx::Int=length(genes))::WeightBinding where {N}
-    length(genes) == 0 && error("No genes found")
-    bind_end = @inline max(idx-10, 1)
-    ids = @inline Tuple(g.id for g in genes[idx:-1:bind_end])
-    WeightBinding(dims, ids)
-end
-
 ############################
 # PERFORMANCE CRITICAL START  (suspected)
 function get_earliest_cached_weight(dims::NTuple{N, Int}, genes::Vector{NetworkGene}, weight_cache::_WeightCache)::Tuple{Array{Float32}, Int} where {N}
     """Return the earliest cached weight in the gene list. If none are cached, return a zero tensor of the given dimensions. Allocates memory. Also returns the idx of the earliest cached gene."""
     isnothing(weight_cache) && return zeros(Float32, dims), 0
-    @inbounds @fastmath @simd for i in length(genes):-1:1
-        binding = get_binding(dims, genes, i)
-        weights = @inline get(weight_cache, binding, nothing)
+    @inbounds @simd for i in length(genes):-1:1
+        weights = get(weight_cache, genes[i].id, nothing)
         if !isnothing(weights)
-            return copy(weights), i
+            @assert size(weights) == dims "Cached weight for $(genes[i].id) has different dimensions than requested"
+            return (copy(weights), i)
         end
     end
     zeros(Float32, dims), 0
@@ -34,8 +27,8 @@ function tensor(w::Weights; weight_cache::_WeightCache=nothing)::Array{Float32}
         gene.init!(rng, Float32, arr, gene.mr)
         # update cache if we are using one
         if yes_weight_cache && i != n_genes && gid ∉ keys(weight_cache)
-            binding = get_binding(dims, genes, i)
-            weight_cache[binding] = copy(arr)
+            gene_id = genes[i].id
+            weight_cache[gene_id] = copy(arr)
         end
     end
     arr
@@ -113,16 +106,6 @@ function create_layer(layer::Jevo.Dense; weight_cache::_WeightCache)
     Flux.Dense(weights, bias, layer.σ)
 end
 create_layer(f::Function; kwargs...) = f
-
-function get_weight_cache()
-    # get global variable Main.weight_cache for weight cache
-    # check if weight_cache is defined
-    if !isdefined(Main, :weight_cache)
-        @warn "No weight cache found, looking specifically for a variable called `weight_cache` in the global scope. Main has the following variables: $(names(Main))"
-        Main.weight_cache = nothing
-    end
-    Main.weight_cache
-end
 
 function develop(::Creator{Model}, network::Network)
     weight_cache = get_weight_cache()

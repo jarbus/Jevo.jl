@@ -1,4 +1,26 @@
-export visualize
+export visualize, get_weights
+
+function get_weight_cache()
+    # get global variable Main.weight_cache for weight cache
+    # check if weight_cache is defined
+    if !isdefined(Main, :weight_cache)
+        @warn "No weight cache found. Creating weight cache on proc $(myid())"
+        Main.weight_cache = WeightCache(maxsize=Int(1e9))
+    end
+    Main.weight_cache
+end
+
+function get_genotype_cache()
+    # get global variable Main.weight_cache for weight cache
+    # check if weight_cache is defined
+    if !isdefined(Main, :genotype_cache)
+        @warn "No genotype cache found. Creating genotype cache on proc $(myid())"
+        Main.genotype_cache = GenotypeCache(maxsize=Int(1e9))
+    end
+    Main.genotype_cache
+end
+
+
 function mr_symbol(mr::Float32)
     mr == 1.0f0 && return "#"  
     mr >= 0.1f0 && return "0"
@@ -64,3 +86,13 @@ get_weight_symbols(t::Transformer) = "Transformer\n" *
 get_weight_symbols(network::Network) = join([get_weight_symbols(l) for l in network.layers])
 
 visualize = get_weight_symbols
+get_weight_symbols(ind::Individual) = get_weight_symbols(worker_construct_child_genome(ind))
+
+is_layer_norm(layers) = any(l->l isa LayerNorm, layers)
+
+function get_weights(x::Union{Network, AbstractLayer, AbstractGenotype}; no_layer_norm::Bool=false)
+    map(x, weights_only=true) do hierarchy
+        no_layer_norm && is_layer_norm(hierarchy) && return nothing
+        return hierarchy[end]
+    end |> x->filter(!isnothing, x)
+end

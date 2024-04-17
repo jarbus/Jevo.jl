@@ -1,3 +1,5 @@
+import Base: +, ==
+
 NetworkGene(rng::AbstractRNG, counter::Counter, mr::Float32, init::Function=Jevo.apply_kaiming_normal_noise!) = 
     NetworkGene(inc!(counter), rand(rng, UInt64), mr, init)
 NetworkGene(counter::Counter, seed::UInt64, mr::Float32, init::Function=Jevo.apply_kaiming_normal_noise!) = 
@@ -14,16 +16,42 @@ function Weights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{
         Weights(rng, counter, dims, init=apply_zero!)])
 end
 
-function WeightCache(;maxsize::Int, by::Function=sizeof)
-    LRU{WeightBinding, Array{Float32}}(maxsize=maxsize, by=by)
+WeightCache(;maxsize::Int, by::Function=sizeof) =
+    LRU{Int, Array{Float32}}(maxsize=maxsize, by=by)
+GenotypeCache(;maxsize::Int, by::Function=sizeof) =
+    LRU{Int, Network}(maxsize=maxsize, by=by)
+
+
+function Base.:+(a::Network, b::Delta) 
+    # Likely a performance bottleneck, because we keep copying the network
+    # for each delta application
+    a = deepcopy(a)
+    ws_a, ws_b = get_weights(a), get_weights(b.change)
+    @assert length(ws_a) == length(ws_b) "Different number of weights in network and delta"
+    for (wa, wb) in zip(ws_a, ws_b)
+        wa.dims != wb.dims && @assert false "Different dimensions in network and delta"
+        append!(wa.muts, wb.muts)
+    end
+    a
 end
 
-function Network(rng::AbstractRNG, counter::AbstractCounter, coupling::Coupling, layers::Vector)
-    """Create a network with a collection of layers and a coupling scheme"""
+function Base.:(==)(a::Network, b::Network)
+    ws_a, ws_b = get_weights(a), get_weights(b)
+    length(ws_a) != length(ws_b) && return false
+    for (wa, wb) in zip(ws_a, ws_b)
+        wa.dims != wb.dims && return false
+    end
+    true
+end
+
+
+
+function Network(rng::AbstractRNG, counter::AbstractCounter, layers::Vector)
+    """Create a network with a collection of layers"""
     for l in layers
         @assert l[1] <: AbstractLayer "Layer must be a subtype of AbstractLayer, got $(l[1])"
     end
-    Network(coupling, [l[1](rng, counter; l[2]...) for l in layers])
+    Network([l[1](rng, counter; l[2]...) for l in layers])
 end
 
 function Dense(rng::AbstractRNG, counter::AbstractCounter; dims::Tuple{Vararg{Int}}, σ::Function, rank::Int=-1)
@@ -69,9 +97,7 @@ end
 
 function TransformerDecoderBlock(rng::AbstractRNG, counter::AbstractCounter;
         n_heads::Int, head_dim::Int, ff_dim::Int, hidden_dim::Int, qkv_rank::Int=-1, o_rank::Int=-1, ff_rank::Int=-1)
-    # attention
     sa = SelfAttention(rng, counter, n_heads=n_heads, head_dim=head_dim, hidden_dim=hidden_dim, qkv_rank=qkv_rank, o_rank=o_rank)
-    # ffs
     ff = Jevo.Chain(
                 (Dense(rng, counter, dims=(hidden_dim, ff_dim), σ=gelu, rank=ff_rank),
                 Dense(rng, counter, dims=(ff_dim, hidden_dim), σ=identity, rank=ff_rank),)

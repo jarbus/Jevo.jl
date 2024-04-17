@@ -1,14 +1,4 @@
 export TransformerPhenotype, Transformer
-"""
-    @enum Coupling Strict Loose None
-
-# Values
-- `StrictCoupling`: Weights in all sub-layers are mutated using the same initial rng seed
-- `LooseCoupling`: Weights in all sub-layers can be mutated independently or together
-- `NoCoupling`: Weights in all sub-layers are mutated independently
-"""
-@enum Coupling StrictCoupling LooseCoupling NoCoupling
-
 # Weights
 struct NetworkGene <: AbstractMutation
     id::Int
@@ -40,11 +30,10 @@ end
 
 struct Network <: AbstractLayer
     """A collection and a coupling scheme."""
-    coupling::Coupling
     layers::Vector
 end
 
-struct Dense{W,B} <: AbstractLayer where {T <: AbstractWeights, B <: AbstractWeights}
+struct Dense{W,B} <: AbstractLayer where {W <: AbstractWeights, B <: AbstractWeights}
     weights::W
     bias::B
     σ::Function
@@ -92,16 +81,11 @@ struct Model <: AbstractPhenotype
 end
 
 """
-We identify weights of a layer by their dimensions and the last two rng seeds used to generate them.
+We identify weights of a layer by their dimensions and the last gene id used to generate them.
 """
-struct WeightBinding 
-    dims::Tuple{Vararg{Int}}
-    ids::Tuple{Vararg{UInt64}}
-end
-
-_WeightCache = Union{LRU{WeightBinding, <:Array{Float32}}, Nothing}
+_WeightCache = Union{LRU{Int, <:Array{Float32}}, Nothing}
 # so we only need to transmit delta genotypes
-GenotypeCache = Union{LRU{Int, Network}, Nothing}
+_GenotypeCache = Union{LRU{Int, Network}, Nothing}
 
 struct TransformerPhenotype <: AbstractPhenotype
     textenc::Transformers.TextEncoders.TransformerTextEncoder
