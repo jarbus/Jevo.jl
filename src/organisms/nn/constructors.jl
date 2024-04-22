@@ -15,15 +15,15 @@ function Weights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{
 end
 
 function WeightCache(;maxsize::Int, by::Function=sizeof)
-    LRU{WeightBinding, Array{Float32}}(maxsize=maxsize, by=by)
+    LRU{Int, Array{Float32}}(maxsize=maxsize, by=by)
 end
 
-function Network(rng::AbstractRNG, counter::AbstractCounter, coupling::Coupling, layers::Vector)
-    """Create a network with a collection of layers and a coupling scheme"""
+function Network(rng::AbstractRNG, counter::AbstractCounter, layers::Vector)
+    """Create a network with a collection of layers"""
     for l in layers
         @assert l[1] <: AbstractLayer "Layer must be a subtype of AbstractLayer, got $(l[1])"
     end
-    Network(coupling, [l[1](rng, counter; l[2]...) for l in layers])
+    Network([l[1](rng, counter; l[2]...) for l in layers])
 end
 
 function Dense(rng::AbstractRNG, counter::AbstractCounter; dims::Tuple{Vararg{Int}}, σ::Function, rank::Int=-1)
@@ -105,19 +105,4 @@ function Transformer(rng::AbstractRNG, counter::AbstractCounter;
                                            ff_rank=ff_rank,
                                           ) for _ in 1:n_blocks)
     Transformer(embed, blocks, embeddecoder)
-end
-
-"""
-Instead of making copies of network architectures AND their seeds, we make copies of network architectures and only store the new seeds. This makes mutation, reproduction, and sending over the wire constant time w.r.t genotype size, assuming that ancestors are cached in some form.
-"""
-function dry_copy(state::State, weight::Weights)
-    """Create a dry copy of a weight"""
-    return Weights(weight.dims, NetworkGene[])
-end
-function dry_copy(state::State, x::X) where X
-    args = Any[]
-    for field in fieldnames(X)
-        push!(args, dry_copy(state, getfield(node, field)))
-    end
-    return X(args...)
 end

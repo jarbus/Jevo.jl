@@ -1,4 +1,4 @@
-export visualize
+export visualize, get_weights
 function mr_symbol(mr::Float32)
     mr == 1.0f0 && return "#"  
     mr >= 0.1f0 && return "0"
@@ -64,3 +64,18 @@ get_weight_symbols(t::Transformer) = "Transformer\n" *
 get_weight_symbols(network::Network) = join([get_weight_symbols(l) for l in network.layers])
 
 visualize = get_weight_symbols
+
+function is_layer_norm(layers::Vector)
+    for layer in layers
+        if layer isa LayerNorm
+            return true
+        end
+    end
+    return false
+end
+function get_weights(x::Union{Network, AbstractLayer, AbstractGenotype}; no_layer_norm::Bool=false)
+    map(x, weights_only=true) do hierarchy
+        no_layer_norm && is_layer_norm(hierarchy) && return nothing
+        return hierarchy[end]
+    end |> x->filter(!isnothing, x)
+end

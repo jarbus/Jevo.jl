@@ -1,16 +1,9 @@
-export CloneUniformReproducer, DeltaUniformReproducer
+export CloneUniformReproducer
 @define_op "CloneUniformReproducer" "AbstractReproducer"
 CloneUniformReproducer(pop_size::Int, ids::Vector{String}=String[]; kwargs...) =
     create_op("CloneUniformReproducer",
           retriever=PopulationRetriever(ids),
           updater=map((s,p)->uniform_reproduce!(s,p,pop_size, clone))
-          ;kwargs...)
-
-@define_op "DeltaUniformReproducer" "AbstractReproducer"
-DeltaUniformReproducer(pop_size::Int, ids::Vector{String}=String[]; kwargs...) =
-    create_op("DeltaUniformReproducer",
-          retriever=PopulationRetriever(ids),
-          updater=map((s,p)->uniform_reproduce!(s,p,pop_size, dry_copy))
           ;kwargs...)
 
 function uniform_reproduce!(state::AbstractState, pops::Vector{Population}, size::Int, copy_fn::Function)

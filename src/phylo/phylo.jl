@@ -50,9 +50,7 @@ function update_phylogeny!(state::AbstractState, pop::Population)
     end
     pop_ids = Set(ind.id for ind in pop.individuals)
     # remove unreachable individuals
-    println("$(pop.id) # nodes before removal: ", length(tree.tree))
     purge_unreachable_nodes!(tree, pop_ids)
-    println("$(pop.id) # nodes after removal: ", length(tree.tree))
     nothing
 end
 
