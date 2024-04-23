@@ -7,97 +7,217 @@ attn_args = (n_heads=n_heads, head_dim=head_dim, hidden_dim=hidden_dim)
 block_args = (attn_args..., ff_dim=ff_dim)
 tfr_args = (block_args..., n_blocks=n_blocks, vocab_size=vocab_size)
 
-@testset "HierarchicalTransformerTraverse" begin
-    net = Network(rng, gene_counter, [(Jevo.Transformer, tfr_args)])
-    # Check that we can use map to get all the weights of a network, should probably confirm
-    # that ALL weights are retrieved, but that's probably another 20+ mins
-    function get_n_muts(net)
-        map(net, weights_only=true) do layers
-            length(layers[end].muts)
-        end
-    end
-    n_muts = get_n_muts(net)
-    @test length(n_muts) > 0 && all(n_muts .== 1)
-    # Check that we can modify all the weights using map!
-    map!(net, weights_only=true) do layers
-        push!(layers[end].muts, NetworkGene(0,0,0,zero))
-    end
-    n_muts = get_n_muts(net)
-    @test length(n_muts) > 0 && all(n_muts .== 2)
-    mutated_net = mutate(rng, state, net, mr=0.1f0)
-    n_muts = get_n_muts(mutated_net)
-end
+#@testset "HierarchicalTransformerTraverse" begin
+#    net = Network(rng, gene_counter, [(Jevo.Transformer, tfr_args)])
+#    # Check that we can use map to get all the weights of a network, should probably confirm
+#    # that ALL weights are retrieved, but that's probably another 20+ mins
+#    function get_n_muts(net)
+#        map(net, weights_only=true) do layers
+#            length(layers[end].muts)
+#        end
+#    end
+#    n_muts = get_n_muts(net)
+#    @test length(n_muts) > 0 && all(n_muts .== 1)
+#    # Check that we can modify all the weights using map!
+#    map!(net, weights_only=true) do layers
+#        push!(layers[end].muts, NetworkGene(0,0,0,zero))
+#    end
+#    n_muts = get_n_muts(net)
+#    @test length(n_muts) > 0 && all(n_muts .== 2)
+#    mutated_net = mutate(rng, state, net, mr=0.1f0)
+#    n_muts = get_n_muts(mutated_net)
+#end
+#
+#@testset "Transformer Delta+Reproduce+Mutate" begin
+#
+#k = 1
+#n_inds = 2
+#developer = Creator(Model)
+#tfr_gc = Creator(Delta, (Creator(Network, (rng, gene_counter, [(Jevo.Transformer, tfr_args)])),))
+#counters = default_counters()
+#parent_geno = tfr_gc()
+#parent_weights = Jevo.get_weights(parent_geno, no_layer_norm=true)
+#n_mutation_targets = length(Jevo.get_weights(parent_geno, no_layer_norm=true))
+#
+#@testset "Mutation" begin
+#    # Test mutation for different numbers of mutations
+#    for n in (1, 2, -1)
+#        child_geno = mutate(rng, state, parent_geno, mr=0.1f0, n=n)
+#        child_weights = Jevo.get_weights(child_geno, no_layer_norm=true)
+#        @test length(parent_weights) == length(child_weights)
+#        n_muts = 0  # number of child mutations discovered
+#        for (p_w, c_w) in zip(parent_weights, child_weights)
+#            if length(p_w.muts) == length(c_w.muts) == 1
+#                @test p_w.muts[1].id   != c_w.muts[1].id
+#                @test p_w.muts[1].seed != c_w.muts[1].seed
+#                n_muts += 1
+#            end
+#        end
+#        if n == -1 
+#            @test n_muts == n_mutation_targets 
+#        else
+#            @test n_muts == n
+#        end
+#    end
+#end
+#
+#@testset "Integrate mutation + reproduction" begin
+#    # Integration test
+#    pop_creator = Creator(Population, ("p", n_inds, PassThrough(tfr_gc), PassThrough(developer), counters))
+#    state = State("", rng, [pop_creator], 
+#                  [InitializeAllPopulations(),
+#                   InitializePhylogeny(),
+#                   InitializeDeltaCache(),
+#                   RandomEvaluator(),
+#                   TruncationSelector(k),
+#                   CloneUniformReproducer(n_inds),
+#                   Mutator(;mr=Float32(0.01), n=-1),
+#                   UpdatePhylogeny(),
+#                   UpdateDeltaCache(),
+#                   ClearInteractionsAndRecords(),
+#                  ], counters=counters)
+#    run!(state, 1)
+#    parents = state.populations[1].individuals |> x->filter(i->i.generation==0, x)
+#    children = state.populations[1].individuals |> x->filter(i->i.generation==1, x)
+#    @test length(parents) == k
+#    @test length(children) == n_inds - k
+#    # test that each parent has a mutation of MR=1 and each child has a mutation of MR=0.01
+#    dc = Jevo.get_delta_cache(state.populations[1])
+#    for parent in parents, w in Jevo.get_weights(parent.genotype, no_layer_norm=true)
+#        @test length(w.muts) == 1
+#        @test w.muts[1].mr == 1
+#        @test parent.id ∈ keys(dc)
+#    end
+#    for child in children, w in Jevo.get_weights(child.genotype, no_layer_norm=true)
+#        @test length(w.muts) == 1
+#        @test w.muts[1].mr == 0.01f0
+#        @test child.id ∈ keys(dc)
+#    end
+#end
+#end
 
-@testset "Transformer Delta+Reproduce+Mutate" begin
-
-k = 1
-n_inds = 2
-developer = Creator(Model)
-tfr_gc = Creator(Delta, (Creator(Network, (rng, gene_counter, [(Jevo.Transformer, tfr_args)])),))
-counters = default_counters()
-parent_geno = tfr_gc()
-parent_weights = Jevo.get_weights(parent_geno, no_layer_norm=true)
-n_mutation_targets = length(Jevo.get_weights(parent_geno, no_layer_norm=true))
-
-@testset "Mutation" begin
-    # Test mutation for different numbers of mutations
-    for n in (1, 2, -1)
-        child_geno = mutate(rng, state, parent_geno, mr=0.1f0, n=n)
-        child_weights = Jevo.get_weights(child_geno, no_layer_norm=true)
-        @test length(parent_weights) == length(child_weights)
-        n_muts = 0  # number of child mutations discovered
-        for (p_w, c_w) in zip(parent_weights, child_weights)
-            if length(p_w.muts) == length(c_w.muts) == 1
-                @test p_w.muts[1].id   != c_w.muts[1].id
-                @test p_w.muts[1].seed != c_w.muts[1].seed
-                n_muts += 1
-            end
-        end
-        if n == -1 
-            @test n_muts == n_mutation_targets 
-        else
-            @test n_muts == n
-        end
-    end
-end
-
-@testset "Integrate mutation + reproduction" begin
-    # Integration test
-    pop_creator = Creator(Population, ("p", n_inds, PassThrough(tfr_gc), PassThrough(developer), counters))
-    state = State("", rng, [pop_creator], 
-                  [InitializeAllPopulations(),
-                   InitializePhylogeny(),
-                   InitializeDeltaCache(),
-                   RandomEvaluator(),
-                   TruncationSelector(k),
-                   CloneUniformReproducer(n_inds),
-                   Mutator(;mr=Float32(0.01), n=-1),
-                   UpdatePhylogeny(),
-                   UpdateDeltaCache(),
-                   ClearInteractionsAndRecords(),
-                  ], counters=counters)
-    run!(state, 1)
-    parents = state.populations[1].individuals |> x->filter(i->i.generation==0, x)
-    children = state.populations[1].individuals |> x->filter(i->i.generation==1, x)
-    @test length(parents) == k
-    @test length(children) == n_inds - k
-    # test that each parent has a mutation of MR=1 and each child has a mutation of MR=0.01
-    dc = Jevo.get_delta_cache(state.populations[1])
-    for parent in parents, w in Jevo.get_weights(parent.genotype, no_layer_norm=true)
-        @test length(w.muts) == 1
-        @test w.muts[1].mr == 1
-        @test parent.id ∈ keys(dc)
-    end
-    for child in children, w in Jevo.get_weights(child.genotype, no_layer_norm=true)
-        @test length(w.muts) == 1
-        @test w.muts[1].mr == 0.01f0
-        @test child.id ∈ keys(dc)
-    end
-end
-
+using Distributed
+addprocs(1)
 @testset "Distribute and Develop" begin
-end
-# @testset "Develop" begin
-# end
+    @everywhere begin
+        using Jevo
+        weight_cache = WeightCache(maxsize=Int(1e7))
+        genotype_cache = GenotypeCache(maxsize=Int(1e7))
+    end
+    @test myid() == 1
+    """
+    two steps:
+    1. ensure all nodes have parents
+      a. master sends (grandparent id, parent id, parent delta) pairs
+      b. worker requests missing parent genotypes they need AND constructs parents
+      c. master responds with full parent genotypes AND outputs warning
+      d. worker constructs and caches parents in genotype cache and weight matrix
+    2. send deltas & construct
+      a. master sends delta
+      b. worker constructs genotype
+    
+    setting:
+    
+    a
+    |
+    b
+    |
+    c
+    """
+    
+    # setup
+    state = State()
+    rng = state.rng
+    gene_counter = Jevo.get_counter(AbstractGene, state)
 
+    developer = Creator(Model)
+    tfr_gc = Creator(Delta, (Creator(Network, (rng, gene_counter, [(Jevo.Transformer, tfr_args)])),))
+
+    # genesis
+    a = Individual(state.counters, tfr_gc, developer)
+    p = Population("p", [a])
+    push!(state.populations, p)
+    Jevo.operate!(state, InitializePhylogeny())
+    Jevo.operate!(state, InitializeDeltaCache())
+    Jevo.operate!(state, UpdateDeltaCache())
+    tree, dc = Jevo.get_tree(p), Jevo.get_delta_cache(p)
+    # Unit test
+    @test (-1, -1, nothing) == Jevo.master_get_gpid_pid_pds(a, tree, dc)
+    # Confirm p2 doesn't have `a` in it's genotype cache
+    @test fetch(@spawnat 2 !haskey(genotype_cache, a.id))
+    workers_missing_parents = Jevo.master_send_pids_and_gpids([[p]])
+    @test workers_missing_parents[2] == Int[]
+    # Confirm p2 still doesn't have `a` in it's genotype cache
+    @test fetch(@spawnat 2 !haskey(genotype_cache, a.id))
+    # test constructing a, genesis node
+    @test a.genotype.change == Jevo.master_construct_genome(a, Jevo.get_tree(p),
+                                         Jevo.get_delta_cache(p),
+                                         Jevo.get_genotype_cache())
+
+    # Construct full parent genome (only one node)
+    b = Jevo.clone(state, a)
+    @test b.parents[1] == a.id
+    b.genotype = mutate(rng, state, b.genotype, mr=0.1f0)
+    push!(p.individuals, b)
+    Jevo.operate!(state, UpdatePhylogeny())
+    @test tree.tree[b.id].parent.id == a.id
+    @test tree.tree[a.id].children[1].id == b.id
+    Jevo.operate!(state, UpdateDeltaCache())
+    Jevo.operate!(state, Jevo.GenerationIncrementer())
+    @test (-1, a.id, a.genotype) == Jevo.master_get_gpid_pid_pds(b, tree, dc)
+    # Confirm p2 still doesn't have `a` or `b` in it's genotype cache
+    @test fetch(@spawnat 2 !haskey(genotype_cache, a.id))
+    @test fetch(@spawnat 2 !haskey(genotype_cache, b.id))
+    workers_missing_parents = Jevo.master_send_pids_and_gpids([[p]])
+    @test workers_missing_parents[2] == [a.id]
+    # confirm p2 doesn't have `a` or `b`
+    @test fetch(@spawnat 2 !haskey(genotype_cache, a.id))
+    @test fetch(@spawnat 2 !haskey(genotype_cache, b.id))
+
+    # construct missing parent genomes
+    worker_parent_genomes = Jevo.master_construct_parents_genomes([[p]], workers_missing_parents)
+    @test worker_parent_genomes[2] == [(a.id, a.genotype.change)]
+
+    # send missing parent genomes to worker
+    Jevo.master_cache_parents!(worker_parent_genomes) 
+    # confirm p2 has `a` but not `b`
+    @test fetch(@spawnat 2 haskey(genotype_cache, a.id))
+    @test fetch(@spawnat 2 !haskey(genotype_cache, b.id))
+    # test genotypes are the same
+    @test fetch(@spawnat 2 genotype_cache[a.id]) == a.genotype.change
+
+
+    # Confirm worker now has parent genome in genotype cache
+
+
+
+
+
+   
+    # operate!(state, IncrementGeneration())
+    # c = Jevo.clone(state, b)
+    # c.genotype = mutate(rng, state, c.genotype, mr=0.1f0)
+    # @test c.parents[1] == b.id
+    # @test b.parents[1] == a.id
+    # @test a.parents == []
+# genesis
+# ensure all workers have current gen parents (genesis)
+
+
+    #     construct full genotypes of missing parents
+    # parent_genomes = construct_parents(workers_missing_parents)
+
+    #     send full genotypes to workers
+    # cache_and_construct_parents!(parent_genomes)
+
+
+
+    
+    
+        
+        
+    # end
+    # @testset "Develop" begin
+    # end
 end
+

@@ -10,16 +10,12 @@ include("./utils.jl")
 include("./constructors.jl")
 include("./develop.jl")
 include("./mutate.jl")
+include("./distributed.jl")
 
 struct SVDInitializer <: AbstractInitializer
     """Initialize a weight matrix by sampling rows/columns from a singular value decomposition of an existing initializer `fn`.
     To be used as part of a mutation, so it does not need to hold an rng, mr, or dims"""
     fn::Function
-end
-
-struct NetworkInstantiator
-    weight_cache::_WeightCache
-    genotype_cache::GenotypeCache
 end
 
 function get_nearest_ancestor(ancestors::Vector{Int}) 

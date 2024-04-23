@@ -85,7 +85,7 @@ We identify weights of a layer by their dimensions and the last gene id used to 
 """
 _WeightCache = Union{LRU{Int, <:Array{Float32}}, Nothing}
 # so we only need to transmit delta genotypes
-GenotypeCache = Union{LRU{Int, Network}, Nothing}
+_GenotypeCache = Union{LRU{Int, Network}, Nothing}
 
 struct TransformerPhenotype <: AbstractPhenotype
     textenc::Transformers.TextEncoders.TransformerTextEncoder

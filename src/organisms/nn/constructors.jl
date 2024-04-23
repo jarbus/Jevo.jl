@@ -1,3 +1,5 @@
+import Base: +, ==
+
 NetworkGene(rng::AbstractRNG, counter::Counter, mr::Float32, init::Function=Jevo.apply_kaiming_normal_noise!) = 
     NetworkGene(inc!(counter), rand(rng, UInt64), mr, init)
 NetworkGene(counter::Counter, seed::UInt64, mr::Float32, init::Function=Jevo.apply_kaiming_normal_noise!) = 
@@ -14,9 +16,31 @@ function Weights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{
         Weights(rng, counter, dims, init=apply_zero!)])
 end
 
-function WeightCache(;maxsize::Int, by::Function=sizeof)
+WeightCache(;maxsize::Int, by::Function=sizeof) =
     LRU{Int, Array{Float32}}(maxsize=maxsize, by=by)
+GenotypeCache(;maxsize::Int, by::Function=sizeof) =
+    LRU{Int, Network}(maxsize=maxsize, by=by)
+
+
+function Base.:+(a::Network, b::Delta) 
+    ws_a, ws_b = get_weights(a), get_weights(b.change)
+    @assert length(ws_a) == length(ws_b) "Different number of weights in network and delta"
+    for (wa, wb) in zip(ws_a, ws_b)
+        wa.dims != wb.dims && @assert false "Different dimensions in network and delta"
+        append!(wa.muts, wb.muts)
+    end
 end
+
+function Base.:(==)(a::Network, b::Network)
+    ws_a, ws_b = get_weights(a), get_weights(b)
+    length(ws_a) != length(ws_b) && return false
+    for (wa, wb) in zip(ws_a, ws_b)
+        wa.dims != wb.dims && return false
+    end
+    true
+end
+
+
 
 function Network(rng::AbstractRNG, counter::AbstractCounter, layers::Vector)
     """Create a network with a collection of layers"""

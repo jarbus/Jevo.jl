@@ -1,4 +1,26 @@
 export visualize, get_weights
+
+function get_weight_cache()
+    # get global variable Main.weight_cache for weight cache
+    # check if weight_cache is defined
+    if !isdefined(Main, :weight_cache)
+        @warn "No weight cache found. Creating weight cache on proc $(myid())"
+        Main.weight_cache = WeightCache(maxsize=Int(1e9))
+    end
+    Main.weight_cache
+end
+
+function get_genotype_cache()
+    # get global variable Main.weight_cache for weight cache
+    # check if weight_cache is defined
+    if !isdefined(Main, :genotype_cache)
+        @warn "No genotype cache found. Creating genotype cache on proc $(myid())"
+        Main.genotype_cache = GenotypeCache(maxsize=Int(1e9))
+    end
+    Main.genotype_cache
+end
+
+
 function mr_symbol(mr::Float32)
     mr == 1.0f0 && return "#"  
     mr >= 0.1f0 && return "0"

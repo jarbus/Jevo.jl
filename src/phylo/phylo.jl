@@ -1,4 +1,5 @@
 export Delta, InitializePhylogeny, UpdatePhylogeny, DeltaCache, InitializeDeltaCache, UpdateDeltaCache
+import Base: ==
 
 # TODO move this to appropriate files
 struct Delta{G} <: AbstractGenotype where {G <: AbstractGenotype}
@@ -6,6 +7,8 @@ struct Delta{G} <: AbstractGenotype where {G <: AbstractGenotype}
 end
 
 DeltaCache = Dict{Int, Delta}
+
+Base.:(==)(a::Delta, b::Delta) = a.change == b.change
 
 function get_tree(pop::Population)
     trees = filter(p -> p isa PhylogeneticTree, pop.data)
@@ -66,7 +69,7 @@ UpdatePhylogeny(ids::Vector{String}=String[];kwargs...) = create_op("UpdatePhylo
 InitializeDeltaCache(ids::Vector{String}=String[];kwargs...) = create_op("InitializeDeltaCache",
     condition=first_gen,
     retriever=PopulationRetriever(ids),
-    updater=map(map((s,p)->(push!(p.data, DeltaCache()); nothing); kwargs...)))
+    updater=map(map((s,p)->(push!(p.data, DeltaCache()); update_delta_cache!(s, p)); kwargs...)))
 
 @define_op "UpdateDeltaCache"
 
@@ -85,7 +88,7 @@ function update_delta_cache!(state::AbstractState, pop::Population)
     for ind in pop.individuals
         if !haskey(dc, ind.id)
             @assert length(ind.parents) <= 1 "Phylo Individuals must have <= 1 parent"
-            delta = Delta(ind.genotype)
+            delta = ind.genotype
             dc[ind.id] = delta
         end
     end
@@ -95,6 +98,3 @@ end
 UpdateDeltaCache(ids::Vector{String}=String[];kwargs...) = create_op("UpdateDeltaCache",
     retriever=PopulationRetriever(ids),
     updater=map(map((s,p)->update_delta_cache!(s,p); kwargs...)))
-
-# struct DeltaCache end # pop on master
-# struct GenotypeCache end # global on worker

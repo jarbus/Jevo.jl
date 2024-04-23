@@ -10,6 +10,7 @@
 - All Counters use the highest level appropriate type (AbstractIndividual, AbstractGene, etc)
 - randn is much faster for float32 than float16, so even though it takes up more memory, we use float32 for weights
 - Any multi-threaded operation that uses RNG should generate a new RNG object for each iteration/thread in the main process, to ensure that the same random numbers are not used in different threads
+- All evaluations are done solely on workers, and evolutionary operations are done on the main process. A worker can be on the same machine as the main process, or on a different machine.
 
 # Design of population operators
 

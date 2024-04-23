@@ -104,16 +104,6 @@ function create_layer(layer::Jevo.Dense; weight_cache::_WeightCache)
 end
 create_layer(f::Function; kwargs...) = f
 
-function get_weight_cache()
-    # get global variable Main.weight_cache for weight cache
-    # check if weight_cache is defined
-    if !isdefined(Main, :weight_cache)
-        @warn "No weight cache found, looking specifically for a variable called `weight_cache` in the global scope. Main has the following variables: $(names(Main))"
-        Main.weight_cache = nothing
-    end
-    Main.weight_cache
-end
-
 function develop(::Creator{Model}, network::Network)
     weight_cache = get_weight_cache()
     Flux.Chain((create_layer(l, weight_cache=weight_cache) for l in network.layers)...) |> Model
