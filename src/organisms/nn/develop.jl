@@ -24,8 +24,8 @@ function tensor(w::Weights; weight_cache::_WeightCache=nothing)::Array{Float32}
         gene.init!(rng, Float32, arr, gene.mr)
         # update cache if we are using one
         if yes_weight_cache && i != n_genes && gid ∉ keys(weight_cache)
-            binding = get_binding(dims, genes, i)
-            weight_cache[binding] = copy(arr)
+            gene_id = genes[end].id
+            weight_cache[gene_id] = copy(arr)
         end
     end
     arr

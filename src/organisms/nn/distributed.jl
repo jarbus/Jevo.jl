@@ -98,7 +98,7 @@ end
 function worker_construct_child_genome(ind::Individual{I, G, D}) where {I, G <: Delta, D}
     gc = get_genotype_cache()
     @assert length(ind.parents) <= 1
-    length(ind.parents) == 0 && return develop(ind.developer, ind.genotype.change)
+    length(ind.parents) == 0 && return ind.genotype.change
     genotype = gc[ind.parents[1]] + ind.genotype
     genotype
 end

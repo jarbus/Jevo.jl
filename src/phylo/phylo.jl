@@ -1,7 +1,6 @@
 export Delta, InitializePhylogeny, UpdatePhylogeny, DeltaCache, InitializeDeltaCache, UpdateDeltaCache
 import Base: ==
 
-# TODO move this to appropriate files
 struct Delta{G} <: AbstractGenotype where {G <: AbstractGenotype}
     change::G 
 end
@@ -12,6 +11,7 @@ Base.:(==)(a::Delta, b::Delta) = a.change == b.change
 
 function develop(creator::Creator, ind::Individual{I, G, D}) where {I, G <: Delta, D}
     genotype = worker_construct_child_genome(ind)
+    @assert typeof(genotype) <: AbstractGenotype
     develop(creator, genotype)
 end
 

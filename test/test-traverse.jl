@@ -130,7 +130,10 @@ addprocs(1)
     rng = state.rng
     gene_counter = Jevo.get_counter(AbstractGene, state)
 
-    developer = Creator(TransformerPhenotype)
+    vocab = ["1", "2", "3"]
+    startsym, endsym, unksym = "1", "1", "1"
+    textenc = TransformerTextEncoder(split, vocab; startsym, endsym, unksym, padsym=unksym)
+    developer = Creator(TransformerPhenotype, (;textenc=textenc))
     tfr_gc = Creator(Delta, (Creator(Network, (rng, gene_counter, [(Jevo.Transformer, tfr_args)])),))
 
     # genesis
@@ -233,10 +236,15 @@ addprocs(1)
         genotype_cache = GenotypeCache(maxsize=Int(1e7))
     end
     Jevo.operate!(state, UpdateParentsAcrossAllWorkers())
+    c_genotype_w3 = fetch(@spawnat 3 Jevo.worker_construct_child_genome(c))
+    @test c_genotype == c_genotype_w3
+    # test development of all genos on worker
+    for ind in (a, b, c)
+        @test ind isa Individual
+        pheno_2 = fetch(@spawnat 2 develop(developer, ind))
+        pheno_3 = fetch(@spawnat 3 develop(developer, ind))
+        @test Flux.params(pheno_2.trf) == Flux.params(pheno_3.trf) 
+    end
 
-
-    # end
-    # @testset "Develop" begin
-    # end
 end
 
