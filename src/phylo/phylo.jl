@@ -10,6 +10,11 @@ DeltaCache = Dict{Int, Delta}
 
 Base.:(==)(a::Delta, b::Delta) = a.change == b.change
 
+function develop(creator::Creator, ind::Individual{I, G, D}) where {I, G <: Delta, D}
+    genotype = worker_construct_child_genome(ind)
+    develop(creator, genotype)
+end
+
 function get_tree(pop::Population)
     trees = filter(p -> p isa PhylogeneticTree, pop.data)
     @assert length(trees) == 1 "Found $(length(trees)) phylogenetic trees for population $(pop.id)"

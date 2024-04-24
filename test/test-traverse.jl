@@ -130,7 +130,7 @@ addprocs(1)
     rng = state.rng
     gene_counter = Jevo.get_counter(AbstractGene, state)
 
-    developer = Creator(Model)
+    developer = Creator(TransformerPhenotype)
     tfr_gc = Creator(Delta, (Creator(Network, (rng, gene_counter, [(Jevo.Transformer, tfr_args)])),))
 
     # genesis
@@ -186,36 +186,55 @@ addprocs(1)
     # test genotypes are the same
     @test fetch(@spawnat 2 genotype_cache[a.id]) == a.genotype.change
 
+    # now add and construct c
+    c = Jevo.clone(state, b)
+    c.genotype = mutate(rng, state, c.genotype, mr=0.1f0)
+    push!(p.individuals, c)
+    Jevo.operate!(state, UpdatePhylogeny())
+    Jevo.operate!(state, UpdateDeltaCache())
+    Jevo.operate!(state, Jevo.GenerationIncrementer())
 
-    # Confirm worker now has parent genome in genotype cache
+    @test (a.id, b.id, b.genotype) == Jevo.master_get_gpid_pid_pds(c, tree, dc)
+    workers_missing_parents = Jevo.master_send_pids_and_gpids([[p]])
+    # we reconstruct a because it's parent still isn't on the worker, only a is.
+    # This is technically wasteful, but far less code and not that big of a deal
+    @test workers_missing_parents[2] == Int[a.id]
+    # Confirm `b` is on the worker
+    @test fetch(@spawnat 2 !haskey(genotype_cache, c.id))
+    @test fetch(@spawnat 2 haskey(genotype_cache, b.id))
+
+    # construct c on worker
+    c_genotype = fetch(@spawnat 2 Jevo.worker_construct_child_genome(c))
+    # confirm that there are the same number of mutations in a + b + c
+    # as there are in reconstructed c
+    ind_weights = []
+    for ind in (a, b, c)
+        push!(ind_weights, [])
+        for w in Jevo.get_weights(ind.genotype)
+            push!(ind_weights[end], length(w.muts))
+        end
+    end
+    c_weights = []
+    for w in Jevo.get_weights(c_genotype)
+        push!(c_weights, length(w.muts))
+    end
+    for idx in eachindex(c_weights) 
+        n_muts = 0
+        for ind_weight in ind_weights
+            n_muts += ind_weight[idx]
+        end
+        @test n_muts == c_weights[idx]
+    end
+    addprocs(1)
+    @test workers() == [2,3]
+    @everywhere begin
+        using Jevo
+        weight_cache = WeightCache(maxsize=Int(1e7))
+        genotype_cache = GenotypeCache(maxsize=Int(1e7))
+    end
+    Jevo.operate!(state, UpdateParentsAcrossAllWorkers())
 
 
-
-
-
-   
-    # operate!(state, IncrementGeneration())
-    # c = Jevo.clone(state, b)
-    # c.genotype = mutate(rng, state, c.genotype, mr=0.1f0)
-    # @test c.parents[1] == b.id
-    # @test b.parents[1] == a.id
-    # @test a.parents == []
-# genesis
-# ensure all workers have current gen parents (genesis)
-
-
-    #     construct full genotypes of missing parents
-    # parent_genomes = construct_parents(workers_missing_parents)
-
-    #     send full genotypes to workers
-    # cache_and_construct_parents!(parent_genomes)
-
-
-
-    
-    
-        
-        
     # end
     # @testset "Develop" begin
     # end

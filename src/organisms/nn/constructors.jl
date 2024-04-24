@@ -23,12 +23,16 @@ GenotypeCache(;maxsize::Int, by::Function=sizeof) =
 
 
 function Base.:+(a::Network, b::Delta) 
+    # Likely a performance bottleneck, because we keep copying the network
+    # for each delta application
+    a = deepcopy(a)
     ws_a, ws_b = get_weights(a), get_weights(b.change)
     @assert length(ws_a) == length(ws_b) "Different number of weights in network and delta"
     for (wa, wb) in zip(ws_a, ws_b)
         wa.dims != wb.dims && @assert false "Different dimensions in network and delta"
         append!(wa.muts, wb.muts)
     end
+    a
 end
 
 function Base.:(==)(a::Network, b::Network)

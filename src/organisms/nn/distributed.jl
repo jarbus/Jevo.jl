@@ -1,15 +1,19 @@
+export UpdateParentsAcrossAllWorkers
 GPID_PID_PD = Tuple{Int, Int, Union{Delta, Nothing}}
 MISSING_PARENTS_PER_WORKER = Dict{Int, Vector{Int}}  # worker_id: [pids]
-@define_op "UpdateParentsAcrossWorkers"
-UpdateParentsAcrossWorkers(ids::Vector{String}=String[];kwargs...) = create_op("UpdateParentsAcrossWorkers",
+@define_op "UpdateParentsAcrossAllWorkers"
+
+UpdateParentsAcrossAllWorkers(ids::Vector{String}=String[];kwargs...) = create_op("UpdateParentsAcrossAllWorkers",
     retriever=PopulationRetriever(ids),
-    updater=update_parents_across_workers!; kwargs...)
+    updater=(s, ps)->update_parents_across_all_workers!(s, ps); kwargs...)
 
 function update_parents_across_all_workers!(::State, pops::Vector{Vector{Population}})
-    workers_missing_parents = send_pids_and_gpids(pops)
-    full_parent_genomes = construct_parents_genomes(pops, workers_missing_parents)
-    cache_and_construct_parents!(full_parent_genomes)
+    # all these functions run on master, and make calls to workers
+    workers_missing_parents = master_send_pids_and_gpids(pops)
+    worker_pid_genomes = master_construct_parents_genomes(pops, workers_missing_parents)
+    master_cache_parents!(worker_pid_genomes)
 end
+
 
 function master_get_gpid_pid_pds(ind::Individual, tree::PhylogeneticTree, dc::DeltaCache)
     id = ind.id
@@ -91,6 +95,14 @@ function master_construct_genome(ind::Individual, tree::PhylogeneticTree, dc::De
     genome
 end
 
+function worker_construct_child_genome(ind::Individual{I, G, D}) where {I, G <: Delta, D}
+    gc = get_genotype_cache()
+    @assert length(ind.parents) <= 1
+    length(ind.parents) == 0 && return develop(ind.developer, ind.genotype.change)
+    genotype = gc[ind.parents[1]] + ind.genotype
+    genotype
+end
+
 function master_construct_parents_genomes(pops::Vector{Vector{Population}}, workers_missing_parents::MISSING_PARENTS_PER_WORKER)
     ids = reduce(union!, values(workers_missing_parents), init=Set{Int}())
     parent_genomes = Dict{Int, Any}()
@@ -111,10 +123,10 @@ function master_construct_parents_genomes(pops::Vector{Vector{Population}}, work
     return worker_parent_genomes
 end
 
-function worker_cache_parents!(ids_genomes)
+function worker_cache_parents!(pids_genomes)
     gc = get_genotype_cache()
-    for (id, genome) in ids_genomes
-        gc[id] = genome
+    for (pid, genome) in pids_genomes
+        gc[pid] = genome
     end
 end
 
