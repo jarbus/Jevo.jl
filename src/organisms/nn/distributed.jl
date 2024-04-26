@@ -7,7 +7,7 @@ UpdateParentsAcrossAllWorkers(ids::Vector{String}=String[];kwargs...) = create_o
     retriever=PopulationRetriever(ids),
     updater=(s, ps)->update_parents_across_all_workers!(s, ps); kwargs...)
 
-function update_parents_across_all_workers!(::State, pops::Vector{Vector{Population}})
+function update_parents_across_all_workers!(s::State, pops::Vector{Vector{Population}})
     # all these functions run on master, and make calls to workers
     workers_missing_parents = master_send_pids_and_gpids(pops)
     worker_pid_genomes = master_construct_parents_genomes(pops, workers_missing_parents)
@@ -22,12 +22,10 @@ function master_get_gpid_pid_pds(ind::Individual, tree::PhylogeneticTree, dc::De
     parent, grandparent, parent_delta = phylo_node.parent, nothing, nothing
     if !isnothing(parent) 
         pid = parent.id
-        println("parent $pid exists for $id")
         parent_delta = dc[pid]
         grandparent = tree.tree[pid].parent
         if !isnothing(grandparent) 
             gpid = grandparent.id
-            println("grandparent $gpid exists for parent $pid and $id")
         end
     end
     gpid, pid, parent_delta
@@ -99,19 +97,20 @@ function worker_construct_child_genome(ind::Individual{I, G, D}) where {I, G <: 
     gc = get_genotype_cache()
     @assert length(ind.parents) <= 1
     length(ind.parents) == 0 && return ind.genotype.change
+    @assert ind.parents[1] ∈ keys(gc) "parent $(ind.parents[1]) not found on process $(myid())"
     genotype = gc[ind.parents[1]] + ind.genotype
     genotype
 end
 
 function master_construct_parents_genomes(pops::Vector{Vector{Population}}, workers_missing_parents::MISSING_PARENTS_PER_WORKER)
-    ids = reduce(union!, values(workers_missing_parents), init=Set{Int}())
+    pids = reduce(union!, values(workers_missing_parents), init=Set{Int}())
     parent_genomes = Dict{Int, Any}()
     gc = get_genotype_cache()
     for comp_pop in pops, subpop in comp_pop
         tree = get_tree(subpop)
         dc = get_delta_cache(subpop)
         for ind in subpop.individuals
-            if ind.id in ids
+            if ind.id in pids
                 parent_genomes[ind.id] = master_construct_genome(ind, tree, dc, gc)
             end
         end
@@ -133,6 +132,7 @@ end
 function master_cache_parents!(worker_parent_genomes::Dict{Int, Any})
     tasks = Vector{Future}()
     for (wid, ids_genomes) in worker_parent_genomes
+        gids = [gid for (gid, _) in ids_genomes]
         push!(tasks, @spawnat wid worker_cache_parents!(ids_genomes))
     end
     # wait for tasks
