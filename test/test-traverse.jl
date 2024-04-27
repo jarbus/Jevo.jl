@@ -1,12 +1,22 @@
 state = State()
 rng = StableRNG(1)
 gene_counter = Jevo.get_counter(AbstractGene, state)
-n_blocks, n_heads, head_dim, hidden_dim, ff_dim, vocab_size = 2, 2, 5, 10, 20, 5
+
+n_tokens = 5
+startsym = "<s>"
+endsym = "</s>"
+unksym = "<unk>"
+labels = string.(0:n_tokens)
+vocab = [unksym, startsym, endsym, labels...]
+vocab_size = length(vocab)
+
+n_blocks, n_heads, head_dim, hidden_dim, ff_dim = 3, 2, 5, 10, 20
+textenc = TransformerTextEncoder(split, vocab; startsym, endsym, unksym, padsym=unksym)
 
 attn_args = (n_heads=n_heads, head_dim=head_dim, hidden_dim=hidden_dim)
 block_args = (attn_args..., ff_dim=ff_dim)
 tfr_args = (block_args..., n_blocks=n_blocks, vocab_size=vocab_size)
-env_args = (vocab_size = vocab_size, batch_size = 1000, seq_len = 3, n_repeat = 4,)
+env_args = (vocab_size = vocab_size, batch_size = 2, seq_len = 3, n_repeat = 2,)
 
 @testset "HierarchicalTransformerTraverse" begin
     net = Network(rng, gene_counter, [(Jevo.Transformer, tfr_args)])
@@ -148,11 +158,11 @@ addprocs(1)
     # Unit test
     @test (-1, -1, nothing) == Jevo.master_get_gpid_pid_pds(a, tree, dc)
     # Confirm p2 doesn't have `a` in it's genotype cache
-    @test fetch(@spawnat 2 !haskey(genotype_cache, a.id))
+    @test fetch(@spawnat 2 !haskey(Jevo.get_genotype_cache(), a.id))
     workers_missing_parents = Jevo.master_send_pids_and_gpids([[p]])
     @test workers_missing_parents[2] == Int[]
     # Confirm p2 still doesn't have `a` in it's genotype cache
-    @test fetch(@spawnat 2 !haskey(genotype_cache, a.id))
+    @test fetch(@spawnat 2 !haskey(Jevo.get_genotype_cache(), a.id))
     # test constructing a, genesis node
     @test a.genotype.change == Jevo.master_construct_genome(a, Jevo.get_tree(p),
                                          Jevo.get_delta_cache(p),
@@ -170,13 +180,13 @@ addprocs(1)
     Jevo.operate!(state, Jevo.GenerationIncrementer())
     @test (-1, a.id, a.genotype) == Jevo.master_get_gpid_pid_pds(b, tree, dc)
     # Confirm p2 still doesn't have `a` or `b` in it's genotype cache
-    @test fetch(@spawnat 2 !haskey(genotype_cache, a.id))
-    @test fetch(@spawnat 2 !haskey(genotype_cache, b.id))
+    @test fetch(@spawnat 2 !haskey(Jevo.get_genotype_cache(), a.id))
+    @test fetch(@spawnat 2 !haskey(Jevo.get_genotype_cache(), b.id))
     workers_missing_parents = Jevo.master_send_pids_and_gpids([[p]])
     @test workers_missing_parents[2] == [a.id]
     # confirm p2 doesn't have `a` or `b`
-    @test fetch(@spawnat 2 !haskey(genotype_cache, a.id))
-    @test fetch(@spawnat 2 !haskey(genotype_cache, b.id))
+    @test fetch(@spawnat 2 !haskey(Jevo.get_genotype_cache(), a.id))
+    @test fetch(@spawnat 2 !haskey(Jevo.get_genotype_cache(), b.id))
 
     # construct missing parent genomes
     worker_parent_genomes = Jevo.master_construct_parents_genomes([[p]], workers_missing_parents)
@@ -185,10 +195,10 @@ addprocs(1)
     # send missing parent genomes to worker
     Jevo.master_cache_parents!(worker_parent_genomes) 
     # confirm p2 has `a` but not `b`
-    @test fetch(@spawnat 2 haskey(genotype_cache, a.id))
-    @test fetch(@spawnat 2 !haskey(genotype_cache, b.id))
+    @test fetch(@spawnat 2 haskey(Jevo.get_genotype_cache(), a.id))
+    @test fetch(@spawnat 2 !haskey(Jevo.get_genotype_cache(), b.id))
     # test genotypes are the same
-    @test fetch(@spawnat 2 genotype_cache[a.id]) == a.genotype.change
+    @test fetch(@spawnat 2 Jevo.get_genotype_cache()[a.id]) == a.genotype.change
 
     # now add and construct c
     c = Jevo.clone(state, b)
@@ -204,8 +214,8 @@ addprocs(1)
     # This is technically wasteful, but far less code and not that big of a deal
     @test workers_missing_parents[2] == Int[a.id]
     # Confirm `b` is on the worker
-    @test fetch(@spawnat 2 !haskey(genotype_cache, c.id))
-    @test fetch(@spawnat 2 haskey(genotype_cache, b.id))
+    @test fetch(@spawnat 2 !haskey(Jevo.get_genotype_cache(), c.id))
+    @test fetch(@spawnat 2 haskey(Jevo.get_genotype_cache(), b.id))
 
     # construct c on worker
     c_genotype = fetch(@spawnat 2 Jevo.worker_construct_child_genome(c))
@@ -248,17 +258,37 @@ addprocs(1)
     end
 end
 
+abstract type OutputValue <: AbstractMetric end
+abstract type MatchCount <: AbstractMetric end
+
+
 @testset "Insane integration" begin
     k = 1
     n_inds = 2
 
+    @everywhere begin
+        Main.weight_cache = WeightCache(maxsize=Int(1e7))
+        Main.genotype_cache = GenotypeCache(maxsize=Int(1e7))
+    end
+
     counters = default_counters()
     rng = StableRNG(1) 
     gene_counter = find(:type, AbstractGene, counters)
-    vocab, startsym, endsym, unksym = ["1", "2", "3", "4", "5"], "1", "1", "1"
-    textenc = TransformerTextEncoder(split, vocab; startsym, endsym, unksym, padsym=unksym)
     developer = Creator(TransformerPhenotype, (;textenc=textenc))
     tfr_gc = Creator(Delta, (Creator(Network, (rng, gene_counter, [(Jevo.Transformer, tfr_args)])),))
+
+    function evaluate(individual)
+      model = develop(individual.developer, individual)
+      Jevo.play(env_creator(), [model])[1]
+    end
+
+    losses = []
+    BestLogger() = create_op("Reporter",
+            retriever=Jevo.get_individuals,
+            operator=(s,is)->
+              (m=StatisticalMeasurement(OutputValue, evaluate.(is), generation(s));
+               push!(losses, m.mean);
+              @info m;))
 
     pop_creator = Creator(Population, ("p", n_inds, PassThrough(tfr_gc), PassThrough(developer), counters))
     env_creator = Creator(RepeatSequence, env_args)
@@ -272,6 +302,7 @@ end
                    Performer(time=true),
                    ScalarFitnessEvaluator(["p"]), 
                    TruncationSelector(k),
+                   BestLogger(),
                    CloneUniformReproducer(n_inds),
                    Mutator(mr=0.1f0),
                    UpdatePhylogeny(),
@@ -280,6 +311,7 @@ end
                   ], counters=counters)
 
     run!(state, 3)
+    println(losses)
     addprocs(1)
 end
 

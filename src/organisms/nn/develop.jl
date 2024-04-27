@@ -5,7 +5,10 @@ function get_earliest_cached_weight(dims::NTuple{N, Int}, genes::Vector{NetworkG
     isnothing(weight_cache) && return zeros(Float32, dims), 0
     @inbounds @simd for i in length(genes):-1:1
         weights = get(weight_cache, genes[i].id, nothing)
-        !isnothing(weights) && return (copy(weights), i)
+        if !isnothing(weights)
+            @assert size(weights) == dims "Cached weight for $(genes[i].id) has different dimensions than requested"
+            return (copy(weights), i)
+        end
     end
     zeros(Float32, dims), 0
 end
@@ -100,6 +103,8 @@ create_layer(layer::Jevo.Chain; weight_cache::_WeightCache) =
 function create_layer(layer::Jevo.Dense; weight_cache::_WeightCache)
     weights = @inline tensor(layer.weights, weight_cache=weight_cache)
     bias = @inline tensor(layer.bias, weight_cache=weight_cache)
+    @assert length(layer.bias.dims) == 1
+    @assert length(size(bias)) == 1
     Flux.Dense(weights, bias, layer.σ)
 end
 create_layer(f::Function; kwargs...) = f

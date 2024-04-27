@@ -47,7 +47,7 @@ function master_send_pids_and_gpids(pops::Vector{Vector{Population}})
     end
     # Send to workers
     tasks = Vector{Future}()
-    for wid in workers()
+    for wid in procs()
         push!(tasks, @spawnat wid worker_mk_parents_from_deltas_and_ret_missing!(gpid_pid_pds))
     end
     # Receive missing parents from workers 
@@ -104,16 +104,22 @@ end
 
 function master_construct_parents_genomes(pops::Vector{Vector{Population}}, workers_missing_parents::MISSING_PARENTS_PER_WORKER)
     pids = reduce(union!, values(workers_missing_parents), init=Set{Int}())
-    parent_genomes = Dict{Int, Any}()
     gc = get_genotype_cache()
+    parent_genomes = Dict{Int, Any}(pid=>gc[pid] for pid in pids if pid in keys(gc))
+    println("master_construct_parents_genomes keys: ")
+    println(keys(gc))
     for comp_pop in pops, subpop in comp_pop
         tree = get_tree(subpop)
         dc = get_delta_cache(subpop)
         for ind in subpop.individuals
-            if ind.id in pids
+            if ind.id in pids && !(ind.id in keys(parent_genomes))
+                println("adding parent $(ind.id) to parent_genomes")
                 parent_genomes[ind.id] = master_construct_genome(ind, tree, dc, gc)
             end
         end
+    end
+    for pid in pids
+        @assert pid ∈ keys(parent_genomes) "parent $(pid) not found in parent_genomes"
     end
     worker_parent_genomes = Dict{Int, Any}()
     for (wid, pids) in workers_missing_parents
@@ -125,14 +131,16 @@ end
 function worker_cache_parents!(pids_genomes)
     gc = get_genotype_cache()
     for (pid, genome) in pids_genomes
+        println("caching parent $(pid) on worker $(myid())")
         gc[pid] = genome
     end
+    println("keys: ")
+    println(keys(gc))
 end
 
 function master_cache_parents!(worker_parent_genomes::Dict{Int, Any})
     tasks = Vector{Future}()
     for (wid, ids_genomes) in worker_parent_genomes
-        gids = [gid for (gid, _) in ids_genomes]
         push!(tasks, @spawnat wid worker_cache_parents!(ids_genomes))
     end
     # wait for tasks
