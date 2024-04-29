@@ -264,11 +264,11 @@ abstract type MatchCount <: AbstractMetric end
 
 @testset "Insane integration" begin
     k = 1
-    n_inds = 2
+    n_inds = 10
 
     @everywhere begin
-        Main.weight_cache = WeightCache(maxsize=Int(1e7))
-        Main.genotype_cache = GenotypeCache(maxsize=Int(1e7))
+        Main.weight_cache = WeightCache(maxsize=Int(1e10))
+        Main.genotype_cache = GenotypeCache(maxsize=Int(1e10))
     end
 
     counters = default_counters()
@@ -278,7 +278,12 @@ abstract type MatchCount <: AbstractMetric end
     tfr_gc = Creator(Delta, (Creator(Network, (rng, gene_counter, [(Jevo.Transformer, tfr_args)])),))
 
     function evaluate(individual)
+      println("evaluating individual $(individual.id)")
+      geno_hash = hash(get_weights(individual.genotype, no_layer_norm=true))
+      println("geno_hash: $geno_hash")
       model = develop(individual.developer, individual)
+      pheno_hash = Flux.params(model.trf) |> Iterators.flatten |> collect |> hash
+      println("pheno_hash: $pheno_hash")
       Jevo.play(env_creator(), [model])[1]
     end
 
@@ -286,7 +291,8 @@ abstract type MatchCount <: AbstractMetric end
     BestLogger() = create_op("Reporter",
             retriever=Jevo.get_individuals,
             operator=(s,is)->
-              (m=StatisticalMeasurement(OutputValue, evaluate.(is), generation(s));
+            (println("best id: $(is[1].id)");
+               m=StatisticalMeasurement(OutputValue, evaluate.(is), generation(s));
                push!(losses, m.mean);
               @info m;))
 
@@ -310,7 +316,7 @@ abstract type MatchCount <: AbstractMetric end
                    ClearInteractionsAndRecords(),
                   ], counters=counters)
 
-    run!(state, 3)
+    run!(state, 10)
     println(losses)
     addprocs(1)
 end
