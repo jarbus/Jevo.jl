@@ -3,7 +3,7 @@ export CreateMissingWorkers
 @define_op "CreateMissingWorkers"
 CreateMissingWorkers(n=Int;kwargs...) = create_op("CreateMissingWorkers",
           condition=always,
-          operator=(_,_)->create_missing_workers(n),
+          operator=(_,_)->create_missing_workers(n);
           kwargs...)
 
 function create_missing_workers(n::Int)

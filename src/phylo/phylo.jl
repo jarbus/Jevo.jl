@@ -66,7 +66,7 @@ end
 
 UpdatePhylogeny(ids::Vector{String}=String[];kwargs...) = create_op("UpdatePhylogeny",
     retriever=PopulationRetriever(ids),
-    updater=map(map((s,p)->update_phylogeny!(s,p); kwargs...)))
+    updater=map(map((s,p)->update_phylogeny!(s,p)));kwargs...)
 
 
 @define_op "InitializeDeltaCache"
@@ -74,7 +74,7 @@ UpdatePhylogeny(ids::Vector{String}=String[];kwargs...) = create_op("UpdatePhylo
 InitializeDeltaCache(ids::Vector{String}=String[];kwargs...) = create_op("InitializeDeltaCache",
     condition=first_gen,
     retriever=PopulationRetriever(ids),
-    updater=map(map((s,p)->(push!(p.data, DeltaCache()); update_delta_cache!(s, p)); kwargs...)))
+    updater=map(map((s,p)->(push!(p.data, DeltaCache()); update_delta_cache!(s, p)))); kwargs...)
 
 @define_op "UpdateDeltaCache"
 
@@ -102,4 +102,4 @@ end
 
 UpdateDeltaCache(ids::Vector{String}=String[];kwargs...) = create_op("UpdateDeltaCache",
     retriever=PopulationRetriever(ids),
-    updater=map(map((s,p)->update_delta_cache!(s,p); kwargs...)))
+    updater=map(map((s,p)->update_delta_cache!(s,p))); kwargs...)
