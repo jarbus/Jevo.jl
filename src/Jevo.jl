@@ -25,6 +25,7 @@ using PhylogeneticTrees
 using OneHotArrays
 using Reexport
 using XPlot
+using ClusterManagers
 @reexport using XPlot
 
 import Base: show
