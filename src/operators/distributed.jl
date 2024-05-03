@@ -7,12 +7,8 @@ CreateMissingWorkers(n=Int;kwargs...) = create_op("CreateMissingWorkers",
           kwargs...)
 
 function create_missing_workers(n::Int)
-    n_tries = 0
-    while length(workers()) < n
-        println("Creating worker")
-        addprocs(SlurmManager(1))
-        n_tries += 1
-        n_tries >= 20 && error("Too many attempts to create missing workers")
-    end
+    n_workers = length(workers())
+    n_workers_to_add = n - n_workers
+    addprocs(SlurmManager(n_workers_to_add), gres="gpu:1", c=4)
     @everywhere include(joinpath(@__DIR__, "load_jevo.jl"))
 end
