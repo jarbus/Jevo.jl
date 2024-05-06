@@ -18,7 +18,7 @@ always(state::AbstractState) = true
 
 @define_op "GenerationIncrementer"
 GenerationIncrementer(;kwargs...) = create_op("GenerationIncrementer",
-    updater=(state, _)->(get_counter(AbstractGeneration, state) |> inc!; println(generation(state))); kwargs...)
+    updater=(state, _)->(get_counter(AbstractGeneration, state) |> inc!); kwargs...)
 
 # Allows specifying state by id, rng, creators, and operators
 function State(id::String, rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator}; counters::Vector{<:AbstractCounter}=default_counters(), populations::Vector{<:AbstractPopulation}=AbstractPopulation[], matches::Vector{<:AbstractMatch}=AbstractMatch[], metrics::Vector{<:AbstractMetric}=AbstractMetric[], data::Vector{<:AbstractData}=AbstractData[], info::Dict{Any, Any}=Dict())

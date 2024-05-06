@@ -119,5 +119,7 @@ function master_cache_parents!(worker_parent_genomes::Dict{Int, <:Any})
     tasks = [@spawnat wid worker_cache_parents!(ids_genomes)
              for (wid, ids_genomes) in worker_parent_genomes]
     # wait for tasks
-    map(fetch, tasks)
+    Threads.@threads for i in eachindex(tasks)
+        fetch(tasks[i])
+    end
 end

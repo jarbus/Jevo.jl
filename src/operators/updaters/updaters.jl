@@ -118,11 +118,18 @@ function add_interactions!(scores::Vector{T}, match::Match) where T <: AbstractF
 end
 
 function compute_interactions!(matches::Vector{<:AbstractMatch})
-    @assert workers()[1] > 1 "Jevo must be run with at least one worker process"
-    futures = [@spawnat(:any, play(m)) for m in matches]
-    for (f, m) in zip(futures, matches)
-        scores = fetch(f)
-        @inbounds add_interactions!(scores, m)
+    @assert length(workers()) > 0 "Jevo must be run with at least one worker process"
+    # get scores async, this is important because GPU memory fills up if we wait for all
+    # tasks to finish before collecting
+    batch_size = 50
+    match_batches = [matches[i:min(length(matches),(i+batch_size-1))] for i in 1:batch_size:length(matches)]
+    score_batches = Vector(undef, length(match_batches))
+    # send batches of 20 matches to gpu
+    Threads.@threads for midx in eachindex(match_batches)
+        score_batches[midx] = fetch(@spawnat(:any, [play(m) for m in match_batches[midx]]))
+    end
+    for (mb, sb) in zip(match_batches, score_batches), (match, score) in zip(mb, sb)
+        @inbounds add_interactions!(score, match)
     end
 end
 # PERFORMANCE CRITICAL END (measured)

@@ -6,9 +6,7 @@ play(match::Match) = play(match.environment_creator, match.individuals)
 function play(c::Creator{E}, inds::Vector{I}) where {E<:AbstractEnvironment, I<:AbstractIndividual}
     lock(get_env_lock()) do
         phenotypes = develop(inds)
-        scores = play(c(), phenotypes)
-        cpu(phenotypes)
-        scores
+        play(c(), phenotypes)
     end
 end
 
