@@ -20,6 +20,13 @@ function get_genotype_cache()
     Main.genotype_cache
 end
 
+function get_env_lock()
+    if !isdefined(Main, :env_lock)
+        Main.env_lock = ReentrantLock()
+    end
+    Main.env_lock
+end
+
 
 function mr_symbol(mr::Float32)
     mr == 1.0f0 && return "#"  
@@ -95,4 +102,12 @@ function get_weights(x::Union{Network, AbstractLayer, AbstractGenotype}; no_laye
         no_layer_norm && is_layer_norm(hierarchy) && return nothing
         return hierarchy[end]
     end |> x->filter(!isnothing, x)
+end
+
+function set_device()
+    worker_idx = myid() in workers() ? findfirst(x->x==myid(), sort(workers())) : 1
+    device_id = collect(devices())[worker_idx].handle |> Int64
+    println("$(myid()) has devices $(collect(devices()))")
+    Main.jevo_device = Flux.get_device("CUDA", device_id)
+    nothing
 end
