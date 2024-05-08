@@ -40,6 +40,7 @@ function master_send_pids_and_gpids(pops::Vector{Vector{Population}})
             end
         end
     end
+    gpid_pid_pds = unique(gpid_pid_pds)
     # Send to workers
     tasks = [@spawnat wid worker_mk_parents_from_deltas_and_ret_missing!(gpid_pid_pds)
              for wid in procs()]
