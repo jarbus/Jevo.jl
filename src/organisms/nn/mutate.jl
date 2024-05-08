@@ -46,7 +46,6 @@ end
 
 function mutate(rng::AbstractRNG, state::State, genotype::Network; mr::Union{Float32,Tuple{Vararg{Float32}}}, n::Int=2, lookback::Int=-1)
     new_genotype = deepcopy(genotype)
-    gene_counter = get_counter(AbstractGene, state)
     mutate_weights!(rng, state, new_genotype, mr, lookback, n=n)
     new_genotype
 end
