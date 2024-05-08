@@ -117,11 +117,10 @@ function add_interactions!(scores::Vector{T}, match::Match) where T <: AbstractF
     nothing
 end
 
-function compute_interactions!(matches::Vector{<:AbstractMatch})
+function compute_interactions!(matches::Vector{<:AbstractMatch}; batch_size::Int)
     @assert length(workers()) > 0 "Jevo must be run with at least one worker process"
     # get scores async, this is important because GPU memory fills up if we wait for all
     # tasks to finish before collecting
-    batch_size = 50
     match_batches = [matches[i:min(length(matches),(i+batch_size-1))] for i in 1:batch_size:length(matches)]
     score_batches = Vector(undef, length(match_batches))
     # send batches of 20 matches to gpu
@@ -134,10 +133,12 @@ function compute_interactions!(matches::Vector{<:AbstractMatch})
 end
 # PERFORMANCE CRITICAL END (measured)
 ############################
-struct ComputeInteractions! <: AbstractUpdater end
-function (::ComputeInteractions!)(::AbstractState, matches::Vector{M}) where M <: AbstractMatch
+struct ComputeInteractions! <: AbstractUpdater 
+    batch_size::Int
+end
+function (updater::ComputeInteractions!)(::AbstractState, matches::Vector{M}) where M <: AbstractMatch
     n_matches = length(matches)
-    compute_interactions!(matches)
+    compute_interactions!(matches, batch_size=updater.batch_size)
     empty!(matches)
     sizehint!(matches, n_matches)
     nothing
