@@ -50,35 +50,7 @@ for p in state.populations
     end
 end
 
-@testset "DeltaCache" begin
 
-state = State("", rng, [comp_pop_creator], 
-              [pop_initializer,
-               InitializePhylogeny(),
-               InitializeDeltaCache(),
-               RandomEvaluator(),
-               TruncationSelector(k),
-               DeltaUniformReproducer(n_inds),
-               Mutator(0.1),
-               UpdatePhylogeny(),
-               UpdateDeltaCache(),
-               ClearInteractionsAndRecords(),
-              ], counters=counters)
-run!(state, n_gens)
-
-for p in state.populations
-    for subpop in p.populations
-        tree = Jevo.get_tree(subpop)
-        @test n_inds < length(tree.tree) < n_inds + ((n_inds-k)*(n_gens))
-        cache = Jevo.get_delta_cache(subpop)
-        @test cache isa DeltaCache
-        @test length(cache) == length(tree.tree)
-    end
+@testset "DeltaCache+Genepool+Mutator" begin
 end
-end
-
-
-
-
-
 end

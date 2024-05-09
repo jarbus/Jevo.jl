@@ -1,8 +1,9 @@
 export Mutator
 
 @define_op "Mutator" "AbstractMutator"
-Mutator(ids::Vector{String}=String[]; time::Bool=false, kwargs...) = 
+Mutator(ids::Vector{String}=String[]; time::Bool=false, condition=always, kwargs...) = 
     create_op("Mutator", 
+              condition=condition,
               retriever=PopulationRetriever(ids),
               updater=map(map((s,p)->mutate!(s, p; kwargs...))),
               time=time;)
@@ -15,10 +16,10 @@ function mutate!(state::AbstractState, pop::Population; kwargs...)
     Threads.@threads for i in 1:length(pop.individuals)
         ind = pop.individuals[i]
         if ind.generation == gen
-            mutate!(rngs[i], state, ind; kwargs...)
+            mutate!(rngs[i], state, pop, ind; kwargs...)
         end
     end
 end
-function mutate!(rng::AbstractRNG, state::AbstractState, ind::AbstractIndividual; kwargs...)
-    ind.genotype = mutate(rng, state, ind.genotype; kwargs...)
+function mutate!(rng::AbstractRNG, state::AbstractState, population::AbstractPopulation, ind::AbstractIndividual; fn=mutate, kwargs...)
+    ind.genotype = fn(rng, state, population, ind.genotype; kwargs...)
 end

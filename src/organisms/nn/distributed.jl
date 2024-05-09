@@ -85,7 +85,7 @@ function worker_construct_child_genome(ind::Individual{I, G, D}) where {I, G <: 
     @assert length(ind.parents) <= 1
     gc = get_genotype_cache()
     length(ind.parents) == 0 && return ind.genotype.change
-    @assert ind.parents[1] ∈ keys(gc) "parent $(ind.parents[1]) not found on process $(myid())"
+    @assert ind.parents[1] ∈ keys(gc) "parent $(ind.parents[1]) not found on process $(myid()), keys=$(keys(gc))"
     genotype = gc[ind.parents[1]] + ind.genotype
     genotype
 end

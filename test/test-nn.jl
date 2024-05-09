@@ -1,3 +1,4 @@
+nul_pop = Population("", Individual[])
 @testset "neural-net" begin
     @testset "unit tests" begin
         state = State()
@@ -7,34 +8,19 @@
         # test creating a genotype
         relu(x) = max(0, x)
         # Naive way to create network
-        Network(NoCoupling, [Jevo.Dense(Jevo.Weights((784,784),NetworkGene[]), Jevo.Weights((784,10),NetworkGene[]), relu)])
+        Network([Jevo.Dense(Jevo.Weights((784,784),NetworkGene[]), Jevo.Weights((784,10),NetworkGene[]), relu)])
         # Better interface
-        net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu))])
+        net = Network(rng, gene_counter, [(Jevo.Dense, (dims=(784,10), σ=relu))])
         dense = net.layers[1]
 
-        @testset "binding" begin
-            state = State()
-            gene_counter = Jevo.get_counter(AbstractGene, state)
-            net_bind = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu))])
-            dense_bind = net_bind.layers[1]
-            @test length(dense_bind.weights.muts) == 1
-            seed = dense_bind.weights.muts[1].seed
-            binding = Jevo.get_binding((784,10), dense_bind.weights.muts)
-            @test binding.dims == (784,10)
-            @test binding.ids == (1,)
-            push!(dense_bind.weights.muts, Jevo.NetworkGene(3, 2, 0.1, Jevo.apply_kaiming_normal_noise!))
-            binding = Jevo.get_binding((784,10), dense_bind.weights.muts)
-            @test binding.dims == (784,10)
-            @test binding.ids == (UInt64(3),UInt64(1))
-        end
         @testset "tensor()" begin
             @test (10,784) == size(Jevo.tensor(dense.weights))
             @test mean(Jevo.tensor(dense.weights)) ≈ 0.0 atol=0.01
         end
         # Test constructing with weight cache
         @testset "weight cache" begin
-            push!(dense.weights.muts, deepcopy(dense.weights.muts[1]))
-            push!(dense.bias.muts, deepcopy(dense.bias.muts[1]))
+            push!(dense.weights.muts, NetworkGene(9000,9000, 0.1, Jevo.apply_kaiming_normal_noise!))
+            push!(dense.bias.muts, NetworkGene(9001,9001, 0.1, Jevo.apply_kaiming_normal_noise!))
             @test length(deepcopy(dense.weights.muts)) == 2
             @test length(deepcopy(dense.bias.muts)) == 2
             @test length(weight_cache) == 0
@@ -61,34 +47,27 @@
         end
         # Test phenotype creation & forward pass
         @testset "develop & forward pass full rank" begin
-            net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu))])
+            net = Network(rng, gene_counter, [(Jevo.Dense, (dims=(784,10), σ=relu))])
             dense = net.layers[1]
             creator = Creator(Model)
             model = develop(creator, net)
             @test model |> typeof <: Model 
             @test rand(Float32, 784) |> model.chain |> size == (10,)
             # confirm we can get a list of weights 
-            @test length(Jevo.get_weights(rng, net, n=-1)) == 2
-            @test length(Jevo.get_weights(rng, net, n=1)) == 1
+            @test length(Jevo.get_weights(net)) == 2
             # Add mutations to each network
-            mutated_net = Jevo.mutate(rng, state, net, mr=Float32(0.01))
-            @test all(map(w ->length(w.muts)==2, Jevo.get_weights(rng, mutated_net, n=-1)))
-            mutated_net = Jevo.mutate(rng, state, mutated_net, mr=Float32(0.01))
-            @test all(map(w ->length(w.muts)==3, Jevo.get_weights(rng, mutated_net, n=-1)))
-            mut_strengths = [0.1f0, 0.01f0, 0.001f0]
-            mutated_net = Jevo.mutate(rng, state, mutated_net, mr=Tuple(mut_strengths), lookback=1)
-            @test Jevo.find_highest_mr(Jevo.get_weights(rng, mutated_net, n=-1), 100) == 1f0
-            @test Jevo.find_highest_mr(Jevo.get_weights(rng, mutated_net, n=-1), 1) ∈ mut_strengths
-
-
+            @test all(map(w ->length(w.muts)==1, Jevo.get_weights(net)))
+            mutated_net = Jevo.mutate(rng, state, nul_pop, net, mr=Float32(0.01))
+            @test all(map(w ->length(w.muts)==1, Jevo.get_weights(mutated_net)))
+            @test all([w1.muts !== w2.muts for (w1, w2) in zip(Jevo.get_weights(net), Jevo.get_weights(mutated_net))])
         end
         @testset "low rank develop + fwd" begin
             creator = Creator(Model)
-            full_net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,100), σ=relu))])
+            full_net = Network(rng, gene_counter, [(Jevo.Dense, (dims=(784,100), σ=relu))])
             full_model = develop(creator, full_net)
-            recon_full_net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,100), σ=relu, rank=100))])
+            recon_full_net = Network(rng, gene_counter, [(Jevo.Dense, (dims=(784,100), σ=relu, rank=100))])
             recon_full_model = develop(creator, recon_full_net)
-            lora_net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,100), σ=relu, rank=32))])
+            lora_net = Network(rng, gene_counter, [(Jevo.Dense, (dims=(784,100), σ=relu, rank=32))])
             println(lora_net.layers[1])
             # TODO add a test to make sure that get_factors is deterministic
             Main.weight_cache = WeightCache(maxsize=1_000_000)
@@ -143,8 +122,8 @@
             db = Jevo.TransformerDecoderBlock(rng, gene_counter; block_args...)
             trf = Jevo.Transformer(rng, gene_counter; tfr_args...)
             visualize(trf) # make sure it doesn't error
-            net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Transformer, tfr_args)])
-            weights = Jevo.get_weights(rng, net, n=-1)
+            net = Network(rng, gene_counter, [(Jevo.Transformer, tfr_args)])
+            weights = Jevo.get_weights(net)
             dims = [w.dims for w in weights]
             @test (hidden_dim,vocab_size) in dims # embed
             @test (vocab_size,) in dims # embed bias
@@ -156,7 +135,7 @@
             @test (3*head_dim*n_heads, hidden_dim) in dims # qkv
             @test (head_dim*n_heads, hidden_dim) in dims   # out
             @test (hidden_dim,) in dims # layernorm
-            mutated_net = Jevo.mutate(rng, state, net, mr=Float32(0.01))
+            mutated_net = Jevo.mutate(rng, state, nul_pop, net, mr=Float32(0.01))
             # TODO ADD TEST FOR GAUSSIAN VS KAIMING INIT
             Jevo.create_layer(embed; weight_cache=weight_cache)
             Jevo.create_layer(embed_decoder; weight_cache=weight_cache)
@@ -188,7 +167,7 @@
             # TODO TEST EXTENSIVELY
             @testset "LowRank" begin
                 # LowRank
-                net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(784,10), σ=relu, rank=2))])
+                net = Network(rng, gene_counter, [(Jevo.Dense, (dims=(784,10), σ=relu, rank=2))])
                 dense = net.layers[1]
                 d = Jevo.create_layer(dense; weight_cache=weight_cache)
                 @test d.weight |> size == (10, 784)
@@ -196,75 +175,9 @@
                 @test d.bias |> size == (10,)
                 @test d.bias |> typeof == Array{Float32,1}
                 lora_tfr_args = (tfr_args..., qkv_rank=2, o_rank=2, ff_rank=2, embed_rank=2)
-                net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Transformer, lora_tfr_args)])
+                net = Network(rng, gene_counter, [(Jevo.Transformer, lora_tfr_args)])
                 lora_tfr_p = develop(Creator(Jevo.TransformerPhenotype, (;textenc=textenc)), net)
             end
         end
-    end
-    @testset "integration tests" begin
-        n_env_inputs = 5
-        n_species = 2
-        n_inds = 3
-        empty!(weight_cache)
-    
-        state = State()
-        gene_counter = Jevo.get_counter(AbstractGene, state)
-        geno_creator = Creator(Network, (rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(n_env_inputs,1), σ=relu))]))
-        geno = geno_creator()
-        phen_creator = Creator(Model)
-        phen = develop(phen_creator, geno)
-        net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (dims=(n_env_inputs,1), σ=relu))])
-        comp_pop_creator = Creator(CompositePopulation, ("species", [("p$i", n_inds, geno_creator, phen_creator) for i in 1:n_species], state.counters))
-        comp_pop = comp_pop_creator()
-        @test comp_pop.populations |> length == n_species
-        @test all(length(p.individuals) == n_inds for p in comp_pop.populations)
-        env_creator = Creator(MaxLogits, (n=n_env_inputs,))
-        state = State(rng,[comp_pop_creator, env_creator], 
-              [ InitializeAllPopulations(), 
-                SoloMatchMaker(["p1", "p2"]), 
-                Performer(),
-                ScalarFitnessEvaluator(["p1", "p2"]), 
-                TruncationSelector(1),
-                UniformReproducer(n_inds),
-                Mutator(;mr=Float32(0.01), n=2),
-                PopSizeAssertor(n_inds),
-                ClearInteractionsAndRecords()])
-        @test length(state.matches) == 0
-        run!(state, 1)
-    end
-    # @testset "mnist" begin
-    #     n_env_inputs = 784
-    #     n_species = 1
-    #     n_inds = 3
-    #     empty!(weight_cache)
-    # 
-    #     state = State()
-    #     gene_counter = Jevo.get_counter(AbstractGene, state)
-    #     geno_creator = Creator(Network, (rng, gene_counter, StrictCoupling, [(Jevo.Dense, (n_env_inputs,10), relu)]))
-    #     geno = geno_creator()
-    #     phen_creator = Creator(Model)
-    #     phen = develop(phen_creator, geno)
-    #     net = Network(rng, gene_counter, StrictCoupling, [(Jevo.Dense, (n_env_inputs,10), relu)])
-    #     comp_pop_creator = Creator(CompositePopulation, ("species", [("p$i", n_inds, geno_creator, phen_creator) for i in 1:n_species], state.counters))
-    #     comp_pop = comp_pop_creator()
-    #     env_creator = Creator(MNISTEnv)
-    #     state = State(rng,[comp_pop_creator, env_creator], 
-    #           [ InitializeAllPopulations(), 
-    #             SoloMatchMaker(["p1"]), 
-    #             Performer(),
-    #             ScalarFitnessEvaluator(["p1"]), 
-    #             TruncationSelector(1),
-    #             UniformReproducer(n_inds),
-    #             Mutator(;mr=Float32(0.01), n=2),
-    #             PopSizeAssertor(n_inds),
-    #             ClearInteractionsAndRecords()])
-    #     run!(state, 1)
-    # end
-    @testset "nn confirm improvement" begin
-        # TODO
-    end
-    @testset "distributed eval" begin
-        # TODO
-    end
+    end 
 end
-

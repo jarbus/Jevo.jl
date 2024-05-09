@@ -1,8 +1,12 @@
-export Delta, InitializePhylogeny, UpdatePhylogeny, DeltaCache, InitializeDeltaCache, UpdateDeltaCache
+export Delta, InitializePhylogeny, UpdatePhylogeny, DeltaCache, InitializeDeltaCache, UpdateDeltaCache, UpdateGenePool, GenePool
 import Base: ==
 
 struct Delta{G} <: AbstractGenotype where {G <: AbstractGenotype}
     change::G 
+end
+
+struct GenePool
+    deltas::Vector
 end
 
 DeltaCache = Dict{Int, Delta}
@@ -15,21 +19,8 @@ function develop(creator::Creator, ind::Individual{I, G, D}) where {I, G <: Delt
     develop(creator, genotype)
 end
 
-function get_tree(pop::Population)
-    trees = filter(p -> p isa PhylogeneticTree, pop.data)
-    @assert length(trees) == 1 "Found $(length(trees)) phylogenetic trees for population $(pop.id)"
-    tree = first(trees)
-    isnothing(tree) && error("No phylogenetic tree found for population $(pop.id)")
-    tree
-end
-
-function get_delta_cache(pop::Population)
-    caches = filter(p -> p isa DeltaCache, pop.data)
-    @assert length(caches) == 1 "Found $(length(caches)) delta caches for population $(pop.id)"
-    cache = first(caches)
-    isnothing(cache) && error("No delta cache found for population $(pop.id)")
-    cache
-end
+get_tree(pop::Population) = getonly(p -> p isa PhylogeneticTree, pop.data)
+get_delta_cache(pop::Population) = getonly(p -> p isa DeltaCache, pop.data)
 
 function initialize_phylogeny!(::AbstractState, pop::Population)
     @assert isnothing(findfirst(p -> p isa PhylogeneticTree, pop.data)) "Phylogenetic tree already initialized for population $(pop.id)"
@@ -103,3 +94,31 @@ end
 UpdateDeltaCache(ids::Vector{String}=String[];kwargs...) = create_op("UpdateDeltaCache",
     retriever=PopulationRetriever(ids),
     updater=map(map((s,p)->update_delta_cache!(s,p))); kwargs...)
+
+function compute_genepool(pop::Population; n_latest::Int)
+    @assert pop.individuals[1].genotype isa Delta "Only delta genepools are supported"
+    dc = get_delta_cache(pop)
+    # ignore all individuals from current generation
+    id_gens = [(ind.id, ind.generation) for ind in pop.individuals]
+    # remove inds from latest generation, as they have not been selected for
+    latest_gen = minimum(ig[2] for ig in id_gens)
+    latest_ids = Set(ig[1] for ig in id_gens if ig[2] == latest_gen)
+    older_delta_ids = setdiff(keys(dc), latest_ids) |> collect |> sort
+    older_delta_ids = older_delta_ids[end-n_latest+1:end]
+    # from the older, existing deltas, compute a genepool with the n_latest deltas
+    GenePool([dc[did] for did in older_delta_ids])
+end
+
+function update_genepool!(pop::Population; n_latest::Int)
+    filter!(d->!isa(d, GenePool), pop.data) # get rid of any existing genepools
+    push!(pop.data, compute_genepool(pop, n_latest=n_latest))
+end
+
+
+@define_op "UpdateGenePool"
+UpdateGenePool(ids::Vector{String}=String[]; after_gen::Int, n_latest::Int, time::Bool=false, kwargs...) = 
+    create_op("UpdateGenePool", 
+              condition=s->generation(s) > after_gen,
+              retriever=PopulationRetriever(ids),
+              updater=map(map((_,p)->update_genepool!(p; n_latest=n_latest, kwargs...))),
+              time=time;)

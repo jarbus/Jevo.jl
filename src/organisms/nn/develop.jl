@@ -114,7 +114,7 @@ end
 
 function develop(c::Creator{TransformerPhenotype}, net::Network)
     trf = net.layers[1]
-    @assert trf isa Transformer
+    @assert trf isa Transformer "Only TransformerPhenotype can be developed, got $(typeof(trf))"
     weight_cache = get_weight_cache()
     embed = create_layer(trf.embed, weight_cache=weight_cache)
     hidden_dim = size(embed.embeddings, 1)

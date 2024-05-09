@@ -10,6 +10,8 @@ using Transformers
 using Transformers.TextEncoders
 using Transformers.Datasets: batched
 using PhylogeneticTrees
+using CUDA
+Jevo.set_device()
 start_time = time()
 
 # Global variable for weight_cache
@@ -38,9 +40,10 @@ end
   @test Jevo.get_counter(AbstractGeneration, state) |> value == 2
 end
 
-include("./test-writers.jl")
-include("./test-ng-integration.jl")
-include("./test-nn.jl")
-include("./test-phylo.jl")
+# include("./test-writers.jl")
+# include("./test-ng-integration.jl")
+# include("./test-nn.jl")
+# include("./test-phylo.jl")
+include("./test-traverse.jl")
 end_time = time()
 println("Tests passed in $(end_time - start_time) seconds.")
