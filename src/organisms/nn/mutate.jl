@@ -80,8 +80,9 @@ function compute_max_mr_per_layer!(pop::Population; no_layer_norm::Bool)
             end
         end
     end
-    map(w->@assert length(w.muts) <= 1, Jevo.get_weights(max_mr_net, no_layer_norm=no_layer_norm))
-    filter!(x->!isa(x,MaxMRs), pop.data)
+    lengths = map(w->length(w.muts), Jevo.get_weights(max_mr_net, no_layer_norm=no_layer_norm))
+    @assert all(lengths .<= 1) && any(lengths .>= 1) # assert that we have at least one mutation
+    filter!(x->!isa(x,MaxMRs), pop.data) # clear prior maxmr
     push!(pop.data, MaxMRs(max_mr_net))
 end
 @define_op "ComputeMaxMrPerLayerFromGenePool"

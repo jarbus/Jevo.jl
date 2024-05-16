@@ -36,6 +36,8 @@ function mr_symbol(mr::Float32)
     mr >= 0.0001f0 && return "1"
     mr >= 0.00001f0 && return "o"
     mr >= 0.000001f0 && return "."
+    mr >= 0.0000001f0 && return "_"
+    @error "mr too small to visualize"
 end
 
 function gene_symbol(prev_gene::NetworkGene, gene::NetworkGene)
