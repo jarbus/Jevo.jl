@@ -16,9 +16,9 @@ function Weights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{
         Weights(rng, counter, dims, init=apply_zero!)])
 end
 
-WeightCache(;maxsize::Int, by::Function=sizeof) =
+WeightCache(;maxsize::Int, by::Function=Base.summarysize) =
     LRU{Int, Array{Float32}}(maxsize=maxsize, by=by)
-GenotypeCache(;maxsize::Int, by::Function=sizeof) =
+GenotypeCache(;maxsize::Int, by::Function=Base.summarysize) =
     LRU{Int, Network}(maxsize=maxsize, by=by)
 
 
