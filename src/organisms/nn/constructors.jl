@@ -44,7 +44,15 @@ function Base.:(==)(a::Network, b::Network)
     true
 end
 
-
+"""Recursively makes copy of network architecture without copying
+the individual genes. """
+copyarchitecture(x) = x
+copyarchitecture(ws::Jevo.Weights) = Jevo.Weights(ws.dims, Vector{Jevo.NetworkGene}())
+copyarchitecture(v::Vector) = copyarchitecture.(v)
+copyarchitecture(tup::Tuple) = tup |> collect |> copyarchitecture |> Tuple
+copyarchitecture(d::Delta) = Delta(copyarchitecture(d.change))
+copyarchitecture(net::T) where {T <: Union{Jevo.AbstractLayer, Jevo.AbstractWeights}} =
+    T((copyarchitecture(getfield(net, p)) for p in propertynames(net))...)
 
 function Network(rng::AbstractRNG, counter::AbstractCounter, layers::Vector)
     """Create a network with a collection of layers"""

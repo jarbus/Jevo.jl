@@ -57,7 +57,6 @@ mutate(rng::AbstractRNG, state::State, population::AbstractPopulation, genotype:
 max_mr_mutate(rng::AbstractRNG, state::State, population::AbstractPopulation, genotype::Delta, args...; kwargs...) =
     Delta(max_mr_mutate(rng, state, population, genotype.change, args...; kwargs...))
 
-# TODO add mutator which filters out valid MRs for each layer using operators
 """
 Consists of a genotype with at most one gene per weight. 
 Each gene has the largest MR in the genepool for that weight.

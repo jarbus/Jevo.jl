@@ -95,7 +95,7 @@ get_weight_symbols(t::Transformer) = "Transformer\n" *
 get_weight_symbols(network::Network) = join([get_weight_symbols(l) for l in network.layers])
 
 visualize = get_weight_symbols
-get_weight_symbols(ind::Individual) = get_weight_symbols(worker_construct_child_genome(ind))
+get_weight_symbols(ind::Individual, pop::Population) = get_weight_symbols(master_construct_genome(ind, pop))
 
 is_layer_norm(layers) = any(l->l isa LayerNorm, layers)
 
