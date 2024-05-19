@@ -36,10 +36,10 @@ end
 function tensor(fw::FactorWeight; weight_cache::_WeightCache=nothing)::Array{Float32}
     A = @inline tensor(fw.A, weight_cache=weight_cache)
     B = @inline tensor(fw.B, weight_cache=weight_cache)
-    Transformers.tocpudevice(Main.jevo_device(A) * Main.jevo_device(B))
+    Transformers.tocpudevice(gpu(A) * gpu(B))
 end
 function tensor(cw::CompositeWeight; weight_cache::_WeightCache=nothing)::Array{Float32}
-    gpu_weights = [Main.jevo_device(tensor(w, weight_cache=weight_cache)) for w in cw.weights]
+    gpu_weights = [gpu(tensor(w, weight_cache=weight_cache)) for w in cw.weights]
     reduce(+, gpu_weights) |> Transformers.tocpudevice
 end
 # PERFORMANCE CRITICAL END
@@ -47,12 +47,12 @@ end
 
 function create_layer(layer::Jevo.Embed; weight_cache::_WeightCache)
     weights = @inline tensor(layer.weights, weight_cache=weight_cache)
-    Transformers.Embed(weights; scale=nothing) |> Main.jevo_device
+    Transformers.Embed(weights; scale=nothing) |> gpu
 end
 
 function create_layer(layer::Jevo.EmbedDecoder; weight_cache::_WeightCache)
     embed = create_layer(layer.embed, weight_cache=weight_cache)
-    bias = @inline tensor(layer.bias, weight_cache=weight_cache) |> Main.jevo_device
+    bias = @inline tensor(layer.bias, weight_cache=weight_cache) |> gpu
     Transformers.EmbedDecoder(embed, bias)
 end
 
@@ -93,7 +93,7 @@ function create_layer(geno_blocks::Tuple{Vararg{TransformerDecoderBlock}}; weigh
     for i in eachindex(geno_blocks)
         pheno_blocks[i] = create_layer(geno_blocks[i], weight_cache=weight_cache)
     end
-    Transformers.Transformer(Tuple(pheno_blocks)) |> Main.jevo_device
+    Transformers.Transformer(Tuple(pheno_blocks)) |> gpu
 end
 
 # Chain
@@ -130,7 +130,7 @@ end
 function (trf::TransformerPhenotype)(input)
     mask = get(input, :attention_mask, nothing)
     embeds = trf.embed(input.token)
-    pos_embed = trf.posembed(embeds) |> Main.jevo_device
+    pos_embed = trf.posembed(embeds) |> gpu
     embeds = embeds .+ pos_embed
     logits = trf.trf(embeds, mask)
     trf.embeddecoder(logits.hidden_state)

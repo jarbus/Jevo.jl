@@ -111,6 +111,6 @@ function set_device()
     println(" worker_idx=$worker_idx myid=$(myid()) workers=$(workers())")
     device_id = collect(devices())[worker_idx].handle |> Int64
     println("$(myid()) has devices $(collect(devices())), setting to $device_id")
-    Main.jevo_device = Flux.get_device("CUDA", device_id)
+    Main.jevo_device_id = device_id
     nothing
 end

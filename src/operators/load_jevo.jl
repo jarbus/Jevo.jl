@@ -1,10 +1,12 @@
 using Jevo
 using CUDA
 using Transformers
+using Flux
 enable_gpu(CUDA.functional()) 
 # 
 Jevo.set_device()
-@assert isdefined(Main, :jevo_device)
+@assert isdefined(Main, :jevo_device_id)
 # check if gpu works
-
-@assert Main.jevo_device([1]) isa CuArray "Worker unable to access GPU. You probably want to use a GPU on all workers."
+device!(Main.jevo_device_id)
+gpu_test = gpu(rand(1))
+@assert gpu_test isa CuArray

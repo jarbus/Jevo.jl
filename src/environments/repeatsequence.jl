@@ -38,7 +38,7 @@ function loss(input, trf)
     ce_loss = shift_decode_loss(logits, input.token, input.attention_mask)
     ce_loss
 end
-preprocess(trf::TransformerPhenotype, batch) = Main.jevo_device(encode(trf.textenc, batch))
+preprocess(trf::TransformerPhenotype, batch) = gpu(encode(trf.textenc, batch))
 
 function infer(trf::TransformerPhenotype, str::String; max_len::Int=10, n_logits::Int=3, print_output::Bool=false)
     decoder_onehot = encode(trf.textenc, str).token
@@ -48,7 +48,7 @@ function infer(trf::TransformerPhenotype, str::String; max_len::Int=10, n_logits
 
     start_len = length(seq)
     for i in 1:max_len-start_len
-        decoder_input = (token = Main.jevo_device(lookup(trf.textenc, seq)),)
+        decoder_input = (token = gpu(lookup(trf.textenc, seq)),)
         logit = trf(decoder_input)
         ntok = decode(trf.textenc, argmax(logit[:, end]))
         push!(seq, ntok)
