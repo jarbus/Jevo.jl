@@ -12,18 +12,18 @@ struct Weights <: AbstractWeights
     muts::Vector{NetworkGene}
 end
 
-struct WeightsCollection{T} <: AbstractWeights where T <: AbstractWeights
+struct WeightsCollection{T<:AbstractWeights} <: AbstractWeights
     """Concatenation of multiple weight blocks into a single weight tensor, to adjust subsets of weights independently"""
     weights::Array{T}
 end
 
-struct FactorWeight{T} <: AbstractWeights where T <: AbstractWeights
+struct FactorWeight{T<:AbstractWeights} <: AbstractWeights
     """Low-rank factorization of a weight matrix"""
     A::T
     B::T
 end
 
-struct CompositeWeight{T} <: AbstractWeights where T <: AbstractWeights
+struct CompositeWeight{T<:AbstractWeights} <: AbstractWeights
     """A collection of weights which are added together. Each element must develop to the same size"""
     weights::Vector{T}
 end
@@ -40,7 +40,7 @@ struct Dense{W,B} <: AbstractLayer where {W <: AbstractWeights, B <: AbstractWei
 end
 
 # Transformer stuff
-# ignore scale for embed, ignore bias for decoder
+# ignore scale for embed
 struct Embed{T} <: AbstractLayer where T <: AbstractWeights
     weights::T
 end
