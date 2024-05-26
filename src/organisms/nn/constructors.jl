@@ -45,11 +45,15 @@ function Base.:(==)(a::Network, b::Network)
 end
 
 """Recursively makes copy of network architecture without copying
-the individual genes. """
+the individual genes."""
 copyarchitecture(x) = x
 copyarchitecture(ws::Jevo.Weights) = Jevo.Weights(ws.dims, Vector{Jevo.NetworkGene}())
 copyarchitecture(v::Vector) = copyarchitecture.(v)
 copyarchitecture(tup::Tuple) = tup |> collect |> copyarchitecture |> Tuple
+# embed decoder holds a reference to Embed. We assume this function is always called
+# on the Transformer, and thus is called on the Embed layer first, implying the layer
+# has already been copied without the weights. We just want to reference that.
+copyarchitecture(ed::EmbedDecoder) = EmbedDecoder(ed.embed, copyarchitecture(ed.bias))
 copyarchitecture(d::Delta) = Delta(copyarchitecture(d.change))
 copyarchitecture(net::T) where {T <: Union{Jevo.AbstractLayer, Jevo.AbstractWeights}} =
     T((copyarchitecture(getfield(net, p)) for p in propertynames(net))...)

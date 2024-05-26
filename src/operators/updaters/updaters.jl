@@ -123,7 +123,6 @@ function compute_interactions!(matches::Vector{<:AbstractMatch}; batch_size::Int
     # tasks to finish before collecting
     match_batches = [matches[i:min(length(matches),(i+batch_size-1))] for i in 1:batch_size:length(matches)]
     score_batches = Vector(undef, length(match_batches))
-    # send batches of 20 matches to gpu
     Threads.@threads for midx in eachindex(match_batches)
         score_batches[midx] = fetch(@spawnat(:any, [play(m) for m in match_batches[midx]]))
     end

@@ -55,7 +55,7 @@ function gene_symbol(prev_gene::NetworkGene, gene::NetworkGene)
 end
 
 function get_symbols(genes::Vector{NetworkGene})
-    @assert length(genes) >= 1
+    length(genes) == 0 && return ""
     symbols = String[mr_symbol(genes[1].mr)]
     for i in 2:length(genes)
         push!(symbols, gene_symbol(genes[i-1], genes[i]))
