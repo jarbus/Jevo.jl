@@ -126,12 +126,10 @@ function compute_interactions!(matches::Vector{<:AbstractMatch})
 end
 # PERFORMANCE CRITICAL END (measured)
 ############################
-struct ComputeInteractions! <: AbstractUpdater 
-    batch_size::Int
-end
+struct ComputeInteractions! <: AbstractUpdater end
 function (updater::ComputeInteractions!)(::AbstractState, matches::Vector{M}) where M <: AbstractMatch
     n_matches = length(matches)
-    compute_interactions!(matches, batch_size=updater.batch_size)
+    compute_interactions!(matches)
     empty!(matches)
     sizehint!(matches, n_matches)
     nothing
