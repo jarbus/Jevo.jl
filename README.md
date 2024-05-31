@@ -2,7 +2,13 @@
 
 [![Build Status](https://github.com/jarbus/Jevo.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/jarbus/Jevo.jl/actions/workflows/CI.yml?query=branch%3Amaster)
 
-# WARNING: DO NOT USE CROSSOVER, WE ARE CACHING WEIGHTS BASED ON THE LAST GENE ID, CROSSOVER of GENE IDS CAN BREAK THIS
+# Install
+
+This package requires modified versions of Transformers.jl and NeuralAttentionlib.jl, which are unregistered. In addition, it depends on a custom plotting library (XPlot.jl) & a library for phylogenies (PhylogeneticTrees.jl), both unregistered as well. To install all dependencies, run the following command in the environment of your choice:
+
+```julia
+julia install.jl
+```
 
 # Guidelines:
 
