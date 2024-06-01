@@ -21,7 +21,6 @@ using LoggingExtras
 using FileWatching
 using PhylogeneticTrees
 # For MNIST
-#using MLDatasets
 using OneHotArrays
 using Reexport
 using XPlot
