@@ -34,12 +34,7 @@ function Base.CoreLogging.handle_message(logger::HDF5Logger, level, m::XPlot.Abs
     @assert length(kwargs) == 0
     pidpath = logger.path*".pid"
     monitor = FileWatching.Pidfile.mkpidlock(pidpath, wait=true)
-    # fullpath = joinpath(string(m.iteration), string(m.metric))
     XPlot.write(logger.io, m)
-    # for field in fieldnames(typeof(m))
-    #     (field == :metric || field == :iteration) && continue
-    #     logger.io[joinpath([fullpath, string(field)])] = getfield(m, field)
-    # end
     flush(logger.io)
     close(monitor)
 end

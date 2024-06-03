@@ -10,7 +10,7 @@ end
 
 VectorGenotype(n::Int, rng::AbstractRNG; init::Function=rand) = VectorGenotype(init(rng, Float32, n))
 
-function mutate(rng::AbstractRNG, state::State, genotype::VectorGenotype)
+function mutate(rng::AbstractRNG, state::AbstractState, ::AbstractPopulation, genotype::VectorGenotype)
     # add random noise to two random dimensions
     i = rand(rng, 1:length(genotype.numbers))
     j = rand(rng, 1:length(genotype.numbers))
