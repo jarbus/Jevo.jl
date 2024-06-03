@@ -40,10 +40,10 @@ end
   @test Jevo.get_counter(AbstractGeneration, state) |> value == 2
 end
 
-# include("./test-writers.jl")
-# include("./test-ng-integration.jl")
+include("./test-ng-integration.jl")
+include("./test-writers.jl")
+include("./test-phylo.jl")
 # include("./test-nn.jl")
-# include("./test-phylo.jl")
-include("./test-traverse.jl")
+# include("./test-traverse.jl")
 end_time = time()
 println("Tests passed in $(end_time - start_time) seconds.")
