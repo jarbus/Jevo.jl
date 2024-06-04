@@ -136,7 +136,6 @@ nul_pop = Population("", Individual[])
             @test (head_dim*n_heads, hidden_dim) in dims   # out
             @test (hidden_dim,) in dims # layernorm
             mutated_net = Jevo.mutate(rng, state, nul_pop, net, mr=Float32(0.01))
-            # TODO ADD TEST FOR GAUSSIAN VS KAIMING INIT
             Jevo.create_layer(embed; weight_cache=weight_cache)
             Jevo.create_layer(embed_decoder; weight_cache=weight_cache)
             Jevo.create_layer(sa; weight_cache=weight_cache)
