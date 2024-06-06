@@ -38,7 +38,7 @@ function loss(input, trf)
     ce_loss = shift_decode_loss(logits, input.token, input.attention_mask)
     ce_loss
 end
-preprocess(trf::TransformerPhenotype, batch) = gpu(encode(trf.textenc, batch))
+preprocess(trf::TransformerPhenotype, batch) = encode(trf.textenc, batch)
 
 function infer(trf::TransformerPhenotype, str::String; max_len::Int=10, n_logits::Int=3, print_output::Bool=false)
     decoder_onehot = encode(trf.textenc, str).token
@@ -81,7 +81,12 @@ function get_preprocessed_batch(env, tfr)
         @warn "Creating variable Main.preprocessed_batch"
         Main.preprocessed_batch = preprocess(tfr, sample_batch(env))
     end
-    Main.preprocessed_batch
+    # There appears to be some memory management issue, where GPU OOMs.
+    # Allocating a large amount of memory on the CPU appears to alleviate this 
+    # issue. Garbage collection does not help. Unable to justify spending
+    # more time on this, if it's resolved.
+    size(zeros(500_000))
+    Main.preprocessed_batch |> deepcopy |> gpu
 end
 
 function step!(env::RepeatSequence, models::Vector{TransformerPhenotype})

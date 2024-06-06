@@ -152,8 +152,8 @@ nul_pop = Population("", Individual[])
             logits = trf_p(input)
             @test size(logits) == (8, 5, 1)
             # batching & masking
-            sample_batch = batched([(seq,) for i in 1:100])[1]
-            input_batch = preprocess(trf_p, sample_batch)
+            sampled_batch = batched([(seq,) for i in 1:100])[1]
+            input_batch = preprocess(trf_p, sampled_batch)
             logits = trf_p(input_batch)
             @test size(logits) == (8, 5, 100)
             env = RepeatSequence(vocab_size=vocab_size,
