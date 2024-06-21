@@ -27,11 +27,9 @@ function get_creators(type::Type, state::AbstractState)
     creators
 end
 
-function Base.map(operation::Union{Function, <:AbstractOperator})
-    return function (state::AbstractState, objs::Vector)
-        return [operation(state, obj) for obj in objs]
-    end
-end
+# Returns a mapping function that applies the given op/fn to each element
+Base.map(operation::Union{Function, <:AbstractOperator}) =
+    (state::AbstractState, objs::Vector) -> [operation(state, obj) for obj in objs]
 
 # We need to overwrite this Flux method to generate Float32 weights and maintain compatibility with the (rng, type, dims...) signature
 function kaiming_normal(rng::AbstractRNG,::Type, dims::Integer...; gain::Real = √2f0)

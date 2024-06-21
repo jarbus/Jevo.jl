@@ -38,7 +38,7 @@ function loss(input, trf)
     ce_loss = shift_decode_loss(logits, input.token, input.attention_mask)
     ce_loss
 end
-preprocess(trf::TransformerPhenotype, batch) = gpu(encode(trf.textenc, batch))
+preprocess(trf::TransformerPhenotype, batch) = encode(trf.textenc, batch)
 
 function infer(trf::TransformerPhenotype, str::String; max_len::Int=10, n_logits::Int=3, print_output::Bool=false)
     decoder_onehot = encode(trf.textenc, str).token

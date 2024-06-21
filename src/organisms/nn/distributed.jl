@@ -66,6 +66,7 @@ end
 master_construct_genome(ind::Individual, pop::Population) = 
     master_construct_genome(ind, get_tree(pop), get_delta_cache(pop), get_genotype_cache())
 function master_construct_genome(ind::Individual, tree::PhylogeneticTree, dc::DeltaCache, gc::_GenotypeCache)
+    ind.id ∈ keys(gc) && return gc[ind.id]
     # go back up the tree to find the nearest cached ancestor in genotype cache
     # then construct the genome from the nearest ancestor to the individual
     # by applying deltas
@@ -75,9 +76,14 @@ function master_construct_genome(ind::Individual, tree::PhylogeneticTree, dc::De
         push!(path, path[end].parent)
     end 
     # restore from cache if there's an extant parent, otherwise, start from last node
-    genome = !isnothing(path[end].parent) ? gc[path[end].parent.id] : dc[pop!(path).id].change
+    parent = path[end].parent
+    genome = if !isnothing(parent) && parent.id ∈ keys(gc)
+        gc[pop!(path).parent.id]
+    else
+        dc[pop!(path).id].change
+    end
     # apply deltas from top of tree to bottom to construct genome
-    for node in path
+    for node in reverse(path)
         genome += dc[node.id]
     end
     genome
@@ -124,7 +130,7 @@ function master_construct_parents_genomes(pops::Vector{Vector{Population}}, work
             end
         end
     end
-    @assert all(pid->pid ∈ keys(parent_genomes), pids)
+    @assert pids ⊆ keys(parent_genomes)
     worker_parent_genomes = Dict(wid =>[(pid, parent_genomes[pid]) for pid in pids]
                                  for (wid, pids) in workers_missing_parents)
     return worker_parent_genomes
