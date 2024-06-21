@@ -17,7 +17,7 @@ textenc = TransformerTextEncoder(split, vocab; startsym, endsym, unksym, padsym=
 attn_args = (n_heads=n_heads, head_dim=head_dim, hidden_dim=hidden_dim)
 block_args = (attn_args..., ff_dim=ff_dim)
 tfr_args = (block_args..., n_blocks=n_blocks, vocab_size=vocab_size)
-env_args = (vocab_size = vocab_size, batch_size = 2, seq_len = 3, n_repeat = 2,)
+env_args = (n_labels = length(labels), batch_size = 2, seq_len = 3, n_repeat = 2,)
 
 
 k = 1

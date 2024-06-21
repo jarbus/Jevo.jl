@@ -106,7 +106,7 @@ nul_pop = Population("", Individual[])
             startsym = "<s>"
             endsym = "</s>"
             unksym = "<unk>"
-            labels = string.(1:5)
+            labels = string.(0:5)
             vocab = [unksym, startsym, endsym, labels...]
             vocab_size = length(vocab)
 
@@ -157,7 +157,7 @@ nul_pop = Population("", Individual[])
             input_batch = preprocess(trf_p, sample_batch)
             logits = trf_p(input_batch)
             @test size(logits) == (8, 5, 100)
-            env = RepeatSequence(vocab_size=vocab_size,
+            env = RepeatSequence(n_labels=length(labels),
                                  seq_len=8,
                                  batch_size=7,
                                  n_repeat=3)
