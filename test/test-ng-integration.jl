@@ -229,20 +229,17 @@
       rm("statistics.h5", force=true)
       rm("run.log", force=true)
   end
-  @testset "Timer" begin
-      with_logger(JevoLogger()) do
-          state = State(rng,[comp_comp_pop_creator, env_creator],
-                        [TimeReporter(AbstractGeneration), pop_initializer, TimeReporter(AbstractGeneration)])
-          run!(state, 1)
-      end
-  end
   @testset "run multigen" begin
       println("running multigen")
+      min_sums = []
+      min_sum_computer = create_op("Reporter",
+                            operator=(s,_) -> measure(GenotypeSum, s, false,false,false).min)
       with_logger(JevoLogger()) do
           state = State(rng,[comp_comp_pop_creator, env_creator],
-                        [pop_initializer, ava, performer, evaluator, assertor, selector, reproducer, assertor, mutator, reporter, ind_resetter])
+                        [pop_initializer, ava, performer, evaluator, assertor, selector, min_sum_computer, reproducer, assertor, mutator, reporter, ind_resetter])
           run!(state, 10)
       end
+      @test all(diff(min_sums) .>= 0)  # confirm elite minimum sum monotonically increases
   end
 end
 

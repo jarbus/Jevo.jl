@@ -29,4 +29,5 @@ function measure(::Type{GenotypeSum}, state::AbstractState, args...)
     sums = [sum(i.genotype.numbers) for i in get_individuals(state)]
     m = StatisticalMeasurement(GenotypeSum, sums, generation(state))
     log(m, args...)
+    m
 end
