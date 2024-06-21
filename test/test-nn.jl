@@ -145,15 +145,15 @@ nul_pop = Population("", Individual[])
 
             textenc = TransformerTextEncoder(split, vocab; startsym, endsym, unksym, padsym=unksym)
             creator = Creator(Jevo.TransformerPhenotype, (;textenc=textenc))
-            trf_p = develop(creator, net)
+            trf_p = develop(creator, net) |> gpu
             seq = "1 2 1"
             one_batch_seq = batched([(seq,)])[1]
-            input = preprocess(trf_p, one_batch_seq)
+            input = preprocess(trf_p, one_batch_seq) |> gpu
             logits = trf_p(input)
             @test size(logits) == (8, 5, 1)
             # batching & masking
             sampled_batch = batched([(seq,) for i in 1:100])[1]
-            input_batch = preprocess(trf_p, sampled_batch)
+            input_batch = preprocess(trf_p, sampled_batch) |> gpu
             logits = trf_p(input_batch)
             @test size(logits) == (8, 5, 100)
             env = RepeatSequence(vocab_size=vocab_size,
