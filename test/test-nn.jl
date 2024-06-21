@@ -136,7 +136,6 @@ nul_pop = Population("", Individual[])
             @test (head_dim*n_heads, hidden_dim) in dims   # out
             @test (hidden_dim,) in dims # layernorm
             mutated_net = Jevo.mutate(rng, state, nul_pop, net, mr=Float32(0.01))
-            # TODO ADD TEST FOR GAUSSIAN VS KAIMING INIT
             Jevo.create_layer(embed; weight_cache=weight_cache)
             Jevo.create_layer(embed_decoder; weight_cache=weight_cache)
             Jevo.create_layer(sa; weight_cache=weight_cache)
@@ -153,8 +152,8 @@ nul_pop = Population("", Individual[])
             logits = trf_p(input)
             @test size(logits) == (8, 5, 1)
             # batching & masking
-            sample_batch = batched([(seq,) for i in 1:100])[1]
-            input_batch = preprocess(trf_p, sample_batch)
+            sampled_batch = batched([(seq,) for i in 1:100])[1]
+            input_batch = preprocess(trf_p, sampled_batch)
             logits = trf_p(input_batch)
             @test size(logits) == (8, 5, 100)
             env = RepeatSequence(vocab_size=vocab_size,

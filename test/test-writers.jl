@@ -17,12 +17,12 @@ end
       @h5 sm
   end
   h5open("statistics.h5", "r") do io
-      @test haskey(io, "1/GenotypeSum/value")
-      @test haskey(io, "1/GenotypeSum/min")
-      @test haskey(io, "1/GenotypeSum/max")
-      @test haskey(io, "1/GenotypeSum/mean")
-      @test haskey(io, "1/GenotypeSum/std")
-      @test haskey(io, "1/GenotypeSum/n_samples")
+      @test haskey(io, "iter/1/GenotypeSum")
+      @test haskey(io, "iter/2/GenotypeSum/min")
+      @test haskey(io, "iter/2/GenotypeSum/max")
+      @test haskey(io, "iter/2/GenotypeSum/mean")
+      @test haskey(io, "iter/2/GenotypeSum/std")
+      @test haskey(io, "iter/2/GenotypeSum/n_samples")
   end
   rm("statistics.h5", force=true)
 end
@@ -32,8 +32,16 @@ end
       sm = StatisticalMeasurement(GenotypeSum, [1,2,3], 1)
       # log to hdf5 only
       log(sm, true, false, false)
+      # check that statistics.h5 is not empty
+      h5open("statistics.h5", "r") do io
+          @test length(io) > 0
+      end
       # log to text only
       log(sm, false, true, false)
+      # check that run.log is not empty
+      open("run.log", "r") do io
+          @test length(read(io, String)) > 0
+      end
   end
   rm("statistics.h5", force=true)
 end

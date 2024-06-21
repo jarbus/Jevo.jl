@@ -21,7 +21,6 @@ using LoggingExtras
 using FileWatching
 using PhylogeneticTrees
 # For MNIST
-#using MLDatasets
 using OneHotArrays
 using Reexport
 using XPlot
@@ -42,7 +41,7 @@ include("./logger.jl")
 include("./individuals/individual.jl")
 include("./populations/populations.jl")
 include("./state.jl")
-include("./phylo/phylo.jl")
+include("./phylo.jl")
 include("./organisms/organisms.jl")
 include("./environments/environments.jl")
 include("./operators/operators.jl")

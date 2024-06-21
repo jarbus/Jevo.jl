@@ -98,18 +98,18 @@ end
 
 # Chain
 create_layer(layer::Jevo.Chain; weight_cache::_WeightCache) =
-    Flux.Chain((create_layer(l, weight_cache=weight_cache) for l in layer.layers)...)
+    Transformers.Chain((create_layer(l, weight_cache=weight_cache) for l in layer.layers)...)
 
 function create_layer(layer::Jevo.Dense; weight_cache::_WeightCache)
     weights = @inline tensor(layer.weights, weight_cache=weight_cache)
     bias = @inline tensor(layer.bias, weight_cache=weight_cache)
-    Flux.Dense(weights, bias, layer.σ)
+    Transformers.Dense(weights, bias, layer.σ)
 end
 create_layer(f::Function; kwargs...) = f
 
 function develop(::Creator{Model}, network::Network)
     weight_cache = get_weight_cache()
-    Flux.Chain((create_layer(l, weight_cache=weight_cache) for l in network.layers)...) |> Model
+    Transformers.Chain((create_layer(l, weight_cache=weight_cache) for l in network.layers)...) |> Model
 end
 
 function develop(c::Creator{TransformerPhenotype}, net::Network)
@@ -132,6 +132,8 @@ function (trf::TransformerPhenotype)(input)
     embeds = trf.embed(input.token)
     pos_embed = trf.posembed(embeds) |> gpu
     embeds = embeds .+ pos_embed
-    logits = trf.trf(embeds, mask)
-    trf.embeddecoder(logits.hidden_state)
+    logits = Transformers.ChainRulesCore.ignore_derivatives() do
+        trf.trf(embeds, mask).hidden_state
+    end
+    trf.embeddecoder(logits)
 end

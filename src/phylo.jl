@@ -104,6 +104,7 @@ function compute_genepool(pop::Population; n_latest::Int)
     latest_gen = minimum(ig[2] for ig in id_gens)
     latest_ids = Set(ig[1] for ig in id_gens if ig[2] == latest_gen)
     older_delta_ids = setdiff(keys(dc), latest_ids) |> collect |> sort
+    @assert length(older_delta_ids) >= n_latest "Not enough deltas to compute genepool, have $(length(older_delta_ids)), need $n_latest"
     older_delta_ids = older_delta_ids[end-n_latest+1:end]
     # from the older, existing deltas, compute a genepool with the n_latest deltas
     GenePool([dc[did] for did in older_delta_ids])

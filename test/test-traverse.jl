@@ -7,7 +7,7 @@ n_tokens = 5
 startsym = "<s>"
 endsym = "</s>"
 unksym = "<unk>"
-labels = string.(0:n_tokens)
+labels = string.(1:n_tokens)
 vocab = [unksym, startsym, endsym, labels...]
 vocab_size = length(vocab)
 
@@ -22,7 +22,7 @@ env_args = (vocab_size = vocab_size, batch_size = 2, seq_len = 3, n_repeat = 2,)
 
 k = 1
 n_inds = 2
-developer = Creator(Model)
+developer = Creator(TransformerPhenotype, (;textenc=textenc))
 tfr_gc = Creator(Delta, (Creator(Network, (rng, gene_counter, [(Jevo.Transformer, tfr_args)])),))
 counters = default_counters()
 parent_geno = tfr_gc()
@@ -337,7 +337,6 @@ end
 #end
 
 @testset "insaner integration tests" begin
-    n_env_inputs = 5
     n_inds = 3
     genepool_start = 4
     n_latest = 1
@@ -372,8 +371,7 @@ end
     end
 
     function evaluate(individual)
-      model = develop(individual.developer, individual)
-      Jevo.play(env_creator(), [model])[1]
+      Jevo.play(env_creator, [individual])[1]
     end
 
     abstract type OutputValue <: AbstractMetric end
@@ -390,10 +388,9 @@ end
             operator=map(map((s,p)->verify(s,p))))
         
     Visualizer() = create_op("Reporter",
-            retriever=Jevo.get_individuals,
-            operator=(s,is)-> (@assert(length(is) == 1);
-                                println(string(is[1].id)* " "*visualize(is[1])))
-    )
+        retriever=Jevo.PopulationRetriever(),
+        operator=(s,ps)-> ( ind = ps[1][1].individuals[1];
+                           @info(string(ind.id)* " "*visualize(ind, ps[1][1]))))
 
     mrs = (0.1f0, 0.01f0, 0.001f0)
     state = State("", rng, [pop_creator, env_creator], 
