@@ -60,6 +60,30 @@ nul_pop = Population("", Individual[])
             mutated_net = Jevo.mutate(rng, state, nul_pop, net, mr=Float32(0.01))
             @test all(map(w ->length(w.muts)==1, Jevo.get_weights(mutated_net)))
             @test all([w1.muts !== w2.muts for (w1, w2) in zip(Jevo.get_weights(net), Jevo.get_weights(mutated_net))])
+            # Confirm developed weights are different after mutation
+            model2 = develop(creator, mutated_net)
+            @test model.chain.layers[1].weight != model2.chain.layers[1].weight
+            @test model.chain.layers[1].bias != model2.chain.layers[1].bias
+            # confirm that developing the same model twice results in the same layers
+            model3 = develop(creator, net)
+            @test model.chain.layers[1].weight == model3.chain.layers[1].weight
+            @test model.chain.layers[1].bias == model3.chain.layers[1].bias
+            # run multiple mutations, confirm we get different weights each time
+            tmp_mutated_net = mutated_net
+            prev_weight = model2.chain.layers[1].weight
+            prev_bias = model2.chain.layers[1].bias
+            for i in 1:10
+                tmp_mutated_net = Jevo.mutate(rng, state, nul_pop, tmp_mutated_net, mr=Float32(0.01))
+                model4 = develop(creator, tmp_mutated_net)
+                @test model4.chain.layers[1].weight != prev_weight
+                @test model4.chain.layers[1].bias != prev_bias
+                prev_weight = model4.chain.layers[1].weight
+                prev_bias = model4.chain.layers[1].bias
+            end
+            # even after creating new networks via mutation, we can still reconstruct the same ancestor
+            model2_again = develop(creator, mutated_net)
+            @test model2.chain.layers[1].weight == model2_again.chain.layers[1].weight
+            @test model2.chain.layers[1].bias == model2_again.chain.layers[1].bias
         end
         @testset "low rank develop + fwd" begin
             creator = Creator(Model)
@@ -69,7 +93,6 @@ nul_pop = Population("", Individual[])
             recon_full_model = develop(creator, recon_full_net)
             lora_net = Network(rng, gene_counter, [(Jevo.Dense, (dims=(784,100), σ=relu, rank=32))])
             println(lora_net.layers[1])
-            # TODO add a test to make sure that get_factors is deterministic
             Main.weight_cache = WeightCache(maxsize=1_000_000)
             lora_model = develop(creator, lora_net)
             lora_model2 = develop(creator, lora_net)
