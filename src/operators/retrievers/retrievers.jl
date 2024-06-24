@@ -1,4 +1,4 @@
-export PopulationRetriever, PopulationCreatorRetriever
+export PopulationRetriever
 """Retrieves Vector{Vector{AbstractIndividual}} from state
 
 For example, a two-pop all vs all matchmaker with the following population hierarchy: 

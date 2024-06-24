@@ -1,0 +1,7 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Jevo = "3e78decc-cd14-43d0-8271-079b340fcef2"
+NeuralAttentionlib = "12afc1b8-fad6-47e1-9132-84abc478905f"
+PhylogeneticTrees = "6d56a5a2-9523-4ac5-b898-386f43f22c4e"
+Transformers = "21ca0261-441d-5938-ace7-c90938fde4d4"
+XPlot = "05f8af49-9276-49ac-91ff-a5ea52b3fe06"

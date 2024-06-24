@@ -1,4 +1,5 @@
 export State, run!, first_gen, generation
+"Test"
 mutable struct State <: AbstractState
     id::String
     rng::AbstractRNG

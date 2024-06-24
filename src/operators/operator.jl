@@ -1,4 +1,8 @@
 export ClearInteractionsAndRecords, Operator
+
+"""
+    Op
+"""
 struct Operator <: AbstractOperator end
 
 function operate!(state::AbstractState, operator::AbstractOperator)
