@@ -4,11 +4,7 @@ Documentation for Jevo.jl, a julia package for distributed, high-performance (co
 
 We highly recommend reviewing [Overview](@ref) before starting for a high-level introduction to the package's core concepts, functionality, and design.
 
+## Table of Contents
 
-```@docs
-    PopulationRetriever
-    InitializePhylogeny
-    CreateMissingWorkers
-    InitializeAllPopulations
-    map!
+```@contents
 ```

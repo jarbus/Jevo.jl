@@ -1,15 +1,20 @@
 export Counter, inc!, value
 export default_counters
 
+"""
+    Counter(type::Type)
+
+Holds an integer to increase by 1 with `inc!(counter::Counter)`. Used for tracking gene ids, generations, individual ids, etc.
+"""
 mutable struct Counter <: AbstractCounter
     type::Type
     current_value::Int
     lock::ReentrantLock
 end
+Counter(type::Type) = Counter(type, 1, Threads.ReentrantLock())
 
 Base.show(io::IO, c::Counter) = print(io, "Counter($(c.type), $(c.current_value))")
 
-Counter(type::Type) = Counter(type, 1, Threads.ReentrantLock())
 value(c::Counter) = c.current_value
 
 default_counters() = [Counter(AbstractGene),

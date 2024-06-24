@@ -2,7 +2,7 @@
 
 julia_version = "1.10.4"
 manifest_format = "2.0"
-project_hash = "ab01e9cc9dadd10fb6e28ca36ea410abc2847d1e"
+project_hash = "56a36def3f766fcd56ea576b6af53f13418803d1"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -804,7 +804,7 @@ version = "1.14.0"
 deps = ["CUDA", "ChainRulesCore", "ClusterManagers", "Dates", "Distributed", "FileWatching", "Flux", "HDF5", "LRUCache", "Logging", "LoggingExtras", "NeuralAttentionlib", "OneHotArrays", "PhylogeneticTrees", "Random", "Reexport", "Serialization", "StableRNGs", "StatsBase", "Transformers", "XPlot", "cuDNN"]
 path = "/home/jack/.julia/dev/Jevo"
 uuid = "3e78decc-cd14-43d0-8271-079b340fcef2"
-version = "1.0.0-DEV"
+version = "0.0.2-DEV"
 
 [[deps.JpegTurbo_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]

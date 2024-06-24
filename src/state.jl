@@ -1,5 +1,21 @@
 export State, run!, first_gen, generation
-"Test"
+"""
+    mutable struct State <: AbstractState
+        id::String
+        rng::AbstractRNG
+        creators::Vector{AbstractCreator}
+        operators::Vector{AbstractOperator}
+        populations::Vector{AbstractPopulation}
+        counters::Vector{AbstractCounter}
+        matches::Vector{AbstractMatch}
+        data::Vector{AbstractData}    # for extensions
+    end
+
+
+A mutable struct which holds all runtime data for an evolutionary simulation.
+
+
+"""
 mutable struct State <: AbstractState
     id::String
     rng::AbstractRNG
@@ -8,33 +24,25 @@ mutable struct State <: AbstractState
     populations::Vector{AbstractPopulation}
     counters::Vector{AbstractCounter}
     matches::Vector{AbstractMatch}
-    metrics::Vector{AbstractMetric}
     data::Vector{AbstractData}    # for extensions
-    info::Dict{Any, Any}          # for extensions
 end
 
-generation(state::AbstractState) = find(:type, AbstractGeneration, state.counters) |> value
-first_gen(state::AbstractState) = generation(state) == 1
-always(state::AbstractState) = true
+"""
+    State(rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator})
 
-@define_op "GenerationIncrementer"
-GenerationIncrementer(;kwargs...) = create_op("GenerationIncrementer",
-    updater=(state, _)->(get_counter(AbstractGeneration, state) |> inc!); kwargs...)
+States are created from a random number generator, a list of creators, and a list of operators. The [`GenerationIncrementer`](@ref) operator is automatically appended to the operator list to advance the state to the next generation.
+"""
+State(rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator}) =
+    State("", rng, creators, operators)
 
-# Allows specifying state by id, rng, creators, and operators
-function State(id::String, rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator}; counters::Vector{<:AbstractCounter}=default_counters(), populations::Vector{<:AbstractPopulation}=AbstractPopulation[], matches::Vector{<:AbstractMatch}=AbstractMatch[], metrics::Vector{<:AbstractMetric}=AbstractMetric[], data::Vector{<:AbstractData}=AbstractData[], info::Dict{Any, Any}=Dict())
+function State(id::String, rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator}; counters::Vector{<:AbstractCounter}=default_counters(), populations::Vector{<:AbstractPopulation}=AbstractPopulation[], matches::Vector{<:AbstractMatch}=AbstractMatch[], data::Vector{<:AbstractData}=AbstractData[], )
     operators = AbstractOperator[operators..., GenerationIncrementer()]
-    State(id, rng, creators, operators, populations, counters, matches, metrics, data, info)
+    State(id, rng, creators, operators, populations, counters, matches, data)
 end
 
 # shorthand to create empty states 
 State() = State("", StableRNG(1234), AbstractCreator[], AbstractOperator[])
-function State(rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator})
-    if get(ENV, "JULIA_TEST_MODE", "false") != "true"
-        println("Creating state with seed 1")
-    end
-    State("", rng, creators, operators)
-end
+
 
 function operate!(state::AbstractState) 
     for i in 1:length(state.operators)
@@ -56,5 +64,14 @@ function operate!(state::AbstractState)
 end
 
 
+"""
+    run!(state::State, max_generations::Int)
+
+Begin/continue evolution until generation `max_generations`
+"""
 run!(state::State, max_generations::Int) = 
     foreach((_)->operate!(state), generation(state):max_generations)
+
+generation(state::AbstractState) = find(:type, AbstractGeneration, state.counters) |> value
+first_gen(state::AbstractState) = generation(state) == 1
+always(state::AbstractState) = true

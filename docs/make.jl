@@ -5,12 +5,13 @@ makedocs(
     sitename = "Jevo",
     format = Documenter.HTML(),
     modules = [Jevo],
-    checkdocs=:exports,
     pages = [
         "Home" => "index.md",
         "Overview" => "overview.md",
         "Operators" => "operators.md",
+        "Phylogeny" => "phylogeny.md",
         "Examples" => "examples.md",
+        "API" => "api.md",
     ],
 
 
