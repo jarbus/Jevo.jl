@@ -1,4 +1,4 @@
-export Delta, InitializePhylogeny, UpdatePhylogeny, DeltaCache, InitializeDeltaCache, UpdateDeltaCache, UpdateGenePool, GenePool
+export Delta, InitializePhylogeny, UpdatePhylogeny, PurgePhylogeny, DeltaCache, InitializeDeltaCache, UpdateDeltaCache, UpdateGenePool, GenePool
 import Base: ==
 
 struct Delta{G} <: AbstractGenotype where {G <: AbstractGenotype}
@@ -47,9 +47,6 @@ function update_phylogeny!(state::AbstractState, pop::Population)
             add_child!(tree, pid, ind.id)
         end
     end
-    pop_ids = Set(ind.id for ind in pop.individuals)
-    # remove unreachable individuals
-    purge_unreachable_nodes!(tree, pop_ids)
     nothing
 end
 
@@ -59,6 +56,17 @@ UpdatePhylogeny(ids::Vector{String}=String[];kwargs...) = create_op("UpdatePhylo
     retriever=PopulationRetriever(ids),
     updater=map(map((s,p)->update_phylogeny!(s,p)));kwargs...)
 
+function purge_phylogeny!(::AbstractState, pop::Population)
+    pop_ids = Set(ind.id for ind in pop.individuals)
+    # remove unreachable individuals
+    purge_unreachable_nodes!(get_tree(pop), pop_ids)
+    nothing
+end
+
+@define_op "PurgePhylogeny"
+PurgePhylogeny(ids::Vector{String}=String[];kwargs...) = create_op("PurgePhylogeny",
+    retriever=PopulationRetriever(ids),
+    updater=map(map((s,p)->purge_phylogeny!(s,p)));kwargs...)
 
 @define_op "InitializeDeltaCache"
 
@@ -120,6 +128,21 @@ end
 UpdateGenePool(ids::Vector{String}=String[]; after_gen::Int, n_latest::Int, time::Bool=false, kwargs...) = 
     create_op("UpdateGenePool", 
               condition=s->generation(s) > after_gen,
+              retriever=PopulationRetriever(ids),
+              updater=map(map((_,p)->update_genepool!(p; n_latest=n_latest, kwargs...))),
+              time=time;)
+
+phylo_fname(pop::Population) = "$(pop.id)-phylo.csv"
+
+# function track_phylogeny(pop::Population)
+#     # read keys from csv
+#     open(phylo_fname(pop), "rw"), do 
+#     end
+# end
+# TODO add thing to track last serialized individual id for each pop
+@define_op "TrackPhylogeny"
+TrackPhylogeny(ids::Vector{String}=String[]; serialize_interval::Bool) = 
+    create_op("TrackPhylogeny", 
               retriever=PopulationRetriever(ids),
               updater=map(map((_,p)->update_genepool!(p; n_latest=n_latest, kwargs...))),
               time=time;)

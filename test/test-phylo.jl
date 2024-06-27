@@ -24,6 +24,7 @@ comp_pop_creator = Creator(CompositePopulation, ("species", [("p$i", n_inds, ng_
                    TruncationSelector(k),
                    CloneUniformReproducer(n_inds),
                    UpdatePhylogeny(),
+                   PurgePhylogeny(),
                    ClearInteractionsAndRecords(),
                   ], counters=counters)
     run!(state, 1)

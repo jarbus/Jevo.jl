@@ -90,6 +90,19 @@ function SelfAttention(rng::AbstractRNG, counter::AbstractCounter;
     )
     """Create a self-attention layer with n_heads and head_dim"""
     
+    # qkv_weight = CompositeWeight([
+    #                 FactorWeight(
+    #                     Weights(rng, counter, (hidden_dim, qkv_rank), init=init!),
+    #                     WeightsCollection(
+    #                         reduce(hcat,
+    #                                [Weights(rng, counter, (qkv_rank, 1), init=init!) for i in 1:n_heads*head_dim*3]))
+    #                 ),
+    #                 Weights(rng, counter, (hidden_dim, n_heads*head_dim*3), init=apply_zero!)
+    # ])
+    # qkv_bias = WeightsCollection(
+    #                 reduce(hcat,
+    #                     [Weights(rng, counter, (qkv_rank, 1), init=init!) for i in 1:n_heads*head_dim*3]))
+    # qkv = Dense(qkv_weight, qkv_bias, σ=identity)
     qkv = Dense(rng, counter, dims=(hidden_dim, n_heads*head_dim*3), σ=identity, rank=qkv_rank)
     out = Dense(rng, counter, dims=(n_heads*head_dim, hidden_dim), σ=identity, rank=o_rank)
     SelfAttention(n_heads, qkv, out)

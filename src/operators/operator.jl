@@ -8,7 +8,7 @@ struct Operator <: AbstractOperator end
 function operate!(state::AbstractState, operator::AbstractOperator)
     !operator.condition(state) && return
     operator.time && (start = time())
-    objects = operator.retriever(state)
+    objects = operator.retriever(state, operator)
     objects = operator.operator(state, objects)
     operator.updater(state, objects)
     operator.time && (@info "Operator $(typeof(operator)) took $(round((time()-start),digits=4)) seconds")
