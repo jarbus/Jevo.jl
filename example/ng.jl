@@ -21,23 +21,24 @@ ng_developer = Creator(VectorPhenotype)
 comp_pop_creator = Creator(CompositePopulation, ("species", [("p$i", n_inds, ng_gc, ng_developer) for i in 1:n_species], counters))
 env_creator = Creator(CompareOnOne)
 
-state = State(rng,[comp_pop_creator, env_creator],
+state = State("ng_phylogeny", rng,[comp_pop_creator, env_creator],
     [InitializeAllPopulations(),
+     InitializePhylogeny(),
     AllVsAllMatchMaker(),
     Performer(),
     ScalarFitnessEvaluator(),
     TruncationSelector(k),
     CloneUniformReproducer(n_inds),
     Mutator(),
+    UpdatePhylogeny(),
+    TrackPhylogeny(),
+    PurgePhylogeny(),
     PopSizeAssertor(n_inds),
     ClearInteractionsAndRecords(),
     create_op("Reporter",
         retriever=Jevo.get_individuals,
         operator=(s,is)-> foreach(i->println(i.genotype), is)
     ),
-
-    create_op("Reporter", operator=(s,_)-> println(generation(s))
-    ),
-    Reporter(GenotypeSum, console=true)])
+    Reporter(GenotypeSum, console=true)], counters=counters)
 
 run!(state, n_gens)

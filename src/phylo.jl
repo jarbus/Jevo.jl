@@ -1,4 +1,4 @@
-export Delta, InitializePhylogeny, UpdatePhylogeny, PurgePhylogeny, DeltaCache, InitializeDeltaCache, UpdateDeltaCache, UpdateGenePool, GenePool
+export Delta, InitializePhylogeny, UpdatePhylogeny, PurgePhylogeny, DeltaCache, InitializeDeltaCache, UpdateDeltaCache, UpdateGenePool, GenePool, TrackPhylogeny, PurgePhylogeny
 import Base: ==
 
 struct Delta{G} <: AbstractGenotype where {G <: AbstractGenotype}
@@ -25,7 +25,16 @@ get_delta_cache(pop::Population) = getonly(p -> p isa DeltaCache, pop.data)
 function initialize_phylogeny!(::AbstractState, pop::Population)
     @assert isnothing(findfirst(p -> p isa PhylogeneticTree, pop.data)) "Phylogenetic tree already initialized for population $(pop.id)"
     ind_ids = [ind.id for ind in pop.individuals]
-    push!(pop.data, PhylogeneticTree(ind_ids))
+    tree = PhylogeneticTree(ind_ids)
+    push!(pop.data, tree)
+    # add tracking data
+    io = open(phylo_fname(pop), "w")
+    println(io, "id, ancestor_list")
+    for ind in tree.genesis
+        @assert isnothing(ind.parent)
+        println(io, "$(ind.id),")
+    end
+    push!(pop.data, PhyloTracker(io, maximum(ind_ids)))
 end
 
 @define_op "InitializePhylogeny"
@@ -134,15 +143,29 @@ UpdateGenePool(ids::Vector{String}=String[]; after_gen::Int, n_latest::Int, time
 
 phylo_fname(pop::Population) = "$(pop.id)-phylo.csv"
 
-# function track_phylogeny(pop::Population)
-#     # read keys from csv
-#     open(phylo_fname(pop), "rw"), do 
-#     end
-# end
-# TODO add thing to track last serialized individual id for each pop
+mutable struct PhyloTracker <: AbstractData
+    io::IO
+    last_serialized::Int
+end
+function track_phylogeny!(pop::Population)
+    pt = try 
+        getonly(p -> p isa PhyloTracker, pop.data)
+    catch
+        @assert false "PhyloTracker not found in population $(pop.id). Make sure to call InitializePhylogeny first."
+    end
+    tree = get_tree(pop)
+    # find and serialize inds greater than last_serialized
+    for (id, node) in tree.tree
+        if id > pt.last_serialized
+            println(pt.io, "$id, $(node.parent.id)")
+        end
+    end
+    flush(pt.io)
+    pt.last_serialized = maximum(keys(tree.tree))
+end
 @define_op "TrackPhylogeny"
-TrackPhylogeny(ids::Vector{String}=String[]; serialize_interval::Bool) = 
+TrackPhylogeny(ids::Vector{String}=String[]; kwargs...) = 
     create_op("TrackPhylogeny", 
               retriever=PopulationRetriever(ids),
-              updater=map(map((_,p)->update_genepool!(p; n_latest=n_latest, kwargs...))),
-              time=time;)
+              updater=map(map((_,p)->track_phylogeny!(p))),
+              kwargs...)
