@@ -8,12 +8,42 @@ NetworkGene(counter::Counter, seed::UInt64, mr::Float32, init::Function=Jevo.app
 function Weights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{Int}}; init::Function=Jevo.apply_kaiming_normal_noise!, rank=-1)
     rank == -1 && return Weights(dims, [NetworkGene(rng, counter, 1f0, init)])
     @assert length(dims) == 2 "Factorized weights must have 2 dimensions, got $(length(dims))"
-    CompositeWeight(AbstractWeights[
+    CompositeWeight(dims, AbstractWeights[
         FactorWeight(
+            dims,
             Weights(rng, counter, (dims[1], rank), init=apply_kaiming_normal_noise_factored!),
             Weights(rng, counter, (rank, dims[2]), init=apply_kaiming_normal_noise_factored!)
         ),
         Weights(rng, counter, dims, init=apply_zero!)])
+end
+
+function WeightsCollection(rng::AbstractRNG, counter::Counter; dims::Tuple{Vararg{Int}}, breakdown::BD, init::Function=Jevo.apply_kaiming_normal_noise!) where {BD <: Array{<:Tuple{Vararg{Int}}}}
+    verify_weights_collection(dims, breakdown)
+    WeightsCollection(dims, map(tup -> Weights(rng, counter, tup, init=init), breakdown))
+end
+
+"""Confirms that each row of weights has the same # of rows in each weight,
+and each column has the same number of columns."""
+function verify_weights_collection(dims::Tuple{Vararg{Int}}, breakdown::BD) where {BD <: Matrix{Tuple{Int, Int}}}
+    total_rows = sum(w_dims[1][1] for w_dims in eachrow(breakdown))
+    total_cols = sum(w_dims[1][2] for w_dims in eachcol(breakdown))
+    @assert dims == (total_rows, total_cols) "WeightsCollection dimensions do not match breakdown"
+    row_aligned, column_aligned = true, true
+
+    for row in eachrow(breakdown)
+        row_aligned = row_aligned && length(Set(w_dims[1] for w_dims in row)) == 1
+    end
+    for col in eachcol(breakdown)
+        column_aligned = column_aligned && length(Set(w_dims[2] for w_dims in col)) == 1
+    end
+    @assert row_aligned && column_aligned "WeightsCollection with breakdown $(breakdown) must have aligned rows and columns"
+end
+function verify_weights_collection(dims::Tuple{Vararg{Int}}, breakdown::BD) where {BD <: Vector{<:Tuple{Vararg{Int}}}}
+    # convert vector to Nx1 matrix if we are targeting a matrix
+    length(dims) == 2 && return verify_weights_collection(dims, reshape(breakdown, (length(breakdown), 1)))
+    @assert length(dims) == 1
+    @assert all(length(w_dims)==1 for w_dims in breakdown) "Weights in breakdown must be a vector if breakdown is a vector, got $(breakdown)"
+    @assert dims[1] == sum(w_dims[1] for w_dims in breakdown) "WeightsCollection dimensions do not match breakdown, got $(dims) and $(sum(w_dims[1] for w_dims in breakdown))"
 end
 
 WeightCache(;maxsize::Int, by::Function=Base.summarysize) =
@@ -90,20 +120,34 @@ function SelfAttention(rng::AbstractRNG, counter::AbstractCounter;
     )
     """Create a self-attention layer with n_heads and head_dim"""
     
-    # qkv_weight = CompositeWeight([
-    #                 FactorWeight(
-    #                     Weights(rng, counter, (hidden_dim, qkv_rank), init=init!),
-    #                     WeightsCollection(
-    #                         reduce(hcat,
-    #                                [Weights(rng, counter, (qkv_rank, 1), init=init!) for i in 1:n_heads*head_dim*3]))
-    #                 ),
-    #                 Weights(rng, counter, (hidden_dim, n_heads*head_dim*3), init=apply_zero!)
-    # ])
-    # qkv_bias = WeightsCollection(
-    #                 reduce(hcat,
-    #                     [Weights(rng, counter, (qkv_rank, 1), init=init!) for i in 1:n_heads*head_dim*3]))
-    # qkv = Dense(qkv_weight, qkv_bias, σ=identity)
-    qkv = Dense(rng, counter, dims=(hidden_dim, n_heads*head_dim*3), σ=identity, rank=qkv_rank)
+    # =============================================================================================
+    # NOTE: QKV weights are transposed, because we aren't going through our custom Dense constructor
+    #       which automatically transposes for us.
+    # =============================================================================================
+    head_weights = WeightsCollection(
+        (head_dim*n_heads*3, hidden_dim),
+        vcat([Weights(rng, counter, (head_dim, hidden_dim), init=init!) for i in 1:n_heads*3]))
+
+    factored_head_weights = FactorWeight(
+        (head_dim*n_heads*3, hidden_dim),
+        WeightsCollection(
+            (head_dim*n_heads*3, qkv_rank),
+            vcat([Weights(rng, counter, (head_dim, qkv_rank), init=init!) for i in 1:n_heads*3])),
+        Weights(rng, counter, (qkv_rank, hidden_dim), init=init!)
+    )
+    
+    zeroed_head_weights = WeightsCollection(
+        (head_dim*n_heads*3, hidden_dim),
+        vcat([Weights(rng, counter, (head_dim, hidden_dim), init=init!) for i in 1:n_heads*3]))
+
+    qkv_weight = qkv_rank < 1 ? head_weights : CompositeWeight((hidden_dim, head_dim*n_heads*3), [head_weights, factored_head_weights])
+
+    qkv_bias = WeightsCollection(
+                    (head_dim*n_heads*3,),
+                    reduce(vcat,
+                        [Weights(rng, counter, (head_dim,), init=init!) for i in 1:n_heads*3]))
+    qkv = Dense(qkv_weight, qkv_bias, identity)
+    # qkv = Dense(rng, counter, dims=(hidden_dim, n_heads*head_dim*3), σ=identity, rank=qkv_rank)
     out = Dense(rng, counter, dims=(n_heads*head_dim, hidden_dim), σ=identity, rank=o_rank)
     SelfAttention(n_heads, qkv, out)
 end

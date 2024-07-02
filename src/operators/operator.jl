@@ -70,7 +70,7 @@ create_op(name::String; kwargs...) = create_op(eval(Symbol(name)); kwargs...)
 @define_op "ClearInteractionsAndRecords"
 ClearInteractionsAndRecords(;kwargs...) = create_op("ClearInteractionsAndRecords",
           retriever=get_individuals,
-          updater=map((_,ind)->reset_individual!(ind)))
+          updater=map((_,ind)->reset_individual!(ind)); kwargs...)
 
 @define_op "GenerationIncrementer"
 

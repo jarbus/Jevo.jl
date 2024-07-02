@@ -68,6 +68,8 @@ function get_weight_symbols(weights::Weights)
     str *= get_symbols(weights.muts) * "\n"
 end
 
+get_weight_symbols(wc::WeightsCollection) = "weightscollection\n" *
+    join([get_weight_symbols(w) for w in wc.weights])
 get_weight_symbols(factorized_weights::FactorWeight) =
     get_weight_symbols(factorized_weights.A) * get_weight_symbols(factorized_weights.B)
 get_weight_symbols(composite_weights::CompositeWeight) =
