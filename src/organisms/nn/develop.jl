@@ -42,6 +42,23 @@ function tensor(cw::CompositeWeight; weight_cache::_WeightCache=nothing)::Array{
     gpu_weights = [gpu(tensor(w, weight_cache=weight_cache)) for w in cw.weights]
     reduce(+, gpu_weights) |> Transformers.tocpudevice
 end
+function tensor(w::WeightsCollection; weight_cache::_WeightCache=nothing)
+    @assert ndims(w.weights) <= 2 "WeightsCollection only supports 2 or fewer dimensions, got $(ndims(w.weights))"
+    developed_weights = map(w->tensor(w, weight_cache=weight_cache), w.weights)
+    mat = zeros(Float32, w.dims...)
+    row_idx, col_idx = 1, 1
+    for row in eachrow(developed_weights)
+        nrows = size(row[1], 1)
+        for developed_weight in row
+            ncols = size(developed_weight, 2)
+            mat[row_idx:row_idx+nrows-1, col_idx:col_idx+ncols-1] = developed_weight
+            col_idx += ncols
+        end
+        row_idx += nrows
+        col_idx = 1
+    end
+    mat
+end
 # PERFORMANCE CRITICAL END
 ############################
 

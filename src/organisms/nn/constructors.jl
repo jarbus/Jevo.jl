@@ -10,10 +10,35 @@ function Weights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{
     @assert length(dims) == 2 "Factorized weights must have 2 dimensions, got $(length(dims))"
     CompositeWeight(AbstractWeights[
         FactorWeight(
+            dims,
             Weights(rng, counter, (dims[1], rank), init=apply_kaiming_normal_noise_factored!),
             Weights(rng, counter, (rank, dims[2]), init=apply_kaiming_normal_noise_factored!)
         ),
         Weights(rng, counter, dims, init=apply_zero!)])
+end
+
+function WeightsCollection(rng::AbstractRNG, counter::Counter; dims::Tuple{Vararg{Int}}, breakdown::Array{Tuple{Int, Int}}, init::Function=Jevo.apply_kaiming_normal_noise!)
+    verify_weights_collection(dims, breakdown)
+    WeightsCollection(dims, map(tup -> Weights(rng, counter, tup, init=init), breakdown))
+end
+
+"""Confirms that each row of weights has the same # of rows in each weight,
+and each column has the same number of columns."""
+function verify_weights_collection(dims::Tuple{Vararg{Int}}, breakdown::BD) where {BD <: Array{Tuple{Int, Int}}}
+    @assert length(dims) <= 2 "WeightsCollection must have 2 dimensions, got $(length(dims))"
+
+    total_rows = sum(dims[1][1] for dims in eachrow(breakdown))
+    total_cols = sum(dims[1][2] for dims in eachcol(breakdown))
+    @assert dims == (total_rows, total_cols) "WeightsCollection dimensions do not match breakdown"
+    row_aligned, column_aligned = true, true
+
+    for row in eachrow(breakdown)
+        row_aligned = row_aligned && length(Set(el[1] for el in row)) == 1
+    end
+    for col in eachcol(breakdown)
+        column_aligned = column_aligned && length(Set(el[2] for el in col)) == 1
+    end
+    @assert row_aligned && column_aligned "WeightsCollection with breakdown $(breakdown) must have aligned rows and columns"
 end
 
 WeightCache(;maxsize::Int, by::Function=Base.summarysize) =

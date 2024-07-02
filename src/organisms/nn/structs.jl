@@ -12,13 +12,18 @@ struct Weights <: AbstractWeights
     muts::Vector{NetworkGene}
 end
 
+"""
+    A collection of weights which are concatenated together.
+"""
 struct WeightsCollection{T<:AbstractWeights} <: AbstractWeights
     """Concatenation of multiple weight blocks into a single weight tensor, to adjust subsets of weights independently"""
+    dims::Tuple{Vararg{Int}}
     weights::Array{T}
 end
 
 struct FactorWeight{T<:AbstractWeights} <: AbstractWeights
     """Low-rank factorization of a weight matrix"""
+    dims::Tuple{Vararg{Int}}
     A::T
     B::T
 end
