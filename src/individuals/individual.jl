@@ -1,5 +1,8 @@
 export Individual, develop
 
+"""
+    Ind
+"""
 mutable struct Individual{I,G,D} <: AbstractIndividual where 
     {I <: AbstractInteraction,
      G <: AbstractGenotype,

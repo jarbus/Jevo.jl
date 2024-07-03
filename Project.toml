@@ -1,7 +1,7 @@
 name = "Jevo"
 uuid = "3e78decc-cd14-43d0-8271-079b340fcef2"
 authors = ["Jack <jackgarbus@gmail.com> and contributors"]
-version = "1.0.0-DEV"
+version = "0.0.2-DEV"
 
 [deps]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
@@ -15,7 +15,6 @@ HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 LRUCache = "8ac3fa9e-de4c-5943-b1dc-09c6b5f20637"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 LoggingExtras = "e6f89c97-d47a-5376-807f-9c37f3926c36"
-MLDatasets = "eb30cadb-4394-5ae3-aed4-317e484a6458"
 NeuralAttentionlib = "12afc1b8-fad6-47e1-9132-84abc478905f"
 OneHotArrays = "0b1bfda6-eb8a-41d2-88d8-f5af5cad476f"
 PhylogeneticTrees = "6d56a5a2-9523-4ac5-b898-386f43f22c4e"
@@ -30,6 +29,9 @@ cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
 
 [compat]
 julia = "1"
+CUDA = "5"
+Flux = "0.14"
+ClusterManagers = "0.4"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

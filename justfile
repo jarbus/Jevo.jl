@@ -2,6 +2,8 @@ test:
     julia --project=. -e 'using Pkg; Pkg.test()'
 rerun:
     find . -name "*.jl" | NO_SERIALIZE_ON_ERROR=1 entr julia -t 32 rerun.jl
+docs:
+    julia -e 'using Random, Jevo, LiveServer; servedocs()'
 resume:
     tmux new-session -d 'just rerun'
     tmux split-window -h 'cd src && nvim -S Session.vim'

@@ -14,8 +14,8 @@ function find(attr::Symbol, match::Any, v::Vector)
     @assert false "Failed to retrieve an element from $(typeof(v)) where el.$(attr) == $match"
 end
 
-function getonly(f, v::Vector)
-    found = filter(f, v)
+function getonly(f, itr::Union{Vector, Tuple})
+    found = filter(f, itr)
     @assert length(found) == 1 "found $(length(found)) items in getonly()"
     found[1]
 end

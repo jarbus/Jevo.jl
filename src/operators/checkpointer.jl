@@ -1,11 +1,11 @@
 export Checkpointer, restore_from_checkpoint
-function restore_from_checkpoint(checkpointname)
+function restore_from_checkpoint(checkpointname::String)
     !isfile(checkpointname) && return
     state = Serialization.deserialize(checkpointname)
     @info "Restored state from $checkpointname"
     return state
 end
-function checkpoint(state, checkpointname)
+function checkpoint(state::State, checkpointname::String)
     tmp_name = "$checkpointname.tmp"
     Serialization.serialize(tmp_name, state)
     mv(tmp_name, checkpointname, force=true)

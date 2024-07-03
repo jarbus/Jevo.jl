@@ -1,16 +1,32 @@
 export Population, CompositePopulation
-mutable struct CompositePopulation <: AbstractPopulation
-    id::String
-    populations::Vector{AbstractPopulation}
-    data::Vector
-end
 
+"""
+    Population(id::String, individuals::Vector{<:AbstractIndividual})
+
+Create a population with a given id and individuals.
+"""
 mutable struct Population <: AbstractPopulation
     id::String
     individuals::Vector{AbstractIndividual}
     data::Vector
 end
 
+# Create pop with predefined inds and no data
+Population(id::String, individuals::Vector{<:AbstractIndividual}) =
+    Population(id, individuals, [])
+
+# Create n inds using genotype creator, updates counters
+Population(id::String, n::Int, genotype_creator::AbstractCreator, developer::AbstractCreator, counters::Vector{<:AbstractCounter}) =
+    Population(id, [Individual(counters, genotype_creator, developer) for i in 1:n])
+
+"""
+    CompositePopulation(id::String, populations::Vector{<:AbstractPopulation})
+"""
+mutable struct CompositePopulation <: AbstractPopulation
+    id::String
+    populations::Vector{AbstractPopulation}
+    data::Vector
+end
 # Combine populations into composite
 CompositePopulation(id::String, populations::Vector{<:AbstractPopulation}) =
     CompositePopulation(id, populations, [])
@@ -20,13 +36,6 @@ CompositePopulation(id::String,
                     counters::Vector{<:AbstractCounter}) =
 CompositePopulation(id, [Population(id, n, gc, dev, counters) for (id, n, gc, dev) in pops])
 
-# Create pop with predefined inds and no data
-Population(id::String, individuals::Vector{<:AbstractIndividual}) =
-    Population(id, individuals, [])
-
-# Create n inds using genotype creator, updates counters
-Population(id::String, n::Int, genotype_creator::AbstractCreator, developer::AbstractCreator, counters::Vector{<:AbstractCounter}) =
-    Population(id, [Individual(counters, genotype_creator, developer) for i in 1:n])
 
 find_population(id::String, population::Population) = 
     population.id == id ? population : nothing

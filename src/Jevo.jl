@@ -33,7 +33,6 @@ import Base: show
 # using LowRankApprox  # for approximate SVD
 
 include("./abstracts.jl")
-include("./macro.jl")
 include("./utils.jl")
 include("./creators/creator.jl")
 include("./datatypes/datatypes.jl")
@@ -41,8 +40,8 @@ include("./logger.jl")
 include("./individuals/individual.jl")
 include("./populations/populations.jl")
 include("./state.jl")
+include("./operators/operators.jl")
 include("./phylo.jl")
 include("./organisms/organisms.jl")
 include("./environments/environments.jl")
-include("./operators/operators.jl")
 end

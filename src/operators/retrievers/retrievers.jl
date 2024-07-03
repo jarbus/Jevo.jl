@@ -1,4 +1,4 @@
-export PopulationRetriever, PopulationCreatorRetriever
+export PopulationRetriever
 """Retrieves Vector{Vector{AbstractIndividual}} from state
 
 For example, a two-pop all vs all matchmaker with the following population hierarchy: 
@@ -40,7 +40,7 @@ function get_populations(id::String, composite::CompositePopulation; flatten::Bo
 end
 
 """Traverses the population tree and returns references to all vectors of individuals to an arbitrary depth. If ids is not empty, it only returns individuals from the specified populations"""
-function (r::PopulationRetriever)(state::AbstractState)
+function (r::PopulationRetriever)(state::AbstractState, args...)
     if !isempty(r.ids)
         pops = [get_populations(id, state.populations) for id in r.ids]
         @assert !isempty(pops) "Failed to retrieve any populations with ids $(r.ids)"
@@ -54,13 +54,15 @@ end
 
 """Retreives all creators of type AbstractPopulation from state.creators"""
 struct PopulationCreatorRetriever <: AbstractRetriever end
-(::PopulationCreatorRetriever)(state::AbstractState) = filter(c -> c.type <: AbstractPopulation, state.creators) |> collect
+(::PopulationCreatorRetriever)(state::AbstractState, args...) = filter(c -> c.type <: AbstractPopulation, state.creators) |> collect
 
-get_individuals(state::AbstractState) = get_individuals(state.populations)
-get_individuals(pop::Population) = pop.individuals
-get_individuals(pop::CompositePopulation) = 
+# We use args... instead of ::AbstractOperator so it can be used
+# outside of the context of an operator
+get_individuals(state::AbstractState, args...) = get_individuals(state.populations)
+get_individuals(pop::Population, args...) = pop.individuals
+get_individuals(pop::CompositePopulation, args...) = 
     get_individuals.(pop.populations) |> Iterators.flatten |> collect
-get_individuals(pops::Vector{<:AbstractPopulation}) =
+get_individuals(pops::Vector{<:AbstractPopulation}, args...) =
     get_individuals.(pops) |> Iterators.flatten |> collect
 
 get_timestamps(state::AbstractState, type::Type) = Timestamp[t for t in state.data if t.type == type]
