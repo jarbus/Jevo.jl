@@ -32,7 +32,7 @@ function initialize_phylogeny!(::AbstractState, pop::Population)
     println(io, "id, ancestor_list")
     for ind in tree.genesis
         @assert isnothing(ind.parent)
-        println(io, "$(ind.id),")
+        println(io, "$(ind.id), [none]")
     end
     push!(pop.data, PhyloTracker(io, maximum(ind_ids)))
 end
