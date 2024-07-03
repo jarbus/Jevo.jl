@@ -68,3 +68,10 @@ function apply_constant!(rng::AbstractRNG, ::Type, arr::Array{Float32}, v::Float
         arr[i] += v
     end
 end
+
+function get_env_lock()
+    if !isdefined(Main, :env_lock)
+        Main.env_lock = ReentrantLock()
+    end
+    Main.env_lock
+end

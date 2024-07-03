@@ -7,10 +7,10 @@ using StatsBase
 using Distributed
 
 # Neural Nets
-using CUDA
-using Flux
-using Transformers
-using Transformers.TextEncoders
+# using CUDA
+# using Flux
+# using Transformers
+# using Transformers.TextEncoders
 # For checkpointing and handling exceptions
 using Serialization
 # For logging
@@ -20,11 +20,9 @@ using Logging
 using LoggingExtras
 using FileWatching
 using PhylogeneticTrees
-# For MNIST
-using OneHotArrays
 using Reexport
 using XPlot
-using ClusterManagers
+# using ClusterManagers
 @reexport using XPlot
 
 import Base: show

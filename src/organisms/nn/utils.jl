@@ -20,14 +20,6 @@ function get_genotype_cache()
     Main.genotype_cache
 end
 
-function get_env_lock()
-    if !isdefined(Main, :env_lock)
-        Main.env_lock = ReentrantLock()
-    end
-    Main.env_lock
-end
-
-
 function mr_symbol(mr::Float32)
     mr == 1.0f0 && return "#"  
     mr >= 0.1f0 && return "0"
@@ -68,7 +60,7 @@ function get_weight_symbols(weights::Weights)
     str *= get_symbols(weights.muts) * "\n"
 end
 
-get_weight_symbols(wc::WeightsCollection) = "weightscollection\n" *
+get_weight_symbols(wc::WeightsCollection) = "  weightscollection\n" *
     join([get_weight_symbols(w) for w in wc.weights])
 get_weight_symbols(factorized_weights::FactorWeight) =
     get_weight_symbols(factorized_weights.A) * get_weight_symbols(factorized_weights.B)
