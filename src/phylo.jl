@@ -157,7 +157,7 @@ function track_phylogeny!(pop::Population)
     # find and serialize inds greater than last_serialized
     for (id, node) in tree.tree
         if id > pt.last_serialized
-            println(pt.io, "$id, $(node.parent.id)")
+            println(pt.io, "$id, [$(node.parent.id)]")
         end
     end
     flush(pt.io)
