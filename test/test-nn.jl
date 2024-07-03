@@ -70,6 +70,7 @@ nul_pop = Population("", Individual[])
             weights = Jevo.tensor(weight_collection; weight_cache=weight_cache)
             @test size(weights) == (784, 15)
             @test !any(iszero, weights)
+
             visualize(weight_collection) # |> println
             # Test different breakdowns
             weight_collection = Jevo.WeightsCollection(rng, gene_counter, dims=(784, 15), breakdown=[(384,10) (384, 5); (400,10) (400, 5)])
