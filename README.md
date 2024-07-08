@@ -5,10 +5,8 @@
 Jevo is a high-performance, distributed, and modular (co-)evolutionary algorithm framework written in Julia. It is designed to be flexible and easy to use, with a focus on deep neuroevolutionary applications using [Flux.jl](https://fluxml.ai/Flux.jl/stable/). Jevo is designed to be easy to use, with a simple API that allows users to quickly define custom evolutionary algorithms and run them on distributed systems.
 
 
-```markdown
-| ⚠️ **Warning:** Jevo is currently alpha software and is under active development. |
+| **Warning:** Jevo is currently alpha software and is under active development. |
 | ----------------------------------------- |
-```
 
 # Install
 

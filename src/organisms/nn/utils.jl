@@ -1,5 +1,44 @@
 export visualize, get_weights
 
+
+# We need to overwrite this Flux method to generate Float32 weights and maintain compatibility with the (rng, type, dims...) signature
+function kaiming_normal(rng::AbstractRNG,::Type, dims::Integer...; gain::Real = √2f0)
+  std = Float32(gain / sqrt(first(Flux.nfan(dims...)))) # fan_in
+  return randn(rng, Float32, dims...) .* std
+end
+
+# initialize factors with 2^(1/4) gain so when multiplied together,
+# the resulting matrix has 2^(1/2) gain
+apply_kaiming_normal_noise_factored!(rng::AbstractRNG, ::Type, arr::Array{Float32}, mr::Float32) =
+    apply_kaiming_normal_noise!(rng, Float32, arr, mr, gain=2^(1/4))
+    
+function apply_kaiming_normal_noise!(rng::AbstractRNG, ::Type, arr::Array{Float32}, mr::Float32; gain::Real = √2f0)
+    dims = size(arr)
+    std = Float32(gain / sqrt(first(Flux.nfan(dims...))))
+    scalar = std * mr
+    @fastmath @inbounds @simd for i in 1:length(arr)
+        arr[i] += randn(rng, Float32) * scalar
+    end
+end
+
+function apply_gaussian_normal_noise!(rng::AbstractRNG, ::Type, arr::Array{Float32}, mr::Float32)
+    @fastmath @inbounds @simd for i in 1:length(arr)
+        arr[i] += randn(rng, Float32) * mr
+    end
+end
+
+apply_zero!(rng::AbstractRNG, t::Type, arr::Array{Float32}, ::Float32) =
+    apply_constant!(rng, t, arr, 0f0)
+
+    apply_one!(rng::AbstractRNG, t::Type, arr::Array{Float32}, ::Float32) =
+    apply_constant!(rng, t, arr, 1f0)
+
+function apply_constant!(rng::AbstractRNG, ::Type, arr::Array{Float32}, v::Float32)
+    @fastmath @inbounds @simd for i in 1:length(arr)
+        arr[i] += v
+    end
+end
+
 function get_weight_cache()
     # get global variable Main.weight_cache for weight cache
     # check if weight_cache is defined
@@ -19,14 +58,6 @@ function get_genotype_cache()
     end
     Main.genotype_cache
 end
-
-function get_env_lock()
-    if !isdefined(Main, :env_lock)
-        Main.env_lock = ReentrantLock()
-    end
-    Main.env_lock
-end
-
 
 function mr_symbol(mr::Float32)
     mr == 1.0f0 && return "#"  
@@ -97,7 +128,7 @@ get_weight_symbols(t::Transformer) = "Transformer\n" *
 get_weight_symbols(network::Network) = join([get_weight_symbols(l) for l in network.layers])
 
 visualize = get_weight_symbols
-get_weight_symbols(ind::Individual{I,G,D}, pop::Population) where {I,G <: Delta,D} = get_weight_symbols(master_construct_genome(ind, pop))
+get_weight_symbols(ind::Individual{G,D,I}, pop::Population) where {G <: Delta,D,I} = get_weight_symbols(master_construct_genome(ind, pop))
 get_weight_symbols(ind::Individual) = get_weight_symbols(ind.genotype)
 
 is_layer_norm(layers) = any(l->l isa LayerNorm, layers)

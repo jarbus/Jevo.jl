@@ -107,7 +107,7 @@ function add_delta_to_genome(full_genome::Network, delta::Delta{Network}; n_back
     compact_genome
 end
 
-function worker_construct_child_genome(ind::Individual{I, G, D}) where {I, G <: Delta, D}
+function worker_construct_child_genome(ind::Individual{G, D, I}) where {G <: Delta, D, I}
     @assert length(ind.parents) <= 1
     gc = get_genotype_cache()
     ind.id ∈ keys(gc) && return gc[ind.id]

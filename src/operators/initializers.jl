@@ -5,4 +5,4 @@ InitializeAllPopulations(;kwargs...) = create_op("InitializeAllPopulations",
           condition=first_gen,
           retriever=PopulationCreatorRetriever(),
           operator=create,
-          updater=PopulationAdder(),kwargs...)
+          updater=PopulationAdder!(),kwargs...)

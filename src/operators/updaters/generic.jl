@@ -1,23 +1,45 @@
-export PopulationAdder, PopulationUpdater, add_matches!, find_population
+export PopulationAdder!, PopulationUpdater!, add_matches!, find_population
 
+"""
+    add_matches!(state::AbstractState, matches::Vector{Match})
+
+Updater which adds matches to the state.
+"""
 add_matches!(state::AbstractState, matches::Vector{Match}) = append!(state.matches, matches)
 
 
-struct PopulationAdder <: AbstractUpdater end
-function (::PopulationAdder)(state::AbstractState, pops::Vector{<:AbstractPopulation})
+"""
+    PopulationAdder!()
+
+Creates an [Updater](@ref) that adds populations to the state.
+"""
+struct PopulationAdder! <: AbstractUpdater end
+function (::PopulationAdder!)(state::AbstractState, pops::Vector{<:AbstractPopulation})
     @assert length(state.populations) == 0 "We only expect to add populations to the state once"
     append!(state.populations, pops)
 end
     
-Base.@kwdef struct PopulationUpdater <: AbstractUpdater
+"""
+    PopulationUpdater!(;ids=String[])
+
+Currently unimplemented.
+"""
+Base.@kwdef struct PopulationUpdater! <: AbstractUpdater
     ids::Vector{String} = String[] # ids of populations to update
 end
 
-Base.@kwdef struct RecordAdder <: AbstractUpdater
+"""
+    ReccordAdder!(;ids=String[])
+
+Creates an [Updater](@ref) that adds records to individuals in populations with ids in `ids`.
+
+    function(adder::ReccordAdder!)(state::AbstractState, records::Vector{<:Vector{<:Vector{<:AbstractRecord}}})
+"""
+Base.@kwdef struct ReccordAdder! <: AbstractUpdater
     ids::Vector{String} = String[] # ids of populations to update
 end
 
-function (adder::RecordAdder)(state::AbstractState, records::Vector{<:Vector{<:Vector{<:AbstractRecord}}})
+function (adder::ReccordAdder!)(state::AbstractState, records::Vector{<:Vector{<:Vector{<:AbstractRecord}}})
     pops = PopulationRetriever(adder.ids)(state)
     for (subpops, subpops_records) in zip(pops, records)
         @assert length(subpops) == length(subpops_records) "Length of subpopulations and records must match, got $(length(subpops)) and $(length(subpops_records))"
@@ -31,7 +53,7 @@ function (adder::RecordAdder)(state::AbstractState, records::Vector{<:Vector{<:V
     end
 end
 
-function (updater::PopulationUpdater)(state::AbstractState, inds::Vector{<:Vector{<:AbstractIndividual}})
+function (updater::PopulationUpdater!)(state::AbstractState, inds::Vector{<:Vector{<:AbstractIndividual}})
     if isempty(updater.ids)
         pops = PopulationRetriever(updater.ids)(state)
         for (pop, pop_inds) in zip(pops, inds)

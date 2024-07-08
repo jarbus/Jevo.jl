@@ -1,10 +1,17 @@
 export ScalarFitnessEvaluator
+"""
+    ScalarFitnessEvaluator(ids::Vector{String}=String[]; kwargs...)
+
+[Operator](@ref) that computes the scalar fitness of each individual in populations with ids in `ids`. Requires all individuals to have at least one interaction.
+
+The scalar fitness is the mean of the scores of each interaction, shifted by the minimum score. 
+"""
 @define_op "ScalarFitnessEvaluator" "AbstractEvaluator"
 ScalarFitnessEvaluator(ids::Vector{String}=String[]; kwargs...) =
     create_op("ScalarFitnessEvaluator",
             retriever=PopulationRetriever(ids),
             operator=map(make_scalar_fitness_records),
-            updater=RecordAdder(ids); kwargs...)
+            updater=ReccordAdder!(ids); kwargs...)
 
 function make_scalar_fitness_records(::AbstractState,
         population::Vector{<:AbstractPopulation})

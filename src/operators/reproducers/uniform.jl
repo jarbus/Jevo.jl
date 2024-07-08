@@ -1,4 +1,13 @@
 export CloneUniformReproducer
+"""
+    CloneUniformReproducer(pop_size::Int, ids::Vector{String}=String[]; kwargs...)
+
+Creates an [Operator](@ref) that choose individuals uniformly at random and clones them, creating children with identical DNA, until the population reaches `pop_size` individuals.
+
+Should be used after a selector.
+
+See also: [TruncationSelector](@ref)
+"""
 @define_op "CloneUniformReproducer" "AbstractReproducer"
 CloneUniformReproducer(pop_size::Int, ids::Vector{String}=String[]; kwargs...) =
     create_op("CloneUniformReproducer",
