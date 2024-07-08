@@ -1,4 +1,5 @@
 using Documenter
+using XPlot
 using Jevo
 
 makedocs(

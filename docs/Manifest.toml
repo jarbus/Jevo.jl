@@ -1888,7 +1888,9 @@ version = "2.12.7+0"
 
 [[deps.XPlot]]
 deps = ["Bootstrap", "FileWatching", "HDF5", "HypothesisTests", "Plots", "StatsBase"]
-path = "/home/jack/.julia/dev/XPlot"
+git-tree-sha1 = "d4bc8d4b3e4ce4595b50d28ca8f1286b36a7ef0f"
+repo-rev = "master"
+repo-url = "https://github.com/jarbus/XPlot.jl"
 uuid = "05f8af49-9276-49ac-91ff-a5ea52b3fe06"
 version = "1.2.0"
 
