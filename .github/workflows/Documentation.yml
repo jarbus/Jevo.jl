@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master # update to match your development branch (master, main, dev, trunk, ...)
+      - workflow-setup
     tags: '*'
   pull_request:
 
@@ -20,8 +21,8 @@ jobs:
         with:
           version: '1.10'
       - uses: julia-actions/cache@v1
-      - name: Install dependencies
-        run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+      - name: install deps
+        run: julia --project=docs/ -e 'using Pkg; Pkg.instantiate()'
       - name: Build and deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # If authenticating with GitHub Actions token

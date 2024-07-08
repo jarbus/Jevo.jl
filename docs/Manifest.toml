@@ -2,7 +2,7 @@
 
 julia_version = "1.10.4"
 manifest_format = "2.0"
-project_hash = "56a36def3f766fcd56ea576b6af53f13418803d1"
+project_hash = "781de76f2005cd24cde5355db70f5fac7c01597f"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -802,7 +802,7 @@ version = "1.14.0"
 
 [[deps.Jevo]]
 deps = ["CUDA", "ChainRulesCore", "ClusterManagers", "Dates", "Distributed", "FileWatching", "Flux", "HDF5", "LRUCache", "Logging", "LoggingExtras", "NeuralAttentionlib", "OneHotArrays", "PhylogeneticTrees", "Random", "Reexport", "Serialization", "StableRNGs", "StatsBase", "Transformers", "XPlot", "cuDNN"]
-path = "/home/jack/.julia/dev/Jevo"
+path = ".."
 uuid = "3e78decc-cd14-43d0-8271-079b340fcef2"
 version = "0.0.2-DEV"
 
@@ -1162,7 +1162,9 @@ version = "1.2.0"
 
 [[deps.NeuralAttentionlib]]
 deps = ["Adapt", "CUDA", "ChainRulesCore", "GPUArrays", "GPUArraysCore", "LinearAlgebra", "NNlib", "Requires", "Static", "cuDNN"]
-path = "/home/jack/.julia/dev/NeuralAttentionlib"
+git-tree-sha1 = "2fa97194916782f95683cb3a6c3b2cb841a07325"
+repo-rev = "master"
+repo-url = "https://github.com/jarbus/NeuralAttentionlib.jl.git"
 uuid = "12afc1b8-fad6-47e1-9132-84abc478905f"
 version = "0.2.12"
 
@@ -1275,7 +1277,9 @@ version = "1.2.0"
 
 [[deps.PhylogeneticTrees]]
 deps = ["DataStructures", "Serialization"]
-path = "/home/jack/.julia/dev/PhylogeneticTrees"
+git-tree-sha1 = "e818a49f32cc88aa25a4471f1f3b3ebedee284fb"
+repo-rev = "master"
+repo-url = "https://github.com/jarbus/PhylogeneticTrees.jl.git"
 uuid = "6d56a5a2-9523-4ac5-b898-386f43f22c4e"
 version = "1.0.3-DEV"
 
@@ -1790,7 +1794,9 @@ version = "0.4.80"
 
 [[deps.Transformers]]
 deps = ["Base64", "BytePairEncoding", "CUDA", "ChainRulesCore", "DataDeps", "DataStructures", "Dates", "DelimitedFiles", "DoubleArrayTries", "Fetch", "FillArrays", "Flux", "FuncPipelines", "Functors", "HTTP", "HuggingFaceApi", "JSON3", "LRUCache", "LightXML", "LinearAlgebra", "Mmap", "NNlib", "NeuralAttentionlib", "Pickle", "Pkg", "PrimitiveOneHot", "Random", "SHA", "Static", "Statistics", "StringViews", "StructWalk", "TextEncodeBase", "Unicode", "ValSplit", "WordTokenizers", "Zygote", "cuDNN"]
-path = "/home/jack/.julia/dev/Transformers"
+git-tree-sha1 = "b7350569fb2515f13fe940b4c82b3add9f214f40"
+repo-rev = "master"
+repo-url = "https://github.com/jarbus/Transformers.jl.git"
 uuid = "21ca0261-441d-5938-ace7-c90938fde4d4"
 version = "0.2.8"
 
@@ -1890,7 +1896,7 @@ version = "2.12.7+0"
 deps = ["Bootstrap", "FileWatching", "HDF5", "HypothesisTests", "Plots", "StatsBase"]
 git-tree-sha1 = "d4bc8d4b3e4ce4595b50d28ca8f1286b36a7ef0f"
 repo-rev = "master"
-repo-url = "https://github.com/jarbus/XPlot.jl"
+repo-url = "https://github.com/jarbus/XPlot.jl.git"
 uuid = "05f8af49-9276-49ac-91ff-a5ea52b3fe06"
 version = "1.2.0"
 
