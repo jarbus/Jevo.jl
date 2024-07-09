@@ -1,12 +1,26 @@
 export Individual, develop
 
 """
-    Ind
+    mutable struct Individual{G,D,I} <: AbstractIndividual where 
+        {G <: AbstractGenotype,
+         D <: AbstractCreator,
+         I <: AbstractInteraction}
+        id::Int
+        generation::Int
+        parents::Vector{Int}
+        genotype::G
+        developer::D
+        records::Vector{AbstractRecord}
+        interactions::Vector{I}
+        data::Vector{AbstractData}
+    end
+
+An individual is a single entity in the population. Each individual should have a unique id generated from an `AbstractIndividual` [Counter](@ref). An individual's `developer` is a creator that turns a genotype into a phenotype. 
 """
-mutable struct Individual{I,G,D} <: AbstractIndividual where 
-    {I <: AbstractInteraction,
-     G <: AbstractGenotype,
-     D <: AbstractCreator}
+mutable struct Individual{G,D, I} <: AbstractIndividual where 
+    {G <: AbstractGenotype,
+     D <: AbstractCreator,
+     I <: AbstractInteraction}
     id::Int
     generation::Int
     parents::Vector{Int}
@@ -32,7 +46,12 @@ end
 
 
 
-"Create new individual with no parents"
+"""
+    Individual(counters::Vector{<:AbstractCounter},
+               genotype_creator::Creator,
+               developer::AbstractCreator)
+Create new individual with no parents
+"""
 function Individual(counters::Vector{<:AbstractCounter},
            genotype_creator::Creator,
            developer::AbstractCreator
@@ -52,6 +71,11 @@ function new_id_and_gen(counters::Vector{<:AbstractCounter})
     id, gen
 end
 
+"""
+    clone(state::AbstractState, parent::AbstractIndividual)
+
+Create a child with the same genotype as the parent, but with the id, generation, and parent changed.
+"""
 function clone(state::AbstractState, parent::AbstractIndividual)
     new_id, new_gen = new_id_and_gen(state)
     Individual(new_id, new_gen, [parent.id], deepcopy(parent.genotype),

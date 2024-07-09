@@ -69,6 +69,8 @@ function compute_interactions!(matches::Vector{<:AbstractMatch})
 end
 # PERFORMANCE CRITICAL END (measured)
 ############################
+"""
+"""
 struct ComputeInteractions! <: AbstractUpdater end
 function (updater::ComputeInteractions!)(::AbstractState, matches::Vector{M}) where M <: AbstractMatch
     n_matches = length(matches)

@@ -1,4 +1,4 @@
-export PopulationRetriever
+export PopulationRetriever, get_individuals
 """Retrieves Vector{Vector{AbstractIndividual}} from state
 
 For example, a two-pop all vs all matchmaker with the following population hierarchy: 
@@ -18,7 +18,6 @@ ids = ["composite1"] will fetch: [ind1a1, ind1a2, ind1b1, ind1b2]]
 
 ids = ["pop1a"] will fetch: [[ind1a1, ind1a2]]
 """
-
 Base.@kwdef struct PopulationRetriever <: AbstractRetriever
     ids::Vector{String} = String[] # ids of populations to return
 end
@@ -52,12 +51,17 @@ function (r::PopulationRetriever)(state::AbstractState, args...)
     pops
 end
 
-"""Retreives all creators of type AbstractPopulation from state.creators"""
+"""
+Retreives all creators of type AbstractPopulation from state.creators
+"""
 struct PopulationCreatorRetriever <: AbstractRetriever end
 (::PopulationCreatorRetriever)(state::AbstractState, args...) = filter(c -> c.type <: AbstractPopulation, state.creators) |> collect
 
 # We use args... instead of ::AbstractOperator so it can be used
 # outside of the context of an operator
+"""
+    get_individuals(state::AbstractState, args...)
+"""
 get_individuals(state::AbstractState, args...) = get_individuals(state.populations)
 get_individuals(pop::Population, args...) = pop.individuals
 get_individuals(pop::CompositePopulation, args...) = 

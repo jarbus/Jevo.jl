@@ -269,6 +269,7 @@ nul_pop = Population("", Individual[])
             @test d.bias |> typeof == Array{Float32,1}
             lora_tfr_args = (tfr_args..., qkv_rank=2, o_rank=2, ff_rank=2, embed_rank=2)
             net = Network(rng, gene_counter, [(Jevo.Transformer, lora_tfr_args)])
+            visualize(net) |> println
             lora_tfr_p = develop(Creator(Jevo.TransformerPhenotype, (;textenc=textenc)), net)
         end
     end

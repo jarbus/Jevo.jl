@@ -1,4 +1,6 @@
 export SoloMatchMaker
+"""
+"""
 @define_op "SoloMatchMaker" "AbstractMatchMaker"
 SoloMatchMaker(ids::Vector{String}=String[];kwargs...) =
     create_op("SoloMatchMaker",

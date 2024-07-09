@@ -1,4 +1,10 @@
 export AllVsAllMatchMaker
+
+"""
+    AllVsAllMatchMaker(ids::Vector{String}=String[];kwargs...)
+
+Creates an [Operator](@ref) that creates all vs all matches between individuals in populations with ids in `ids`.
+"""
 @define_op "AllVsAllMatchMaker" "AbstractMatchMaker"
 AllVsAllMatchMaker(ids::Vector{String}=String[];kwargs...) =
     create_op("AllVsAllMatchMaker",
@@ -8,6 +14,11 @@ AllVsAllMatchMaker(ids::Vector{String}=String[];kwargs...) =
           updater=add_matches!;kwargs...)
 
 
+"""
+    make_all_v_all_matches(state::AbstractState, pops::Vector{Vector{Population}})
+
+Returns a vector of [Matches](@ref Match) between all pairs of individuals in the populations.
+"""
 function make_all_v_all_matches(state::AbstractState, pops::Vector{Vector{Population}})
     match_counter = get_counter(AbstractMatch, state)
     env_creators = get_creators(AbstractEnvironment, state)

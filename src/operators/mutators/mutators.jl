@@ -1,5 +1,10 @@
 export Mutator
 
+"""
+    Mutator(ids::Vector{String}=String[]; time::Bool=false, condition=always, kwargs...)
+
+Operator that mutates the genotypes of individuals in populations with ids in `ids`. Calls [mutate!](@ref) on each individual in each population.
+"""
 @define_op "Mutator" "AbstractMutator"
 Mutator(ids::Vector{String}=String[]; time::Bool=false, condition=always, kwargs...) = 
     create_op("Mutator", 
@@ -20,6 +25,12 @@ function mutate!(state::AbstractState, pop::Population; kwargs...)
         end
     end
 end
+
+"""
+    mutate!(rng::AbstractRNG, state::AbstractState, population::AbstractPopulation, genotype::AbstractGenotype; kwargs...)
+
+
+"""
 function mutate!(rng::AbstractRNG, state::AbstractState, population::AbstractPopulation, ind::AbstractIndividual; fn=mutate, kwargs...)
     ind.genotype = fn(rng, state, population, ind.genotype; kwargs...)
 end

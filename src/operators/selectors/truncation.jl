@@ -1,4 +1,9 @@
 export TruncationSelector
+"""
+    TruncationSelector <: AbstractSelector
+
+Selects the top k individuals from a population based on their fitness scores, purging the rest. The individuals are sorted by their fitness scores in descending order, and the top k individuals are selected. If there are fewer than k individuals in the population, raises an error.
+"""
 @define_op "TruncationSelector" "AbstractSelector"
 TruncationSelector(k::Int, ids::Vector{String}=String[]; kwargs...) =
     create_op("TruncationSelector",

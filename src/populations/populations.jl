@@ -4,6 +4,9 @@ export Population, CompositePopulation
     Population(id::String, individuals::Vector{<:AbstractIndividual})
 
 Create a population with a given id and individuals.
+
+    Population(id::String, individuals::Vector{<:AbstractIndividual}) =
+Create pop with predefined inds and no data
 """
 mutable struct Population <: AbstractPopulation
     id::String
@@ -21,6 +24,8 @@ Population(id::String, n::Int, genotype_creator::AbstractCreator, developer::Abs
 
 """
     CompositePopulation(id::String, populations::Vector{<:AbstractPopulation})
+
+A population composed of subpopulations. Can be used to hierarchically organize populations.
 """
 mutable struct CompositePopulation <: AbstractPopulation
     id::String

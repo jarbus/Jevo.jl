@@ -52,7 +52,7 @@
           for i in 1:n_pops]))
   comp_comp_pop = comp_comp_pop_creator()
   pop_initializer = InitializeAllPopulations()
-  state = State(rng, [comp_comp_pop_creator], [pop_initializer])
+  state = State("", rng, [comp_comp_pop_creator], [pop_initializer])
   @testset "PopulationCreatorRetriever" begin
       pops = [pop_creator() for pop_creator in pop_initializer.retriever(state)]
       @test length(pops) == 1
@@ -104,11 +104,6 @@
       pops = PopulationRetriever(["p1", "p2"])(state)
       @test all([length(p) == 1 for p in pops])
       @test all([length(p[1].individuals) == 2 for p in pops])
-      # bad practice, we are making individuals with the same id
-      updater = PopulationUpdater(["p1"])(state, [deepcopy(pops[1][1].individuals)])
-      pops = PopulationRetriever(["p1", "p2"])(state)
-      @test [length(p) for p in pops] == [1,1]
-      @test [length(p[1].individuals) for p in pops] == [4,2]
   end
 
   env_creator = Creator(CompareOnOne)
@@ -133,7 +128,7 @@
   reporter = Reporter(GenotypeSum)
 
   @testset "Clone" begin
-    state = State(rng, [comp_comp_pop_creator, env_creator], [pop_initializer, ava])
+    state = State("",rng, [comp_comp_pop_creator, env_creator], [pop_initializer, ava])
     run!(state, 1)
     # Clone an individual
     ind = Jevo.find_population("p1", state).individuals[1]
@@ -144,7 +139,7 @@
 
   @testset "MatchMaker" begin
       @testset "AllVsAll" begin
-          state = State(rng, [comp_comp_pop_creator, env_creator], [pop_initializer, ava])
+          state = State("", rng, [comp_comp_pop_creator, env_creator], [pop_initializer, ava])
           @test Jevo.get_creators(AbstractEnvironment, state) |> length == 1
           run!(state, 1)
           n_pairs = n_pops * n_species
@@ -152,7 +147,7 @@
           @test length(state.matches) == n_unique_pairs * n_inds^2
       end
       @testset "Solo" begin
-          state = State(rng,[comp_comp_pop_creator, env_creator], [pop_initializer, solo])
+          state = State("", rng,[comp_comp_pop_creator, env_creator], [pop_initializer, solo])
           run!(state, 1)
           @test length(state.matches) == n_inds * n_species * n_pops
       end
@@ -160,7 +155,7 @@
 
 
   @testset "Performer" begin
-      state = State(rng,[comp_comp_pop_creator, env_creator],
+      state = State("", rng,[comp_comp_pop_creator, env_creator],
                      [pop_initializer, ava, performer])
       # Make sure no inds have interactions
       @test all(ind -> isempty(ind.interactions),
@@ -171,7 +166,7 @@
                 for ind in Jevo.get_individuals(state.populations))
   end
   @testset "ScalarFitnessEvaluator" begin
-      state = State(rng,[comp_comp_pop_creator, env_creator],
+      state = State("", rng,[comp_comp_pop_creator, env_creator],
                      [pop_initializer, ava, performer, evaluator])
       run!(state, 1)
       @test all(ind -> length(ind.records) == 1,
@@ -179,7 +174,7 @@
       @test generation(state) == 2
   end
   @testset "Selector" begin
-      state = State(rng,[comp_comp_pop_creator, env_creator],
+      state = State("", rng,[comp_comp_pop_creator, env_creator],
                      [pop_initializer, ava, performer, evaluator, selector_p1, selector_p2_p3])
       run!(state, 1)
       @test length(Jevo.find_population("p1", state).individuals) == k
@@ -187,7 +182,7 @@
       @test length(Jevo.find_population("p3", state).individuals) == k
   end
   @testset "Reproducer" begin
-      state = State(rng,[comp_comp_pop_creator, env_creator],
+      state = State("", rng,[comp_comp_pop_creator, env_creator],
                      [pop_initializer, ava, performer, evaluator, selector_p1, selector_p2_p3, reproducer_p2_p3])
       run!(state, 1)
       @test length(Jevo.find_population("p1", state).individuals) == k
@@ -198,18 +193,18 @@
   end
   @testset "Mutator" begin
       # comp_pop_creator has n_species pops with n_inds inds
-      state = State(rng,[comp_comp_pop_creator, env_creator],
+      state = State("", rng,[comp_comp_pop_creator, env_creator],
                     [pop_initializer, ava, performer, evaluator, selector_p1, selector_p2_p3, reproducer_p2_p3, mutator])
       run!(state, 1)
       pops = PopulationRetriever(["p2", "p3"])(state)
       @test [length(p[1].individuals) for p in pops] == [n_inds, n_inds]
   end
   @testset "Assertor" begin
-      state = State(rng,[comp_comp_pop_creator, env_creator],
+      state = State("", rng,[comp_comp_pop_creator, env_creator],
                     [pop_initializer, ava, performer, evaluator, assertor, selector, reproducer, assertor, mutator, assertor])
       run!(state, 1)
       @test true
-      state = State(rng,[comp_comp_pop_creator, env_creator],
+      state = State("", rng,[comp_comp_pop_creator, env_creator],
                     [pop_initializer, ava, performer, evaluator, assertor, selector, assertor])
       try
           run!(state, 1)
@@ -222,7 +217,7 @@
       rm("statistics.h5", force=true)
       rm("run.log", force=true)
       with_logger(JevoLogger()) do
-          state = State(rng,[comp_comp_pop_creator, env_creator],
+          state = State("", rng,[comp_comp_pop_creator, env_creator],
                         [pop_initializer, reporter])
           run!(state, 1)
       end
@@ -235,7 +230,7 @@
       min_sum_computer = create_op("Reporter",
                             operator=(s,_) -> measure(GenotypeSum, s, false,false,false).min)
       with_logger(JevoLogger()) do
-          state = State(rng,[comp_comp_pop_creator, env_creator],
+          state = State("", rng,[comp_comp_pop_creator, env_creator],
                         [pop_initializer, ava, performer, evaluator, assertor, selector, min_sum_computer, reproducer, assertor, mutator, reporter, ind_resetter])
           run!(state, 10)
       end

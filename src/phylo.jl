@@ -1,10 +1,20 @@
-export Delta, InitializePhylogeny, UpdatePhylogeny, PurgePhylogeny, DeltaCache, InitializeDeltaCache, UpdateDeltaCache, UpdateGenePool, GenePool, TrackPhylogeny, PurgePhylogeny
+export Delta, InitializePhylogeny, UpdatePhylogeny, PurgePhylogeny, DeltaCache, InitializeDeltaCache, UpdateDeltaCache, UpdateGenePool, GenePool, LogPhylogeny, PurgePhylogeny
 import Base: ==
 
+"""
+    Delta{G} <: AbstractGenotype where {G <: AbstractGenotype}
+
+A delta is a change in a genotype. It can be applied to a genotype to create a new genotype, with the differences applied.
+"""
 struct Delta{G} <: AbstractGenotype where {G <: AbstractGenotype}
     change::G 
 end
 
+"""
+    GenePool(deltas::Vector)
+
+A gene pool is a collection of deltas.
+"""
 struct GenePool
     deltas::Vector
 end
@@ -13,7 +23,7 @@ DeltaCache = Dict{Int, Delta}
 
 Base.:(==)(a::Delta, b::Delta) = a.change == b.change
 
-function develop(creator::Creator, ind::Individual{I, G, D}) where {I, G <: Delta, D}
+function develop(creator::Creator, ind::Individual{G, D, I}) where {G <: Delta, D, I}
     genotype = worker_construct_child_genome(ind)
     @assert typeof(genotype) <: AbstractGenotype
     develop(creator, genotype)
@@ -32,14 +42,20 @@ function initialize_phylogeny!(::AbstractState, pop::Population)
     println(io, "id, ancestor_list")
     for ind in tree.genesis
         @assert isnothing(ind.parent)
-        println(io, "$(ind.id),")
+        println(io, "$(ind.id), [none]")
     end
     push!(pop.data, PhyloTracker(io, maximum(ind_ids)))
 end
 
+"""
+    InitializePhylogeny(ids::Vector{String}=String[];kwargs...)
+
+Initializes a phylogenetic tree for populations with ids in `ids`. The tree is initialized with the current generation's individuals as the genesis individuals. The tree is initialized only once, and will throw an error if called multiple times on the same population.
+
+See also [LogPhylogeny](@ref), [UpdatePhylogeny](@ref), [PurgePhylogeny](@ref)
+"""
 @define_op "InitializePhylogeny"
 
-"""Initializes a phylogenetic tree for each `Population` in the `State`."""
 InitializePhylogeny(ids::Vector{String}=String[];kwargs...) = create_op("InitializePhylogeny",
         condition=first_gen,
         retriever=PopulationRetriever(ids),
@@ -59,7 +75,15 @@ function update_phylogeny!(state::AbstractState, pop::Population)
     nothing
 end
 
-@define_op "UpdatePhylogeny" # add children and prune
+"""
+
+    UpdatePhylogeny(ids::Vector{String}=String[];kwargs...)
+
+Updates the phylogenetic tree for populations with ids in `ids`. The tree is updated with the current generation's individuals as children of their parents. If an individual has no parent or more than one parent, an error is thrown.
+
+See also [LogPhylogeny](@ref), [InitializePhylogeny](@ref), [PurgePhylogeny](@ref)
+"""
+@define_op "UpdatePhylogeny" # add children
 
 UpdatePhylogeny(ids::Vector{String}=String[];kwargs...) = create_op("UpdatePhylogeny",
     retriever=PopulationRetriever(ids),
@@ -72,11 +96,23 @@ function purge_phylogeny!(::AbstractState, pop::Population)
     nothing
 end
 
+"""
+    PurgePhylogeny(ids::Vector{String}=String[];kwargs...)
+
+Purges the phylogenetic tree for populations with ids in `ids`. Removes individuals from the phylogenetic tree that with no living descendants.
+
+See also [LogPhylogeny](@ref), [InitializePhylogeny](@ref), [UpdatePhylogeny](@ref)
+"""
 @define_op "PurgePhylogeny"
 PurgePhylogeny(ids::Vector{String}=String[];kwargs...) = create_op("PurgePhylogeny",
     retriever=PopulationRetriever(ids),
     updater=map(map((s,p)->purge_phylogeny!(s,p)));kwargs...)
 
+"""
+    InitializeDeltaCache(ids::Vector{String}=String[];kwargs...)
+
+Creates a cache of Deltas for a population.
+"""
 @define_op "InitializeDeltaCache"
 
 InitializeDeltaCache(ids::Vector{String}=String[];kwargs...) = create_op("InitializeDeltaCache",
@@ -84,6 +120,11 @@ InitializeDeltaCache(ids::Vector{String}=String[];kwargs...) = create_op("Initia
     retriever=PopulationRetriever(ids),
     updater=map(map((s,p)->(push!(p.data, DeltaCache()); update_delta_cache!(s, p)))); kwargs...)
 
+"""
+    UpdateDeltaCache(ids::Vector{String}=String[];kwargs...)
+
+Updates the DeltaCache for a population with the current generation's individuals.
+"""
 @define_op "UpdateDeltaCache"
 
 function update_delta_cache!(state::AbstractState, pop::Population)
@@ -133,6 +174,11 @@ function update_genepool!(pop::Population; n_latest::Int)
 end
 
 
+"""
+    UpdateGenePool(ids::Vector{String}=String[]; after_gen::Int, n_latest::Int, time::Bool=false, kwargs...)
+
+After generation `after_gen`, updates the gene pool for populations with ids in `ids` with the `n_latest` most recent deltas. 
+"""
 @define_op "UpdateGenePool"
 UpdateGenePool(ids::Vector{String}=String[]; after_gen::Int, n_latest::Int, time::Bool=false, kwargs...) = 
     create_op("UpdateGenePool", 
@@ -147,7 +193,7 @@ mutable struct PhyloTracker <: AbstractData
     io::IO
     last_serialized::Int
 end
-function track_phylogeny!(pop::Population)
+function log_phylogeny!(pop::Population)
     pt = try 
         getonly(p -> p isa PhyloTracker, pop.data)
     catch
@@ -157,15 +203,21 @@ function track_phylogeny!(pop::Population)
     # find and serialize inds greater than last_serialized
     for (id, node) in tree.tree
         if id > pt.last_serialized
-            println(pt.io, "$id, $(node.parent.id)")
+            println(pt.io, "$id, [$(node.parent.id)]")
         end
     end
     flush(pt.io)
     pt.last_serialized = maximum(keys(tree.tree))
 end
-@define_op "TrackPhylogeny"
-TrackPhylogeny(ids::Vector{String}=String[]; kwargs...) = 
-    create_op("TrackPhylogeny", 
+
+"""
+    LogPhylogeny(ids::Vector{String}=String[]; kwargs...)
+
+Adds recent individuals to a phylogeny file called `\$(pop.id)-phylo.csv` in the current directory. The file is formatted as a CSV with columns `id` and `ancestor_list`, according to the [ALIFE Data Standard](https://alife-data-standards.github.io/alife-data-standards/phylogeny.html)
+"""
+@define_op "LogPhylogeny"
+LogPhylogeny(ids::Vector{String}=String[]; kwargs...) = 
+    create_op("LogPhylogeny", 
               retriever=PopulationRetriever(ids),
-              updater=map(map((_,p)->track_phylogeny!(p))),
+              updater=map(map((_,p)->log_phylogeny!(p))),
               kwargs...)
