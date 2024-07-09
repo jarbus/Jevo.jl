@@ -7,5 +7,5 @@ We highly recommend reviewing [Overview](@ref) for a high-level introduction to 
 ## Table of Contents
 
 ```@contents
-Pages = ["overview.md", "operators.md", "phylogeny.md", "miscellaneous.md"]
+Pages = ["overview.md", "operators.md", "phylogeny.md", "extensibility.md", "miscellaneous.md"]
 ```

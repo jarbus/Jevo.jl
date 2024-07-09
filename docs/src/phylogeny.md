@@ -6,7 +6,7 @@ We use [PhylogeneticTrees.jl](https://github.com/jarbus/PhylogeneticTrees.jl) fo
 
 In short, phylogeny is the evolutionary history of a group of organisms. This has myriad uses:
 
-* *Analysis*: We can easily observe how population dynamics change throughout evolution and visualize extinctions and sub-species
+* *Analysis*: We can easily observe how population dynamics change throughout evolution and visualize extinctions and sub-species. See [*Interpreting the Tape of Life* by Dolson et.al](https://lalejini.com/pubs/Dolson_et_al_2020_Interpreting_the_Tape_of_Life.pdf) for more.
 * *Optimization*: We can estimate performance of individuals based on their phylogenetic distance from other individuals to achieve substantial reductions in compute required. See [evolutionary](https://arxiv.org/abs/2306.03970) and [co-evolutionary](https://arxiv.org/abs/2404.06588) applications of this idea.
 
 

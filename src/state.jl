@@ -8,7 +8,7 @@ export State, run!, first_gen, generation
         populations::Vector{AbstractPopulation}
         counters::Vector{AbstractCounter}
         matches::Vector{AbstractMatch}
-        data::Vector{AbstractData}    # for extensions
+        data::Vector    # for extensions
     end
 
     A mutable struct which holds all runtime data for an evolutionary simulation. See [`State(rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator})`](@ref) . each generation.
@@ -54,7 +54,7 @@ mutable struct State <: AbstractState
     populations::Vector{AbstractPopulation}
     counters::Vector{AbstractCounter}
     matches::Vector{AbstractMatch}
-    data::Vector{AbstractData}    # for extensions
+    data::Vector    # for extensions
 end
 
 # State(rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator}) =
@@ -68,7 +68,7 @@ end
         counters::Vector{<:AbstractCounter}=default_counters(),
         populations::Vector{<:AbstractPopulation}=AbstractPopulation[],
         matches::Vector{<:AbstractMatch}=AbstractMatch[],
-        data::Vector{<:AbstractData}=AbstractData[],
+        data::Vector=[],
     )
 
 States are created from a random number generator, a list of creators, and a list of operators, and usually a list of counters.
@@ -79,7 +79,7 @@ States are created from a random number generator, a list of creators, and a lis
 
 Use [`generation(state)`](@ref) to get the current generation number, initialized to one. The [`GenerationIncrementer`](@ref) operator is automatically appended to the operator list to advance the state to the next generation. Individuals created without any parents are of generation 0.
 """
-function State(id::String, rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator}; counters::Vector{<:AbstractCounter}=default_counters(), populations::Vector{<:AbstractPopulation}=AbstractPopulation[], matches::Vector{<:AbstractMatch}=AbstractMatch[], data::Vector{<:AbstractData}=AbstractData[], )
+function State(id::String, rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator}; counters::Vector{<:AbstractCounter}=default_counters(), populations::Vector{<:AbstractPopulation}=AbstractPopulation[], matches::Vector{<:AbstractMatch}=AbstractMatch[], data::Vector=[], )
     operators = AbstractOperator[operators..., GenerationIncrementer()]
     State(id, rng, creators, operators, populations, counters, matches, data)
 end
