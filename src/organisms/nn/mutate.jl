@@ -120,9 +120,9 @@ end
 
 
 @define_op "NNGenePoolMutator" "AbstractMutator"
-NNGenePoolMutator(ids::Vector{String}=String[]; after_gen::Int, time::Bool=false, kwargs...) = 
+NNGenePoolMutator(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
     create_op("NNGenePoolMutator", 
-              condition=s->generation(s) > after_gen,
+              condition=condition,
               retriever=PopulationRetriever(ids),
               updater=map(map((s,p)->mutate!(s, p; fn=max_mr_mutate, kwargs...))),
               time=time;)

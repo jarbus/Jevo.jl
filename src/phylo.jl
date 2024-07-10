@@ -1,4 +1,4 @@
-export Delta, InitializePhylogeny, UpdatePhylogeny, PurgePhylogeny, DeltaCache, InitializeDeltaCache, UpdateDeltaCache, UpdateGenePool, GenePool, LogPhylogeny, PurgePhylogeny
+export Delta, InitializePhylogeny, UpdatePhylogeny, PurgePhylogeny, DeltaCache, InitializeDeltaCache, UpdateDeltaCache, UpdateGenePool, GenePool, LogPhylogeny
 import Base: ==
 
 """

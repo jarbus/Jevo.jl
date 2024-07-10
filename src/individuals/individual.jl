@@ -12,7 +12,7 @@ export Individual, develop
         developer::D
         records::Vector{AbstractRecord}
         interactions::Vector{I}
-        data::Vector{AbstractData}
+        data::Vector
     end
 
 An individual is a single entity in the population. Each individual should have a unique id generated from an `AbstractIndividual` [Counter](@ref). An individual's `developer` is a creator that turns a genotype into a phenotype. 
@@ -28,7 +28,7 @@ mutable struct Individual{G,D, I} <: AbstractIndividual where
     developer::D
     records::Vector{AbstractRecord}
     interactions::Vector{I}
-    data::Vector{AbstractData}
+    data::Vector
 end
 
 function Individual(
@@ -39,7 +39,7 @@ function Individual(
     developer::AbstractCreator;
     records::Vector{AbstractRecord} = AbstractRecord[],
     interactions::Vector{<:AbstractInteraction} = Interaction[],
-    data::Vector{AbstractData} = AbstractData[]
+    data::Vector = []
 )
     Individual(id, generation, parents, genotype, developer, records, interactions, data)
 end
