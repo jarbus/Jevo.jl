@@ -2,7 +2,7 @@
 
 Each step of an evolutionary algorithm is represented by an [Operator](@ref). The [@define_op](@ref) macro defines new operator *structs* with fields specified in the [operator documentation](@ref Operator). The [create_op](@ref) function generates new operator *objects* with default values for unspecified operator fields. This section provides an overview of the operators implemented so far in Jevo.jl.
 
-## Retrievers
+### Retrievers
 
 Retrievers are a struct or function that, retrieve data from the state. 
 
@@ -10,7 +10,7 @@ Retrievers are a struct or function that, retrieve data from the state.
 * [PopulationRetriever](@ref), used in [AllVsAllMatchMaker](@ref), and many others
 * [get_individuals](@ref), used in [ClearInteractionsAndRecords](@ref)
 
-## Updaters
+### Updaters
 
 * [Jevo.ComputeInteractions!](@ref), used in [Performer](@ref)
 * [PopulationAdder](@ref), used in [InitializeAllPopulations](@ref)
@@ -18,55 +18,55 @@ Retrievers are a struct or function that, retrieve data from the state.
 * [Jevo.add_matches!](@ref), used in [AllVsAllMatchMaker](@ref) and [SoloMatchMaker](@ref)
 * [Jevo.RecordAdder](@ref), used in [ScalarFitnessEvaluator](@ref)
 
-## Matchmaker
+### Matchmaker
 
 * [AllVsAllMatchMaker](@ref)
 * [SoloMatchMaker](@ref), individuals play a match alone, used for evolutionary computing
 
-## Evaluators
+### Evaluators
 
 * [ScalarFitnessEvaluator](@ref)
 * [RandomEvaluator](@ref)
 
-## Selectors
+### Selectors
 
 * [TruncationSelector](@ref)
 
-## Reproducers
+### Reproducers
 
 * [CloneUniformReproducer](@ref)
 
-## Performer
+### Performer
 
 * [Performer](@ref)
 
 
-## Mutators
+### Mutators
 
 * [Mutator](@ref), uses [Jevo.mutate](@ref) as its `.operator`.
 
-## Assertors
+### Assertors
 
 Assertors are operators that you can add at any point in the pipeline to check that certain aspects of the state are as expected.
 
 * [PopSizeAssertor](@ref)
 
-## Reporters
+### Reporters
 
 * [Reporter](@ref), can log data if [`Jevo.measure`](@ref) for a specified [Jevo.AbstractMetric](@ref) as its `.operator`.
 
-## Checkpointer
+### Checkpointer
 
 * [Checkpointer](@ref)
 
-## Initializers
+### Initializers
 
 * [InitializeAllPopulations](@ref), uses [Jevo.create](@ref) as its `.operator`.
 
-## Miscellaneous
+### Miscellaneous
 
 * [CreateMissingWorkers](@ref). SLURM compatible, but only for a single node.
 
-## Phylogenies
+### Phylogenies
 
 * See [Phylogeny](@ref)
