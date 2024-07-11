@@ -35,7 +35,7 @@ function _map!(f::Function, hierarchy::Vector; weights_only::Bool)
     end
     for field in fieldnames(typeof(hierarchy[end]))
         attr = getfield(hierarchy[end], field)
-        if typeof(attr) <: Union{Vector,Tuple}
+        if typeof(attr) <: Union{Array,Tuple}
             for element in attr
                 push!(hierarchy, element)
                 _map!(f, hierarchy, weights_only=weights_only)
@@ -66,7 +66,7 @@ function _map!(f::Function, ret::Vector, hierarchy::Vector; weights_only::Bool)
     end
     for field in fieldnames(typeof(hierarchy[end]))
         attr = getfield(hierarchy[end], field)
-        if typeof(attr) <: Union{Vector,Tuple}
+        if typeof(attr) <: Union{Array,Tuple}
             for element in attr
                 push!(hierarchy, element)
                 _map!(f, ret, hierarchy, weights_only=weights_only)
