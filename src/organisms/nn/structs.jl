@@ -1,5 +1,15 @@
-export TransformerPhenotype, Transformer
+export TransformerPhenotype, Transformer, FactorWeight, CompositeWeight, WeightsCollection, Weights
 # Weights
+"""
+    struct NetworkGene <: AbstractMutation
+        id::Int
+        seed::UInt64
+        mr::Float32
+        init!::Union{AbstractInitializer,Function}
+    end
+
+Gene for a [Weights](@ref) object, used to generate a tensor of `Float32`. A `StableRNG` object is created with seed `seed`, which is then passed into `init!` to generate the tensor. The tensor is then mutated by mutation rate `mr`. `id` is a unique identifier for the gene.
+"""
 struct NetworkGene <: AbstractMutation
     id::Int
     seed::UInt64
@@ -7,35 +17,63 @@ struct NetworkGene <: AbstractMutation
     init!::Union{AbstractInitializer,Function}
 end
 
+"""
+    struct Weights <: AbstractWeights
+        dims::Tuple{Vararg{Int}}
+        muts::Vector{NetworkGene}
+    end
+
+A collection of genes which generate a tensor of `Float32` when developed. Each gene in `muts` is developed into a tensor and added together to form the final tensor. A [`_WeightCache`](@ref) can be used to cache intermediate tensors to avoid redundant computation.
+"""
 struct Weights <: AbstractWeights
     dims::Tuple{Vararg{Int}}
     muts::Vector{NetworkGene}
 end
 
 """
-    A collection of weights which are concatenated together.
+    struct WeightsCollection{T<:AbstractWeights} <: AbstractWeights
+        dims::Tuple{Vararg{Int}}
+        weights::Array{T}
+    end
+
+Concatenation of multiple weight blocks into a single weight tensor, to adjust subsets of weights independently
 """
 struct WeightsCollection{T<:AbstractWeights} <: AbstractWeights
-    """Concatenation of multiple weight blocks into a single weight tensor, to adjust subsets of weights independently"""
     dims::Tuple{Vararg{Int}}
     weights::Array{T}
 end
 
+"""
+    struct FactorWeight{F1<:AbstractWeights, F2<:AbstractWeights} <: AbstractWeights
+        dims::Tuple{Vararg{Int}}
+        A::F1
+        B::F2
+    end
+Low-rank factorization of a weight matrix
+"""
 struct FactorWeight{F1<:AbstractWeights, F2<:AbstractWeights} <: AbstractWeights
-    """Low-rank factorization of a weight matrix"""
     dims::Tuple{Vararg{Int}}
     A::F1
     B::F2
 end
 
+"""
+    struct CompositeWeight{T<:AbstractWeights} <: AbstractWeights
+        dims::Tuple{Vararg{Int}}
+        weights::Vector{T}
+    end
+
+A collection of weights which are added together. Each element must develop to the same size
+"""
 struct CompositeWeight{T<:AbstractWeights} <: AbstractWeights
-    """A collection of weights which are added together. Each element must develop to the same size"""
     dims::Tuple{Vararg{Int}}
     weights::Vector{T}
 end
 
+"""
+A collection of sequential layers
+"""
 struct Network <: AbstractLayer
-    """A collection and a coupling scheme."""
     layers::Vector
 end
 
@@ -87,7 +125,9 @@ struct Model <: AbstractPhenotype
 end
 
 """
-We identify weights of a layer by their dimensions and the last gene id used to generate them.
+    _WeightCache::LRU{Int, <:Array{Float32}}
+
+Stores developed tensors of weights for genes. Keys are tensor dimensions and the last gene id used. For a weight of dimensions `(a, b)` containing gene ids `1, 2, 3`, `_WeightCache[3, (a,b)]` would map to a tensor equivalent to `tensor(gene_1) + tensor(gene_2) + tensor(gene_3)`.
 """
 _WeightCache = Union{LRU{Int, <:Array{Float32}}, Nothing}
 # so we only need to transmit delta genotypes
