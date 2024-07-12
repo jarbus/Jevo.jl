@@ -1,4 +1,11 @@
-export ComputeMaxMrPerLayerFromGenePool, NNGenePoolMutator
+export ComputeMaxMrPerLayerFromGenePool, NNGenePoolMutator, ClearCurrentGenWeights, NNGenePoolReseedMutator
+
+@define_op "ClearCurrentGenWeights" "AbstractMutator"
+@define_op "ComputeMaxMrPerLayerFromGenePool"
+@define_op "NNGenePoolMutator" "AbstractMutator"
+@define_op "NNReseedMutator" "AbstractMutator"
+
+
 function compute_init(layers)
     n_factors = 0
     for layer in layers
@@ -25,14 +32,29 @@ function what_layers_should_we_mutate(rng::AbstractRNG, genotype::Network; n::In
     shuffle!(rng, should_mutate)
     should_mutate
 end
-function mutate_weights!(rng::AbstractRNG, state::State, ::Population, genotype::Network, mr::Union{Float32,Tuple{Vararg{Float32}}}; n=-1, no_layer_norm::Bool=true)
+
+"""
+Uses the Mutation API to clear all weights of the current generation's individuals.
+
+Designed to be used with [Deltas](@ref Delta) which have been cloned.
+"""
+ClearCurrentGenWeights(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
+    create_op("ClearCurrentGenWeights", 
+              condition=condition,
+              retriever=PopulationRetriever(ids),
+              updater=map(map((s,p)->mutate!(s, p; fn=clear_weights, kwargs...))),
+              time=time;)
+clear_weights(::AbstractRNG, ::State, ::Population, genotype) =
+    copyarchitecture(genotype)
+
+function mutate(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Network; mr::Union{Float32,Tuple{Vararg{Float32}}}, n::Int=-1, no_layer_norm::Bool=true, kwargs...)
+    genotype = deepcopy(genotype)
     gene_counter = get_counter(AbstractGene, state)
     # Choose weights to mutate
     should_mutate = what_layers_should_we_mutate(rng, genotype, n=n, no_layer_norm=no_layer_norm)
     # Determine which weights to mutate based off n
     map!(genotype, weights_only=true) do layers
         weight = layers[end]               
-        empty!(weight.muts)                 # First, clear copied mutations, since this is a delta
         is_layer_norm(layers) && return     # Skip if we're a layer norm
         !popfirst!(should_mutate) && return # Skip if we don't want to mutate this weight
         init = compute_init(layers)
@@ -40,23 +62,13 @@ function mutate_weights!(rng::AbstractRNG, state::State, ::Population, genotype:
         push!(weight.muts, NetworkGene(rng, gene_counter, mrf0, init))
     end
     @assert isempty(should_mutate) "Should have iterated through all weights, $(length(should_mutate)) left"
+    genotype
 end
 
-function mutate(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Network; mr::Union{Float32,Tuple{Vararg{Float32}}}, n::Int=-1, kwargs...)
-    new_genotype = deepcopy(genotype)
-    mutate_weights!(rng, state, pop, new_genotype, mr, n=n, kwargs...)
-    new_genotype
-end
-function max_mr_mutate(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Network, args...; mr::Union{Float32,Tuple{Vararg{Float32}}}, n::Int=-1, kwargs...)
-    new_genotype = deepcopy(genotype)
-    max_mr_mutate_weights!(rng, state, pop, Delta(new_genotype); mr=mr, n=n, kwargs...)
-    new_genotype
-end
 mutate(rng::AbstractRNG, state::State, population::AbstractPopulation, genotype::Delta, args...; kwargs...) =
     Delta(mutate(rng, state, population, genotype.change, args...; kwargs...))
-max_mr_mutate(rng::AbstractRNG, state::State, population::AbstractPopulation, genotype::Delta, args...; kwargs...) =
-    Delta(max_mr_mutate(rng, state, population, genotype.change, args...; kwargs...))
 
+### ComputeMaxMrPerLayerFromGenePool
 """
 Consists of a genotype with at most one gene per weight. 
 Each gene has the largest MR in the genepool for that weight.
@@ -84,22 +96,24 @@ function compute_max_mr_per_layer!(pop::Population; no_layer_norm::Bool)
     filter!(x->!isa(x,MaxMRs), pop.data) # clear prior maxmr
     push!(pop.data, MaxMRs(max_mr_net))
 end
-@define_op "ComputeMaxMrPerLayerFromGenePool"
 ComputeMaxMrPerLayerFromGenePool(ids::Vector{String}=String[];after_gen::Int, no_layer_norm::Bool=true, kwargs...) =
     create_op("ComputeMaxMrPerLayerFromGenePool",
     condition=s->generation(s) > after_gen,
     retriever=PopulationRetriever(ids),
     updater=map(map((_,p)->compute_max_mr_per_layer!(p, no_layer_norm=no_layer_norm))); kwargs...)
 
-function max_mr_mutate_weights!(rng::AbstractRNG, state::State, pop::Population, delta::Delta{Network}; mr::Union{Float32,Tuple{Vararg{Float32}}}, n::Int=-1, no_layer_norm::Bool, kwargs...)
+
+########## Max MR Mutator, aka NNGenePoolMutator ##########
+function max_mr_mutate(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Network, args...; mr::Union{Float32,Tuple{Vararg{Float32}}}, n::Int=-1, no_layer_norm::Bool, kwargs...)
+    genotype = deepcopy(genotype)
     gene_counter = get_counter(AbstractGene, state)
     max_mrs_network = getonly(d->d isa MaxMRs, pop.data).maxmrs
     max_mrs = [!isempty(w.muts) ? w.muts[1].mr : nothing 
                for w in get_weights(max_mrs_network, no_layer_norm=no_layer_norm)]
     # Choose weights to mutate
-    should_mutate = what_layers_should_we_mutate(rng, delta.change, n=n, no_layer_norm=no_layer_norm)
+    should_mutate = what_layers_should_we_mutate(rng, genotype, n=n, no_layer_norm=no_layer_norm)
     # Determine which weights to mutate based off n
-    map!(delta.change, weights_only=true) do layers
+    map!(genotype, weights_only=true) do layers
         weight = layers[end]               
         mrf0 = mr isa Float32 ? mr : rand(rng, mr)
         empty!(weight.muts)                 # First, clear copied mutations, since this is a delta
@@ -114,15 +128,49 @@ function max_mr_mutate_weights!(rng::AbstractRNG, state::State, pop::Population,
     end
     @assert isempty(should_mutate) "Should have iterated through all weights, $(length(should_mutate)) left"
     @assert isempty(max_mrs)
-
+    genotype
 end
+max_mr_mutate(rng::AbstractRNG, state::State, population::AbstractPopulation, genotype::Delta, args...; kwargs...) =
+    Delta(max_mr_mutate(rng, state, population, genotype.change, args...; kwargs...))
 
-
-
-@define_op "NNGenePoolMutator" "AbstractMutator"
 NNGenePoolMutator(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
     create_op("NNGenePoolMutator", 
               condition=condition,
               retriever=PopulationRetriever(ids),
               updater=map(map((s,p)->mutate!(s, p; fn=max_mr_mutate, kwargs...))),
+              time=time;)
+
+# ########## seed re-use, aka NNGenePoolReseedMutator ##########
+function mutate_reseed(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Network; prob::AbstractFloat, kwargs...)
+    genotype = deepcopy(genotype)
+    gene_counter = get_counter(AbstractGene, state)
+    gene_pool = getonly(d->d isa GenePool, pop.data)
+
+    geno_ws = get_weights(genotype, no_layer_norm=true)
+    gp_ws = get_weights(rand(gene_pool.deltas), no_layer_norm=true)
+    # Determine which weights to mutate based off n
+    for (geno_w, gp_w) in zip(geno_ws, gp_ws)
+        length(gp_w.muts) == 0 && continue  # Skip if we don't have any mutations to reseed
+        rand(rng) > prob && continue          # Skip if we don't want to reseed
+        gene_id = inc!(gene_counter)
+        old_mut = gp_w.muts[end]
+        new_mut = NetworkGene(gene_id, old_mut.seed, old_mut.mr, old_mut.init!)
+        push!(geno_w.muts, new_mut)
+    end
+    genotype
+end
+
+mutate_reseed(rng::AbstractRNG, state::State, population::AbstractPopulation, genotype::Delta, args...; kwargs...) =
+    Delta(mutate_reseed(rng, state, population, genotype.change, args...; kwargs...))
+
+
+"""
+    NNGenePoolReseedMutator(ids::Vector{String}=String[]; prob::Float32=0.05, condition=always, time::Bool=false, kwargs...)
+
+"""
+NNGenePoolReseedMutator(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
+    create_op("NNReseedMutator", 
+              condition=condition,
+              retriever=PopulationRetriever(ids),
+              updater=map(map((s,p)->mutate!(s, p; fn=mutate_reseed, kwargs...))),
               time=time;)

@@ -12,6 +12,14 @@ function get_earliest_cached_weight(dims::NTuple{N, Int}, genes::Vector{NetworkG
     end
     zeros(Float32, dims), 0
 end
+"""
+    tensor(w::Weights; weight_cache::_WeightCache=nothing)::Array{Float32}
+    tensor(fw::FactorWeight; weight_cache::_WeightCache=nothing)::Array{Float32}
+    tensor(cw::CompositeWeight; weight_cache::_WeightCache=nothing)::Array{Float32}
+    tensor(w::WeightsCollection; weight_cache::_WeightCache=nothing)::Array{Float32}
+
+Create a tensor from a Weights object. If `weight_cache` is provided, it will used cached weights during development, and update the cache accordingly. If the cache is not provided, it will not be used.
+"""
 function tensor(w::Weights; weight_cache::_WeightCache=nothing)::Array{Float32}
     # ADD MUTS that have have not been cached
     dims, genes = w.dims, w.muts
@@ -122,6 +130,11 @@ function create_layer(layer::Jevo.Dense; weight_cache::_WeightCache)
     bias = @inline tensor(layer.bias, weight_cache=weight_cache)
     Transformers.Dense(weights, bias, layer.σ)
 end
+"""
+    create_layer(layer::Jevo.AbstractLayer; weight_cache::_WeightCache)
+
+Creates a phenotype layer from a genotype, calls [tensor](@ref) on contained weights.
+"""
 create_layer(f::Function; kwargs...) = f
 
 function develop(::Creator{Model}, network::Network)

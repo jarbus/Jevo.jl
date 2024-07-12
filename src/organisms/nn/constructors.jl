@@ -74,8 +74,13 @@ function Base.:(==)(a::Network, b::Network)
     true
 end
 
-"""Recursively makes copy of network architecture without copying
-the individual genes."""
+"""
+    copyarchitecture(x)
+    copyarchitecture(layer::AbstractLayer)
+    copyarchitecture(layer::Network)
+
+Recursively makes copy of network architecture without copying
+individual genes."""
 copyarchitecture(x) = x
 copyarchitecture(ws::Jevo.Weights) = Jevo.Weights(ws.dims, Vector{Jevo.NetworkGene}())
 copyarchitecture(v::Vector) = copyarchitecture.(v)

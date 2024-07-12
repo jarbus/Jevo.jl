@@ -1,4 +1,4 @@
-export TransformerPhenotype, Transformer, FactorWeight, CompositeWeight, WeightsCollection, Weights
+export TransformerPhenotype, Transformer, FactorWeight, CompositeWeight, WeightsCollection, Weights, Dense, SelfAttention, Chain, Network, Model, PostNormResidual, Embed, EmbedDecoder, LayerNorm, TransformerDecoderBlock
 # Weights
 """
     struct NetworkGene <: AbstractMutation
@@ -35,7 +35,6 @@ end
         dims::Tuple{Vararg{Int}}
         weights::Array{T}
     end
-
 Concatenation of multiple weight blocks into a single weight tensor, to adjust subsets of weights independently
 """
 struct WeightsCollection{T<:AbstractWeights} <: AbstractWeights
@@ -71,12 +70,25 @@ struct CompositeWeight{T<:AbstractWeights} <: AbstractWeights
 end
 
 """
-A collection of sequential layers
+    struct Network <: AbstractLayer
+        layers::Vector
+    end
+
+A collection of sequential layers.
 """
 struct Network <: AbstractLayer
     layers::Vector
 end
 
+"""
+    struct Dense{W,B} <: AbstractLayer where {W <: AbstractWeights, B <: AbstractWeights}
+        weights::W
+        bias::B
+        σ::Function
+    end
+
+Standard dense layer with weights, bias, and activation function
+"""
 struct Dense{W,B} <: AbstractLayer where {W <: AbstractWeights, B <: AbstractWeights}
     weights::W
     bias::B
@@ -85,37 +97,84 @@ end
 
 # Transformer stuff
 # ignore scale for embed
+"""
+    struct Embed{T} <: AbstractLayer where T <: AbstractWeights
+        weights::T
+    end
+
+Embedding Matrix for language models
+"""
 struct Embed{T} <: AbstractLayer where T <: AbstractWeights
     weights::T
 end
+
 struct EmbedDecoder{W, B} <: AbstractLayer where {W <: AbstractWeights, B <: AbstractWeights}
     embed::Embed{W}
     bias::Union{Nothing,B}
 end
+
+"""
+    struct LayerNorm{T} <: AbstractLayer where T <: Union{Nothing, <:AbstractWeights}
+        hidden_dim::Int
+        scale::T
+        bias::T
+    end
+
+Layer normalization layer. If `scale` and `bias` are initialized to `1` and `0` respectively.
+"""
 struct LayerNorm{T} <: AbstractLayer where T <: Union{Nothing, <:AbstractWeights}
     hidden_dim::Int
     scale::T
     bias::T
 end
+
 struct TransformerDecoderBlock <: AbstractLayer
     attention # postnorm residual
     ff # postnorm residual Chain Dense Dense
 end
+
+"""
+    struct Transformer <: AbstractLayer
+        embed::Embed
+        blocks::Tuple{Vararg{TransformerDecoderBlock}}
+        embeddecoder::EmbedDecoder
+    end
+
+Decoder-only transformer genotype
+"""
 struct Transformer <: AbstractLayer
     embed::Embed
     blocks::Tuple{Vararg{TransformerDecoderBlock}}
     embeddecoder::EmbedDecoder
 end
+
 struct PostNormResidual <: AbstractLayer
     layer # ff or attention
     norm # layer norm
 end
+
+"""
+    struct SelfAttention <: AbstractLayer
+        n_heads::Int
+        qkv::Dense
+        out::Dense
+    end
+
+A self-attention layer. Cross-attention is not supported.
+"""
 struct SelfAttention <: AbstractLayer
     n_heads::Int
     qkv::Dense
     out::Dense
 end
 
+"""
+    struct Chain <: AbstractLayer
+        layers::Tuple{Vararg{<:AbstractLayer}}
+    end
+
+A collection of sequential layers
+"""
 struct Chain <: AbstractLayer
     layers::Tuple{Vararg{<:AbstractLayer}}
 end
