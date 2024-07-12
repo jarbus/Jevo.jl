@@ -80,7 +80,17 @@
                       UpdateDeltaCache(),
                       ClearInteractionsAndRecords(),
                   ], counters=counters)
+      run!(state, 1)
+      # confirm elites from first gen still have muts
+      for ind in state.populations[1].individuals[1:2]
+          @test any(map(layers->length(layers[end].muts) == 1, ind.genotype, weights_only=true))
+      end
+      # confirm non-elites have no muts
+      for ind in state.populations[1].individuals[3:4]
+          @test all(map(layers->length(layers[end].muts) == 0, ind.genotype, weights_only=true))
+      end
       run!(state, 10)
+      # confirm all descendants have no muts 
       for ind in state.populations[1].individuals
           @test all(map(layers->length(layers[end].muts) == 0, ind.genotype, weights_only=true))
       end
