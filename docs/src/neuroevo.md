@@ -23,3 +23,14 @@ In Jevo.jl, a neural network's genotype is represented as a subtype of `Abstract
 ## Phenotypes
 
 A Jevo genotype needs to be developed into a phenotype, i.e. the explicit `Float32` arrays that make up the neural network and the various [Flux.jl](https://github.com/FluxML/Flux.jl) structures associated with them. This is done on the worker, once the genotype has been transmitted from the main process. Once a phenotype has been created on the worker, the phenotype is evaluated and the worker sends its score back to the main process.
+
+There are two functions central to development of phenotypes: [Jevo.create_layer](@ref) and [Jevo.tensor](@ref)
+
+## Relevant Implemented Layers
+
+* [Dense](@ref)
+* [Chain](@ref)
+* [SelfAttention](@ref)
+* [LayerNorm](@ref)
+* [Embed](@ref)
+* [Transformer](@ref)
