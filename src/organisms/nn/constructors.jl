@@ -83,8 +83,7 @@ Recursively makes copy of network architecture without copying
 individual genes."""
 copyarchitecture(x) = x
 copyarchitecture(ws::Jevo.Weights) = Jevo.Weights(ws.dims, Vector{Jevo.NetworkGene}())
-copyarchitecture(v::Vector) = copyarchitecture.(v)
-copyarchitecture(tup::Tuple) = tup |> collect |> copyarchitecture |> Tuple
+copyarchitecture(itr::Union{Array, Tuple}) = copyarchitecture.(itr)
 # embed decoder holds a reference to Embed. We assume this function is always called
 # on the Transformer, and thus is called on the Embed layer first, implying the layer
 # has already been copied without the weights. We just want to reference that.
@@ -125,34 +124,7 @@ function SelfAttention(rng::AbstractRNG, counter::AbstractCounter;
     )
     """Create a self-attention layer with n_heads and head_dim"""
     
-    # =============================================================================================
-    # NOTE: QKV weights are transposed, because we aren't going through our custom Dense constructor
-    #       which automatically transposes for us.
-    # =============================================================================================
-    head_weights = WeightsCollection(
-        (head_dim*n_heads*3, hidden_dim),
-        vcat([Weights(rng, counter, (head_dim, hidden_dim), init=init!) for i in 1:n_heads*3]))
-
-    factored_head_weights = FactorWeight(
-        (head_dim*n_heads*3, hidden_dim),
-        WeightsCollection(
-            (head_dim*n_heads*3, qkv_rank),
-            vcat([Weights(rng, counter, (head_dim, qkv_rank), init=init!) for i in 1:n_heads*3])),
-        Weights(rng, counter, (qkv_rank, hidden_dim), init=init!)
-    )
-    
-    zeroed_head_weights = WeightsCollection(
-        (head_dim*n_heads*3, hidden_dim),
-        vcat([Weights(rng, counter, (head_dim, hidden_dim), init=init!) for i in 1:n_heads*3]))
-
-    qkv_weight = qkv_rank < 1 ? head_weights : CompositeWeight((hidden_dim, head_dim*n_heads*3), [head_weights, factored_head_weights])
-
-    qkv_bias = WeightsCollection(
-                    (head_dim*n_heads*3,),
-                    reduce(vcat,
-                        [Weights(rng, counter, (head_dim,), init=init!) for i in 1:n_heads*3]))
-    qkv = Dense(qkv_weight, qkv_bias, identity)
-    # qkv = Dense(rng, counter, dims=(hidden_dim, n_heads*head_dim*3), σ=identity, rank=qkv_rank)
+    qkv = Dense(rng, counter, dims=(hidden_dim, n_heads*head_dim*3), σ=identity, rank=qkv_rank)
     out = Dense(rng, counter, dims=(n_heads*head_dim, hidden_dim), σ=identity, rank=o_rank)
     SelfAttention(n_heads, qkv, out)
 end

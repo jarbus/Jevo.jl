@@ -145,6 +145,7 @@ nul_pop = Population("", Individual[])
             prev_weight = model4.chain.layers[1].weight
             prev_bias = model4.chain.layers[1].bias
         end
+
         # even after creating new networks via mutation, we can still reconstruct the same ancestor
         model2_again = develop(creator, mutated_net)
         @test model2.chain.layers[1].weight == model2_again.chain.layers[1].weight
