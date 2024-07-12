@@ -104,7 +104,7 @@ ComputeMaxMrPerLayerFromGenePool(ids::Vector{String}=String[];after_gen::Int, no
 
 
 ########## Max MR Mutator, aka NNGenePoolMutator ##########
-function max_mr_mutate(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Network, args...; mr::Union{Float32,Tuple{Vararg{Float32}}}, n::Int=-1, no_layer_norm::Bool, kwargs...)
+function max_mr_mutate(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Network, args...; mr::Union{Float32,Tuple{Vararg{Float32}}}, n::Int=-1, no_layer_norm::Bool=true, kwargs...)
     genotype = deepcopy(genotype)
     gene_counter = get_counter(AbstractGene, state)
     max_mrs_network = getonly(d->d isa MaxMRs, pop.data).maxmrs

@@ -1,4 +1,4 @@
-export find
+export find, getonly
 import Base: map
 
 """
