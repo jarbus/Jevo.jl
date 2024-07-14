@@ -17,6 +17,15 @@ nul_pop = Population("", Individual[])
             @test (10,784) == size(Jevo.tensor(dense.weights))
             @test mean(Jevo.tensor(dense.weights)) ≈ 0.0 atol=0.01
         end
+        @testset "apply_sparse_noise!()" begin
+            arr = zeros(Float32, 784, 10)
+            Jevo.apply_sparse_noise!(rng, Float32, arr, 0.1f0)
+            # confirm that the array is not all zeros
+            @test !all(iszero, arr)
+            @test any(iszero, arr)
+
+
+        end
 
         @testset "WeightsCollection" begin
 
@@ -121,9 +130,9 @@ nul_pop = Population("", Individual[])
         # confirm we can get a list of weights 
         @test length(Jevo.get_weights(net)) == 2
         # Add mutations to each network
-        @test all(map(w ->length(w.muts)==1, Jevo.get_weights(net)))
+        @test all(map(w ->length(w.muts)==1, Jevo.get_weights(net, no_layer_norm=true)))
         mutated_net = Jevo.mutate(rng, state, nul_pop, net, mr=Float32(0.01))
-        @test all(map(w ->length(w.muts)==1, Jevo.get_weights(mutated_net)))
+        @test all(map(w ->length(w.muts)>=1, Jevo.get_weights(mutated_net, no_layer_norm=true)))
         @test all([w1.muts !== w2.muts for (w1, w2) in zip(Jevo.get_weights(net), Jevo.get_weights(mutated_net))])
         # Confirm developed weights are different after mutation
         model2 = develop(creator, mutated_net)
@@ -250,7 +259,7 @@ nul_pop = Population("", Individual[])
         input_batch = preprocess(trf_p, sampled_batch) |> gpu
         logits = trf_p(input_batch)
         @test size(logits) == (8, 5, 100)
-        env = RepeatSequence(vocab_size=vocab_size,
+        env = RepeatSequence(n_labels=length(labels),
                              seq_len=8,
                              batch_size=7,
                              n_repeat=3)

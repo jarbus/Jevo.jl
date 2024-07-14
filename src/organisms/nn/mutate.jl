@@ -47,7 +47,7 @@ ClearCurrentGenWeights(ids::Vector{String}=String[]; condition::Function=always,
 clear_weights(::AbstractRNG, ::State, ::Population, genotype) =
     copyarchitecture(genotype)
 
-function mutate(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Network; mr::Union{Float32,Tuple{Vararg{Float32}}}, n::Int=-1, no_layer_norm::Bool=true, kwargs...)
+function mutate(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Network; mr::Union{Float32,Tuple{Vararg{Float32}}}, init=nothing, n::Int=-1, no_layer_norm::Bool=true, kwargs...)
     genotype = deepcopy(genotype)
     gene_counter = get_counter(AbstractGene, state)
     # Choose weights to mutate
@@ -57,7 +57,7 @@ function mutate(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotyp
         weight = layers[end]               
         is_layer_norm(layers) && return     # Skip if we're a layer norm
         !popfirst!(should_mutate) && return # Skip if we don't want to mutate this weight
-        init = compute_init(layers)
+        init = isnothing(init) ? compute_init(layers) : init
         mrf0 = mr isa Float32 ? mr : rand(rng, mr)
         push!(weight.muts, NetworkGene(rng, gene_counter, mrf0, init))
     end
@@ -174,3 +174,22 @@ NNGenePoolReseedMutator(ids::Vector{String}=String[]; condition::Function=always
               retriever=PopulationRetriever(ids),
               updater=map(map((s,p)->mutate!(s, p; fn=mutate_reseed, kwargs...))),
               time=time;)
+
+
+##############SparseMutator##############
+
+mutate_sparse(rng, state, population, genotype::Delta, args...; kwargs...) =
+    Delta(mutate(rng, state, population, genotype.change, args...; kwargs...))
+
+
+"""
+    NNSparseMutator(ids::Vector{String}=String[]; condition=always, time::Bool=false, kwargs...)
+
+"""
+NNSparseMutator(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
+    create_op("NNReseedMutator", 
+              condition=condition,
+              retriever=PopulationRetriever(ids),
+              updater=map(map((s,p)->mutate!(s, p; fn=mutate_sparse, init=apply_sparse_noise!, kwargs...))),
+              time=time;)
+#

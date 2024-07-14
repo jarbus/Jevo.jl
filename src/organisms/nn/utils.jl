@@ -27,6 +27,14 @@ function apply_gaussian_normal_noise!(rng::AbstractRNG, ::Type, arr::Array{Float
     end
 end
 
+function apply_sparse_noise!(rng::AbstractRNG, ::Type, arr::Array{Float32}, mr::Float32)
+    # choose a random number of elements to mutate
+    n_elements = rand(rng, 1:length(arr))
+    @inbounds for _ in 1:n_elements
+        arr[rand(rng, 1:length(arr))] += randn(rng, Float32) * mr
+    end
+end
+
 apply_zero!(rng::AbstractRNG, t::Type, arr::Array{Float32}, ::Float32) =
     apply_constant!(rng, t, arr, 0f0)
 
@@ -81,6 +89,7 @@ function gene_symbol(prev_gene::NetworkGene, gene::NetworkGene)
             return ">"
         end
     else
+        gene.init! == Jevo.apply_sparse_noise! && return "s"
         return mr_symbol(gene.mr)
     end
 end
