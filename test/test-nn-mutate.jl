@@ -124,84 +124,49 @@
                     InitializeDeltaCache(),
                     RandomEvaluator(["p"]), 
                     TruncationSelector(k),
-                    UpdateGenePool(after_gen=1, n_latest=1),
-                    ComputeMaxMrPerLayerFromGenePool(after_gen=1),
+                    UpdateGenePool(after_gen=5, n_latest=4),
+                    ComputeGenePoolNetwork(after_gen=5),
                     CloneUniformReproducer(n_inds),
                     ClearCurrentGenWeights(),
-                    Mutator(mr=mrs, condition=first_gen),
-                    NNGenePoolMutator(["p"]; mr=mrs, prob=0.50, condition=s->generation(s)>1),
+                    Mutator(mr=mrs, condition=s->generation(s)<=5),
+                    NNGenePoolMutator(["p"]; mr=mrs, condition=s->generation(s)>5),
                     UpdatePhylogeny(),
                     UpdateDeltaCache(),
                     ClearInteractionsAndRecords(),
                 ], counters=counters)
-    run!(state, 2)
-    for pop in state.populations, ind in pop.individuals
-      @test all(map(layers->length(layers[end].muts)  < 2, ind.genotype, weights_only=true))
-      @test any(map(layers->length(layers[end].muts) == 1, ind.genotype, weights_only=true))
-      ind.generation != generation(state) - 1 && continue # Only check new individuals
-      # Confirm all new individuals have no gene pool mutations
-      gp = Jevo.getonly(x->x isa GenePool, pop.data)
-      g_ws = get_weights(ind.genotype, no_layer_norm=true)
+    run!(state, 10)
+    sparse_init = false
+    full_init   = false
+    seen_seeds  = Set()
+    reused_seed = false
+    for pop in state.populations
+      # Confirm all new individuals have at least one gene pool mutations
+      # Should have at least one sparse and one full init
+      # There should also be a re-used seed in the delta cache
+      for ind in pop.individuals
+        @test all(map(layers->length(layers[end].muts)  < 2, ind.genotype, weights_only=true))
+        @test any(map(layers->length(layers[end].muts) == 1, ind.genotype, weights_only=true))
+        ind.generation != generation(state) - 1 && continue # Only check new individuals
+        gp = Jevo.getonly(x->x isa GenePool, pop.data)
+        g_ws = get_weights(ind.genotype, no_layer_norm=true)
 
-      for d in gp.deltas  # Go over each delta
-        d_ws = get_weights(d, no_layer_norm=true)
-        for (g_w, d_w) in zip(g_ws, d_ws)
-            @test g_w.dims == d_w.dims
-            length.([g_w.muts, d_w.muts]) != [1, 1] && continue  # skip if no potential match
-            @test g_w.muts[1].seed != d_w.muts[1].seed
+        for w in g_ws
+            length(w.muts) == 0 && continue
+            full_init = full_init || w.muts[1].init! in (Jevo.apply_kaiming_normal_noise!,
+                                                         Jevo.apply_kaiming_normal_noise_factored!)
+            sparse_init = sparse_init || w.muts[1].init! == Jevo.apply_sparse_noise!
+        end
+      end
+      for d in getonly(x->x isa Jevo.DeltaCache, pop.data) |> values
+        for d_w in get_weights(d, no_layer_norm=true)
+          length(d_w.muts) == 0 && continue
+          reused_seed = reused_seed || d_w.muts[1].seed in seen_seeds
+          push!(seen_seeds, d_w.muts[1].seed)
         end
       end
     end
-  end
-  @testset "5. NNGenePoolReseedMutator" begin
-    counters, pop_creator = delta_counters_and_pop_creator()
-    state = State("", rng, [pop_creator, env_creator], 
-                  [InitializeAllPopulations(),
-                    InitializePhylogeny(),
-                    InitializeDeltaCache(),
-                    RandomEvaluator(["p"]), 
-                    TruncationSelector(k),
-                    UpdateGenePool(after_gen=1, n_latest=1),
-                    CloneUniformReproducer(n_inds),
-                    ClearCurrentGenWeights(),
-                    Mutator(mr=mrs, condition=first_gen),
-                    NNGenePoolReseedMutator(["p"]; mr=mrs, prob=0.50, condition=s->generation(s)>1),
-                    UpdatePhylogeny(),
-                    UpdateDeltaCache(),
-                    ClearInteractionsAndRecords(),
-                ], counters=counters)
-    run!(state, 2)
-    for pop in state.populations, ind in pop.individuals
-      @test all(map(layers->length(layers[end].muts)  < 2, ind.genotype, weights_only=true))
-      @test any(map(layers->length(layers[end].muts) == 1, ind.genotype, weights_only=true))
-      ind.generation != generation(state) - 1 && continue # Only check new individuals
-      # Confirm all new individuals have only gene pool mutations
-      gp = Jevo.getonly(x->x isa GenePool, pop.data)
-      # Confirm each mutation is from the genepool
-      g_ws = get_weights(ind.genotype, no_layer_norm=true)
-      are_genepool_muts = zeros(length(g_ws))
-
-      for d in gp.deltas  # Go over each delta
-        d_ws = get_weights(d, no_layer_norm=true)
-        # Mark a weight's gene as being from the genepool (1) if it matches a delta's gene
-        # If there is a mismatch (-1), mark it as such if not already a match. 
-        #   - This is allowed with multiple deltas
-        # non-matches are marked as 0. 
-        # By the end of this process
-        for (g_w, d_w, idx) in zip(g_ws, d_ws, eachindex(are_genepool_muts))
-            @test g_w.dims == d_w.dims
-            length(g_w.muts) == 0      && continue  # No mutations in geno
-            are_genepool_muts[idx] > 0 && continue  # Matched with prior delta
-            if length(d_w.muts) == 0      # mismatch with current delta
-              are_genepool_muts[idx] = -1 # if there's no delta gene
-              continue
-            end
-            # If there is a delta gene, mark this gene as GP match if shares same seed
-            are_genepool_muts[idx] = g_w.muts[1].seed == d_w.muts[1].seed ? 1 : -1
-        end
-      end
-      @test all(are_genepool_muts .>= 0)  # No mismatches that aren't a match
-      @test any(are_genepool_muts .>  0)  # At least one mutation is from the genepool
-    end
+    @test sparse_init
+    @test full_init
+    @test reused_seed
   end
 end
