@@ -39,10 +39,10 @@ function initialize_phylogeny!(::AbstractState, pop::Population)
     push!(pop.data, tree)
     # add tracking data
     io = open(phylo_fname(pop), "w")
-    println(io, "id, ancestor_list")
+    println(io, "id,ancestor_list")
     for ind in tree.genesis
         @assert isnothing(ind.parent)
-        println(io, "$(ind.id), [none]")
+        println(io, "$(ind.id),[none]")
     end
     push!(pop.data, PhyloTracker(io, maximum(ind_ids)))
 end
@@ -203,7 +203,7 @@ function log_phylogeny!(pop::Population)
     # find and serialize inds greater than last_serialized
     for (id, node) in tree.tree
         if id > pt.last_serialized
-            println(pt.io, "$id, [$(node.parent.id)]")
+            println(pt.io, "$id,[$(node.parent.id)]")
         end
     end
     flush(pt.io)
