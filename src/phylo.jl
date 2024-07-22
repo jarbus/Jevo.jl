@@ -30,9 +30,10 @@ function initialize_phylogeny!(::AbstractState, pop::Population)
     # add tracking data
     io = open(phylo_fname(pop), "w")
     println(io, "id,ancestor_list")
+    println(io, "0,[none]") # hack to make all genesis individuals have the same parent for visualization
     for ind in tree.genesis
         @assert isnothing(ind.parent)
-        println(io, "$(ind.id),[none]")
+        println(io, "$(ind.id),[0]")
     end
     push!(pop.data, PhyloTracker(io, maximum(ind_ids)))
 end
