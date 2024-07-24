@@ -12,7 +12,7 @@ In short, phylogeny is the evolutionary history of a group of organisms. This ha
 
 ## Phylogenetic Operators
 
-Phylogeny is managed using four operators:
+Jevo implements phylogeny tracking for *genotypes only*; each node in the tree represents one and only one individual. Phylogeny is managed using four operators:
 
 * [InitializePhylogeny](@ref): Adds current members of the population as roots of a phylogenetic tree. Runs on the first generation
 * [UpdatePhylogeny](@ref): Updates the phylogeny for the current population, runs on all generations. Should run after children are produced.
