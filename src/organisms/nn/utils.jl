@@ -88,8 +88,10 @@ function gene_symbol(prev_gene::NetworkGene, gene::NetworkGene)
         else
             return ">"
         end
+    elseif gene.init! == Jevo.apply_sparse_noise!
+        gene.mr >= 0.001f0 && return "S"
+        gene.mr < 0.001f0 && return "s"
     else
-        gene.init! == Jevo.apply_sparse_noise! && return "s"
         return mr_symbol(gene.mr)
     end
 end

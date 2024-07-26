@@ -10,7 +10,7 @@ function compute_init(layers)
     for layer in layers
         if layer isa FactorWeight
             n_factors += 1
-        elseif layer isa LayerNorm
+        elseif layer isa LayerNorm && n_factors > 0
             strings = [string(typeof(layer)) for layer in layers]
             @error "LayerNorm not supported $strings"
         end
@@ -54,9 +54,10 @@ function mutate(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotyp
     # Determine which weights to mutate based off n
     map!(genotype, weights_only=true) do layers
         weight = layers[end]               
-        is_layer_norm(layers) && return     # Skip if we're a layer norm
+        no_layer_norm && is_layer_norm(layers) && return     # Skip if we're a layer norm
         !popfirst!(should_mutate) && return # Skip if we don't want to mutate this weight
-        init = rand(rng, (compute_init(layers), apply_sparse_noise!))
+        # init = rand(rng, (compute_init(layers), apply_sparse_noise!))
+        init = compute_init(layers)
         mrf0 = mr isa Float32 ? mr : rand(rng, mr)
         push!(weight.muts, NetworkGene(rng, gene_counter, mrf0, init))
     end
@@ -85,7 +86,7 @@ function update_genepool_network!(pop::Population; no_layer_norm::Bool)
             mut_found = mut_found || !isempty(d_w.muts)
         end
     end
-    !mut_found && @error "No mutations found when creating GenePoolNetwork"
+    @assert mut_found "No mutations found when creating GenePoolNetwork"
     filter!(d->!isa(d, GenePoolNetwork), pop.data) # get rid of any existing genepools
     push!(pop.data, GenePoolNetwork(stat_net))
 end
@@ -104,32 +105,35 @@ function nn_genepool_mutate(rng::AbstractRNG, state::State, pop::AbstractPopulat
     gene_counter = get_counter(AbstractGene, state)
     should_mutate = what_layers_should_we_mutate(rng, genotype, n=n, no_layer_norm=no_layer_norm)
     n_deltas = getonly(x->x isa GenePool, pop.data).deltas |> length
+    n_sparse, n_muts = 0, 0
+    for gp_w in gp_weights, mut in gp_w.muts
+        n_sparse += mut.init! == apply_sparse_noise!
+        n_muts += 1
+    end
+    percent_sparse = n_sparse / n_muts
+    @assert 0 <= percent_sparse <= 1
+    # entire mutation has to be either sparse or full, not on a per-gene basis
+    if rand(rng) < 0.01  # sample random init with small chance
+        sparse_mut = rand(rng, Bool)
+    else 
+        sparse_mut = rand(rng) < percent_sparse  # sample sparse mut with small chance
+    end
 
     # Determine which weights to mutate based off n
     idx = 0
     map!(genotype, weights_only=true) do layers
         weight = layers[end]               
-        is_layer_norm(layers) && return     # Skip if we're a layer norm
+        no_layer_norm && is_layer_norm(layers) && return     # Skip if we're a layer norm
         idx += 1
         gp_w = gp_weights[idx]
         !popfirst!(should_mutate) && return # Skip if we don't want to mutate this weight
-        percent_present = length(gp_w.muts) / n_deltas
-        rand(rng) > percent_present && return # mutate proportional to prescence in gene pool
+        rand(rng, 1:n_deltas) > length(gp_w.muts) + 1 && return # skip proportional to selected weight
         mrf0 = mr isa Float32 ? mr : rand(rng, mr)
-        roll = rand(rng)
-        if roll < 0.01  # Sample new seed with small chance
-            init! = rand(rng, (compute_init(layers), apply_sparse_noise!))
-            gene = NetworkGene(rng, gene_counter, mrf0, init!) 
-        elseif 0.01 <= roll < 0.05  # Reuse existing mutation some % of time
-            mut = rand(rng, gp_w.muts)
-            id = inc!(gene_counter)
-            gene = NetworkGene(id, mut.seed, mut.mr, mut.init!)
-        else  # choose an init and sample mr < max mr for init type
-            init! = rand(rng, gp_w.muts).init!
-            max_mr = maximum(w.mr for w in gp_w.muts if w.init! == init!)
-            mrf0 > max_mr && return
-            gene = NetworkGene(rng, gene_counter, mrf0, init!)
-        end
+        init! = sparse_mut ? apply_sparse_noise! : compute_init(layers)
+        max_mr = maximum(m.mr for m in gp_w.muts; init=0f0)
+        max_mr = max_mr == 0f0 ? rand(rng, mr) : max_mr
+        mrf0 > max_mr && rand(rng) > 0.01 && return
+        gene = NetworkGene(rng, gene_counter, mrf0, init!) 
         push!(weight.muts, gene)
     end
     @assert idx == length(gp_weights) "Should have iterated through all weights, idx=$idx, $(length(gp_weights)) left"
