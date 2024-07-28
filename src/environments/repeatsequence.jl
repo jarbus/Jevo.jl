@@ -34,14 +34,22 @@ function sample_batch(env::RepeatSequence)
 end
 
 function shift_decode_loss(logits, trg, trg_mask)
-    label = trg[:, 2:end, :]
-    logitcrossentropy(@view(logits[:, 1:end-1, :]), label, trg_mask - 1)
+    n_tests = size(trg, 1)
+    results = zeros(n_tests)
+    for i in 1:n_tests
+        label = trg[i:i, 2:end, :]
+        logits_view = @view(logits[i:i, 1:end-1, :])
+        results[i] = -logitcrossentropy(logits_view, label, trg_mask - 1)
+    end
+    results
 end
-function loss(input, trf)
+
+function scores(input, trf)
     logits = trf(input)
     ce_loss = shift_decode_loss(logits, input.token, input.attention_mask)
     ce_loss
 end
+
 preprocess(trf::TransformerPhenotype, batch) = encode(trf.textenc, batch)
 
 function infer(trf::TransformerPhenotype, str::String; max_len::Int=10, n_logits::Int=3, print_output::Bool=false)
@@ -93,12 +101,12 @@ function get_preprocessed_batch(env, tfr)
     Main.preprocessed_batch |> deepcopy |> gpu
 end
 
-function step!(env::RepeatSequence, models::Vector{TransformerPhenotype})
+(creator::Creator{RepeatSequence})(;kwargs...) = RepeatSequence(creator.kwargs...)
 
+function play(env::RepeatSequence, ids::Vector{Int}, models::Vector{TransformerPhenotype})
     @assert length(models) == 1 "Only one model is supported for now"
     tfr = models[1]
     input_batch = get_preprocessed_batch(env, tfr)
-    l = loss(input_batch, tfr)
-    [-l] # this framework maximizes fitness, so we report loss as negative fitness
+    results = scores(input_batch, tfr)
+    [Interaction(ids[1], [test_idx], r) for (test_idx, r) in enumerate(results)]
 end
-(creator::Creator{RepeatSequence})(;kwargs...) = RepeatSequence(creator.kwargs...)

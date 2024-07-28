@@ -6,18 +6,22 @@ play(match::Match) = play(match.environment_creator, match.individuals)
 function play(c::Creator{E}, inds::Vector{I}) where {E<:AbstractEnvironment, I<:AbstractIndividual}
     lock(get_env_lock()) do
         isdefined(Main, :jevo_device_id) &&  device!(Main.jevo_device_id)
-        phenotypes = develop(inds)
-        play(c(), phenotypes)
+        phenotypes = develop.(inds)
+        ids = [ind.id for ind in inds]
+        play(c(), ids, phenotypes)
     end
 end
 
-function play(env::E, phenotypes::Vector{P}) where {E <: AbstractEnvironment, P<:AbstractPhenotype}
+function play(env::E, ids::Vector{Int}, phenotypes::Vector{P}) where {E <: AbstractEnvironment, P<:AbstractPhenotype}
+    # TODO overwrite this at some point in the future?
     is_done = false
-    scores = zeros(Float32, length(phenotypes))
+    interactions = Vector{Interaction}()
     while !is_done
-        scores .+= step!(env, phenotypes)
+        new_interactions = step!(env, ids, phenotypes)
+        append!(interactions, new_interactions)
         is_done = done(env)
     end
-    @assert all(-Inf < score < Inf for score in scores)
-    scores
+    @assert length(interactions) > 0
+    @assert all(i->!isinf(i.score), interactions)
+    interactions
 end

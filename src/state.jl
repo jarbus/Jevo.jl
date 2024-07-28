@@ -79,13 +79,13 @@ States are created from a random number generator, a list of creators, and a lis
 
 Use [`generation(state)`](@ref) to get the current generation number, initialized to one. The [`GenerationIncrementer`](@ref) operator is automatically appended to the operator list to advance the state to the next generation. Individuals created without any parents are of generation 0.
 """
-function State(id::String, rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator}; counters::Vector{<:AbstractCounter}=default_counters(), populations::Vector{<:AbstractPopulation}=AbstractPopulation[], matches::Vector{<:AbstractMatch}=AbstractMatch[], data::Vector=[], )
+function State(id::String, rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator}; counters::Vector{<:AbstractCounter}, populations::Vector{<:AbstractPopulation}=AbstractPopulation[], matches::Vector{<:AbstractMatch}=AbstractMatch[], data::Vector=[], )
     operators = AbstractOperator[operators..., GenerationIncrementer()]
     State(id, rng, creators, operators, populations, counters, matches, data)
 end
 
 # shorthand to create empty states 
-State() = State("", StableRNG(1234), AbstractCreator[], AbstractOperator[])
+State() = State("", StableRNG(1234), AbstractCreator[], AbstractOperator[], counters=default_counters())
 
 
 function operate!(state::AbstractState) 

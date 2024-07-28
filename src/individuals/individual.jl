@@ -63,7 +63,6 @@ end
 # we allow dispatching on the parameterized individual type, this is the general fallback
 develop(creator::Creator, ind::Individual) = develop(creator, ind.genotype)
 develop(ind::I) where {I <: AbstractIndividual} = develop(ind.developer, ind)
-develop(inds::Vector{I}) where {I <: AbstractIndividual} = develop.(inds)
 new_id_and_gen(state::AbstractState) = new_id_and_gen(state.counters)
 function new_id_and_gen(counters::Vector{<:AbstractCounter})
     id = find(:type, AbstractIndividual, counters) |> inc!
