@@ -70,25 +70,7 @@ function lexicase_select!(state::AbstractState, pops::Vector{Population}, pop_si
     @assert pop_size > 0                           "pop_size must be greater than 0"
     @assert length(pops) == 1               "Lexicase selection can only be applied to a non-compsite Population"
     pop = pops[1]
-    # objectives can be arbitrarily large numbers, to create interaction matrix
-    # we need to map objectives and players to 1:n
-
-    # First, we create a mapping from id (which can be arbitrarily large) to idx
-    test_ids = [test_id for ind in pop.individuals 
-                           for int in ind.interactions
-                           for test_id in int.other_ids]|> unique
-    solution_ids = [ind.id for ind in pop.individuals]
-    test_idxs = Dict(test_id => idx for (idx, test_id) in enumerate(test_ids))
-    solution_idxs = Dict(sol_id => idx for (idx, sol_id) in enumerate(solution_ids))
-
-    # initialize outcomes matrix to avoid repeated dict lookups when lexicasing
-    outcomes = Matrix{Float64}(undef, length(solution_ids), length(test_ids))
-    for ind in pop.individuals, int in ind.interactions, 
-        test_id in int.other_ids
-        sol_idx = solution_idxs[int.individual_id]
-        test_idx = test_idxs[test_id]
-        outcomes[sol_idx, test_idx] = int.score
-    end
+    outcomes = getonly(x->x isa OutcomeMatrix, pop.data).matrix
     @assert !any(isnan, outcomes) "Lexicase selection failed to find a matchup"
     ϵ = if isnothing(ϵ)
         zeros(size(outcomes,2))

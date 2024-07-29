@@ -42,6 +42,7 @@ end
                     [InitializeAllPopulations(), 
                     AllVsAllMatchMaker(["p1", "p2"]),
                     Performer(time=true),
+                    ComputeOutcomeMatrix(),
                     ElitistLexicaseSelectorAndReproducer(n_inds, ϵ=true, time=true),
                     min_sum_computer,
                     Reporter(GenotypeSum),
