@@ -1,4 +1,5 @@
 using Jevo
+using StatsBase
 using CUDA
 using Transformers
 using Flux

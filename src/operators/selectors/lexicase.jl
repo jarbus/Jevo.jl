@@ -93,6 +93,7 @@ function lexicase_select!(state::AbstractState, pops::Vector{Population}, pop_si
             new_pop[idx] = ind
         end
     end
+    length(elites) <= 2 && @info "WARNING: Found <= 2 elites: $(elites)"
     @assert length(elites) < pop_size "ElitistLexicaseSelector found $(length(elites)) elites for a pop_size=$(pop_size) . This probably shouldn't happen, and you need to change the algorithm if this is."
     pop.individuals[:] = new_pop[:]
 end
