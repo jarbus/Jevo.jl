@@ -33,13 +33,13 @@ function sample_batch(env::RepeatSequence)
     batch[1] # get decoder batch
 end
 
-function shift_decode_loss(logits, trg, trg_mask)
-    n_tests = size(trg, 1)
+function shift_decode_loss(logits, trg, trg_mask::M) where M <: Transformers.NeuralAttentionlib.LengthMask
+    n_tests = size(trg, 3)
     results = zeros(n_tests)
-    for i in 1:n_tests
-        label = trg[i:i, 2:end, :]
-        logits_view = @view(logits[i:i, 1:end-1, :])
-        results[i] = -logitcrossentropy(logits_view, label, trg_mask - 1)
+    for i in 1:n_tests  # (vocab_size, seq_len , batch_size)
+        label = trg[:, 2:end, i:i]
+        logits_view = @view(logits[:, 1:end-1, i:i])
+        results[i] = -logitcrossentropy(logits_view, label, M(trg_mask.len[i:i]))
     end
     results
 end

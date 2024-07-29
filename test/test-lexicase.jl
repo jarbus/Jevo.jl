@@ -52,71 +52,8 @@ end
   end
 end
 
-#= @testset "repeat sequence tfr lexicase" begin =#
-#=     n_tokens = 5 =#
-#=     startsym = "<s>" =#
-#=     endsym = "</s>" =#
-#=     unksym = "<unk>" =#
-#=     labels = string.(1:n_tokens) =#
-#=     vocab = [unksym, startsym, endsym, labels...] =#
-#=     vocab_size = length(vocab) =#
-#==#
-#=     n_blocks, n_heads, head_dim, hidden_dim, ff_dim = 3, 2, 5, 10, 20 =#
-#=     textenc = TransformerTextEncoder(split, vocab; startsym, endsym, unksym, padsym=unksym) =#
-#==#
-#=     attn_args = (n_heads=n_heads, head_dim=head_dim, hidden_dim=hidden_dim) =#
-#=     block_args = (attn_args..., ff_dim=ff_dim) =#
-#=     tfr_args = (block_args..., n_blocks=n_blocks, vocab_size=vocab_size) =#
-#=     env_args = (n_labels = length(labels), batch_size = 2, seq_len = 3, n_repeat = 2,) =#
-#==#
-#=     n_inds = 3 =#
-#=     k = 2 =#
-#=     genepool_start = 4 =#
-#=     n_latest = 1 =#
-#=     counters = default_counters() =#
-#=     gene_counter = find(:type, AbstractGene, counters) =#
-#=     tfr_gc = Creator(Delta, (Creator(Network, (rng, gene_counter, [(Jevo.Transformer, tfr_args)])),)) =#
-#=     developer = Creator(TransformerPhenotype, (;textenc=textenc)) =#
-#=     pop_creator = Creator(Population, ("p", n_inds, PassThrough(tfr_gc), PassThrough(developer), counters)) =#
-#=     env_creator = Creator(RepeatSequence, env_args) =#
-#==#
-#==#
-#=     abstract type OutputValue <: AbstractMetric end =#
-#=     BestLogger() = create_op("Reporter", =#
-#=            retriever=Jevo.get_individuals, =#
-#=            operator=(s,is)-> =#
-#=            (println("best id: $(is[1].id)"); =#
-#=               m=StatisticalMeasurement(OutputValue, evaluate.(is), generation(s)); =#
-#=              @info m;)) =#
-#==#
-#=     Visualizer() = create_op("Reporter", =#
-#=         retriever=Jevo.PopulationRetriever(), =#
-#=         operator=(s,ps)-> ( ind = ps[1][1].individuals[1]; =#
-#=                            @info(string(ind.id)* " "*visualize(ind, ps[1][1])))) =#
-#==#
-#=     mrs = (0.1f0, 0.01f0, 0.001f0) =#
-#=     state = State("", rng, [pop_creator, env_creator],  =#
-#=                   [InitializeAllPopulations(), =#
-#=                     CreateMissingWorkers(1, slurm=false), =#
-#=                     InitializePhylogeny(), =#
-#=                     InitializeDeltaCache(), =#
-#=                     UpdateParentsAcrossAllWorkers(time=true), =#
-#=                     SoloMatchMaker(["p"]),  =#
-#=                     Performer(time=true), =#
-#=                     ElitistLexicaseSelectorAndReproducer(n_inds, ϵ=true), =#
-#=                     BestLogger(), =#
-#=                     UpdateGenePool(n_latest=n_latest, after_gen=genepool_start), =#
-#=                     ComputeGenePoolNetwork(after_gen=genepool_start), =#
-#=                     Visualizer(), =#
-#=                     Mutator(mr=mrs, condition=s->generation(s) <= genepool_start), =#
-#=                     NNGenePoolMutator(mr=mrs, after_gen=genepool_start, no_layer_norm=true), =#
-#=                     UpdatePhylogeny(), =#
-#=                     UpdateDeltaCache(), =#
-#=                     ClearInteractionsAndRecords(), =#
-#=                 ], counters=counters) =#
-#=     run!(state, 2) =#
-#= end =#
 @testset "repeat sequence tfr lexicase" begin
+    n_inds = 3
     n_tokens = 5
     startsym = "<s>"
     endsym = "</s>"
@@ -125,18 +62,14 @@ end
     vocab = [unksym, startsym, endsym, labels...]
     vocab_size = length(vocab)
 
-    n_blocks, n_heads, head_dim, hidden_dim, ff_dim = 3, 2, 5, 10, 20
+    n_blocks, n_heads, head_dim, hidden_dim, ff_dim = 1, 1, 1, 1, 1
     textenc = TransformerTextEncoder(split, vocab; startsym, endsym, unksym, padsym=unksym)
 
     attn_args = (n_heads=n_heads, head_dim=head_dim, hidden_dim=hidden_dim)
     block_args = (attn_args..., ff_dim=ff_dim)
     tfr_args = (block_args..., n_blocks=n_blocks, vocab_size=vocab_size)
-    env_args = (n_labels = length(labels), batch_size = 2, seq_len = 3, n_repeat = 2,)
+    env_args = (n_labels = length(labels), batch_size = 7, seq_len = 1, n_repeat = 1,)
 
-    n_inds = 3
-    k = 2
-    genepool_start = 4
-    n_latest = 1
     counters = default_counters()
     gene_counter = find(:type, AbstractGene, counters)
     tfr_gc = Creator(Delta, (Creator(Network, (rng, gene_counter, [(Jevo.Transformer, tfr_args)])),))
@@ -144,19 +77,14 @@ end
     pop_creator = Creator(Population, ("p", n_inds, PassThrough(tfr_gc), PassThrough(developer), counters))
     env_creator = Creator(RepeatSequence, env_args)
 
-
-    abstract type OutputValue <: AbstractMetric end
-    BestLogger() = create_op("Reporter",
-           retriever=Jevo.get_individuals,
-           operator=(s,is)->
-           (println("best id: $(is[1].id)");
-              m=StatisticalMeasurement(OutputValue, evaluate.(is), generation(s));
-             @info m;))
-
     Visualizer() = create_op("Reporter",
         retriever=Jevo.PopulationRetriever(),
         operator=(s,ps)-> ( ind = ps[1][1].individuals[1];
                            @info(string(ind.id)* " "*visualize(ind, ps[1][1]))))
+
+    PrintOutcomeMatrix() = create_op("Reporter",
+        retriever=Jevo.PopulationRetriever(),
+        operator=(s,ps)-> (@info getonly(x->x isa Jevo.OutcomeMatrix, ps[1][1].data);))
 
     mrs = (0.1f0, 0.01f0, 0.001f0)
     state = State("", rng, [pop_creator, env_creator], 
@@ -167,8 +95,9 @@ end
                     UpdateParentsAcrossAllWorkers(time=true),
                     SoloMatchMaker(["p"]), 
                     Performer(time=true),
+                    ComputeOutcomeMatrix(),
+                    PrintOutcomeMatrix(),
                     ElitistLexicaseSelectorAndReproducer(n_inds, ϵ=true),
-                    #= BestLogger(), =#
                     Visualizer(),
                     Mutator(mr=mrs),
                     UpdatePhylogeny(),
