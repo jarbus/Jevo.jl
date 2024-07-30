@@ -72,10 +72,10 @@ function lexicase_select!(state::AbstractState, pops::Vector{Population}, pop_si
     pop = pops[1]
     outcomes = getonly(x->x isa OutcomeMatrix, pop.data).matrix
     @assert !any(isnan, outcomes) "Lexicase selection failed to find a matchup"
-    ϵ = if isnothing(ϵ)
-        zeros(size(outcomes,2))
-    else  # median absolute deviation statistic
-         median(abs.(outcomes .- median(outcomes, dims=1)), dims=1) |> vec
+    ϵ = if !ϵ 
+        zeros(size(outcomes,2)) 
+    else
+        median(abs.(outcomes .- median(outcomes, dims=1)), dims=1) |> vec
     end
 
     # now that we have our outcomes, lexicase select
@@ -93,7 +93,10 @@ function lexicase_select!(state::AbstractState, pops::Vector{Population}, pop_si
             new_pop[idx] = ind
         end
     end
+    parents = unique([ind.parents[1] for ind in new_pop if !isempty(ind.parents)])
     length(elites) <= 2 && @info "WARNING: Found <= 2 elites: $(elites)"
     @assert length(elites) < pop_size "ElitistLexicaseSelector found $(length(elites)) elites for a pop_size=$(pop_size) . This probably shouldn't happen, and you need to change the algorithm if this is."
+    #= @info "selected elites $elites with parents $parents" =#
+    @info "selected $(length(elites)) elites"
     pop.individuals[:] = new_pop[:]
 end

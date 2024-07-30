@@ -130,7 +130,7 @@ function master_construct_parents_genomes(pops::Vector{Vector{Population}}, work
             end
         end
     end
-    @assert pids ⊆ keys(parent_genomes)
+    @assert pids ⊆ keys(parent_genomes) "missing $(setdiff(pids, keys(parent_genomes))). Is your genotype cache too large?"
     worker_parent_genomes = Dict(wid =>[(pid, parent_genomes[pid]) for pid in pids]
                                  for (wid, pids) in workers_missing_parents)
     return worker_parent_genomes
