@@ -44,9 +44,30 @@ function shift_decode_loss(logits, trg, trg_mask::M) where M <: Transformers.Neu
     results
 end
 
-function scores(input, trf)
-    logits = trf(input)
-    ce_loss = shift_decode_loss(logits, input.token, input.attention_mask)
+"""
+    scores(input, scores, split_size, trf)
+
+Computes losses in batches of size `split_size`. If a batch has a sufficiently lower loss than a good scorer, terminate early
+"""
+function scores(rng, input, scores, split_size, trf)
+    ce_loss = fill(-Inf, size(scores))
+    for idx in shuffle!(rng, collect(1:split_size:length(scores)))
+        end_idx = idx+split_size-1
+        split_input = (token = input.token[:,:,idx:end_idx], attention_mask = Transformers.NeuralAttentionlib.LengthMask(input.attention_mask.len[idx:end_idx]))
+        split_logits = trf(split_input)
+        split_input_token_sum = sum(input.token[:,:,idx:end_idx] |> Transformers.tocpudevice)
+        tfr_param_sum = sum([sum(Transformers.tocpudevice(pv)) for pv in collect(Flux.params(trf.trf))])
+        #= @info "splitidx $idx: logits: $(sum(split_logits)) inputs: $(split_input_token_sum) params: $tfr_param_sum" =#
+        split_ce_loss = shift_decode_loss(split_logits, split_input.token, split_input.attention_mask)
+        ce_loss[idx:end_idx] .= split_ce_loss
+        if sum(split_ce_loss) < sum(scores[idx:end_idx])-10std(scores[idx:end_idx])
+            #= @info("skipping at idx $idx: $(sum(split_ce_loss)) < $(sum(scores[idx:end_idx])) - $(std(scores[idx:end_idx]))") =#
+            return ce_loss
+        end
+    end
+    if sum(ce_loss) .> sum(scores)
+        scores[:] .= ce_loss[:]
+    end
     ce_loss
 end
 
@@ -87,8 +108,6 @@ end
 
 
 function get_preprocessed_batch(env, tfr)
-    # get global variable Main.weight_cache for weight cache
-    # check if weight_cache is defined
     if !isdefined(Main, :preprocessed_batch)
         @warn "Creating variable Main.preprocessed_batch"
         Main.preprocessed_batch = preprocess(tfr, sample_batch(env))
@@ -96,17 +115,28 @@ function get_preprocessed_batch(env, tfr)
     # There appears to be some memory management issue, where GPU OOMs.
     # Allocating a large amount of memory on the CPU appears to alleviate this 
     # issue. Garbage collection does not help. Unable to justify spending
-    # more time on this, if it's resolved.
-    size(zeros(1_000_000))
+    # more time on this, if it's resolved. On my laptop, this takes ~179μs per call
+    size(zeros(1_000_000)) # TODO see if we can change this to fill(undef, 1_000_000)
     Main.preprocessed_batch |> deepcopy |> gpu
 end
 
+function get_best_scores(env::RepeatSequence)
+    if !isdefined(Main, :best_scores)
+        @warn "Creating variable Main.best_scores"
+        Main.best_scores = fill(-Inf, env.batch_size)
+    end
+    Main.best_scores
+end
 (creator::Creator{RepeatSequence})(;kwargs...) = RepeatSequence(creator.kwargs...)
 
 function play(env::RepeatSequence, ids::Vector{Int}, models::Vector{TransformerPhenotype})
     @assert length(models) == 1 "Only one model is supported for now"
+    @assert env.seq_len > 1
+    #= @info("evaluating $(ids[1])") =#
     tfr = models[1]
     input_batch = get_preprocessed_batch(env, tfr)
-    results = scores(input_batch, tfr)
+    best_scores = get_best_scores(env)
+    split_size = env.n_labels ^ (env.seq_len - 1)
+    results = scores(StableRNG(ids[1]), input_batch, best_scores, split_size, tfr)
     [Interaction(ids[1], [test_idx], r) for (test_idx, r) in enumerate(results)]
 end

@@ -3,8 +3,8 @@
     pop_size = 4
     n_samples = 1000
     @testset "best_ind" begin
-        outcomes = zeros(pop_size, pop_size)
-        outcomes[1,:] .= 1.0
+        outcomes = fill(-1.0, pop_size, pop_size)
+        outcomes[1,:] .= -0.5
         ϵ = zeros(pop_size)
         @test all([Jevo.lexicase_sample(rng, outcomes, ϵ) == 1 for i in 1:n_samples])
         ϵ .= 2.0
@@ -55,6 +55,8 @@ end
 @testset "repeat sequence tfr lexicase" begin
     n_inds = 3
     n_tokens = 5
+    seq_len = 3
+    n_repeat = 4
     startsym = "<s>"
     endsym = "</s>"
     unksym = "<unk>"
@@ -68,7 +70,7 @@ end
     attn_args = (n_heads=n_heads, head_dim=head_dim, hidden_dim=hidden_dim)
     block_args = (attn_args..., ff_dim=ff_dim)
     tfr_args = (block_args..., n_blocks=n_blocks, vocab_size=vocab_size)
-    env_args = (n_labels = length(labels), batch_size = 7, seq_len = 1, n_repeat = 1,)
+    env_args = (n_labels = length(labels), batch_size = n_tokens ^ seq_len, seq_len = seq_len, n_repeat = n_repeat,)
 
     counters = default_counters()
     gene_counter = find(:type, AbstractGene, counters)

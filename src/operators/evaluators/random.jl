@@ -11,13 +11,13 @@ RandomEvaluator(ids::Vector{String}=String[]; kwargs...) =
             operator=map(make_random_records),
             updater=ReccordAdder!(ids); kwargs...)
 
-function make_random_records(::AbstractState,
+function make_random_records(state::AbstractState,
         populations::Vector{<:AbstractPopulation})
     records = Vector{Vector{<:AbstractRecord}}()
     for pop in populations
         push!(records, Record[])
         for ind in pop.individuals
-            push!(records[end], Record(ind.id, rand()))
+            push!(records[end], Record(ind.id, rand(state.rng)))
         end
         @assert length(pop.individuals) == length(records[end])
     end

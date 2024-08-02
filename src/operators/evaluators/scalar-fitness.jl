@@ -28,18 +28,19 @@ function make_scalar_fitness_records(::AbstractState,
             num_inds += 1
             @assert length(ind.interactions) > 0 "Individual $(ind.id) must have interactions"
             score = mean(interaction.score for interaction in ind.interactions)
-            @assert -Inf < score < Inf
+            #= @assert -Inf < score < Inf =#
             push!(scores[end], score)
             min_score = min(min_score, score)
         end
     end
     # Compute score shifted by min and create records
-    @assert min_score != Inf && min_score != -Inf "No valid interactions found"
+    #= @assert min_score != Inf && min_score != -Inf "No valid interactions found" =#
     for (subpop, subpop_scores) in zip(population, scores)
         @assert length(subpop.individuals) == length(subpop_scores)
         push!(records, Record[])
         for (ind, score) in zip(subpop.individuals, subpop_scores)
-            push!(records[end], Record(ind.id, score-min_score))
+            shifted_score = isinf(min_score) ? score : score-min_score
+            push!(records[end], Record(ind.id, shifted_score))
         end
         @assert length(subpop.individuals) == length(records[end])
     end

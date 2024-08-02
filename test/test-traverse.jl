@@ -4,6 +4,8 @@ gene_counter = Jevo.get_counter(AbstractGene, state)
 
 nul_pop = Population("", Individual[])
 n_tokens = 5
+seq_len = 3
+n_repeat = 4
 startsym = "<s>"
 endsym = "</s>"
 unksym = "<unk>"
@@ -17,7 +19,7 @@ textenc = TransformerTextEncoder(split, vocab; startsym, endsym, unksym, padsym=
 attn_args = (n_heads=n_heads, head_dim=head_dim, hidden_dim=hidden_dim)
 block_args = (attn_args..., ff_dim=ff_dim)
 tfr_args = (block_args..., n_blocks=n_blocks, vocab_size=vocab_size)
-env_args = (n_labels = length(labels), batch_size = 2, seq_len = 3, n_repeat = 2,)
+env_args = (n_labels = length(labels), batch_size = n_tokens^seq_len, seq_len = seq_len, n_repeat = n_repeat,)
 
 
 k = 1
@@ -347,28 +349,68 @@ end
         end
     end
 
+    abstract type OutputValue <: AbstractMetric end
+
     function evaluate(individual)
-      Jevo.play(env_creator, [individual])[1]
+      percent_correct = fetch(@spawnat(2, begin
+
+        function percentage_evaluation_npeat(trf::TransformerPhenotype; n::Int, kwargs...)
+            n_perfect = 0
+            for i in 0:n-1, j in 0:n-1, k in 0:n-1
+                prompt = "$i $j $k $i $j $k"
+                full_str = infer(trf, prompt; kwargs...)[1]
+                if length(full_str) >= 27
+                  n_perfect += full_str[5:15] == full_str[17:27]
+                  @info full_str
+                else
+                end
+            end
+            n_perfect / n^3
+        end
+        model = develop(developer, individual)
+        percentage_evaluation_npeat(model, n=n_tokens, max_len=15)
+      end))
+      @info "Percentage perfect: $(round(percent_correct, digits=3))"
+      fetch(@spawnat(2, begin
+          device!(Main.jevo_device_id)
+          mean(interaction.score for interaction in Jevo.play(env_creator, [individual]))
+        end))
     end
 
-    abstract type OutputValue <: AbstractMetric end
-    BestLogger() = create_op("Reporter",
-           retriever=Jevo.get_individuals,
-           operator=(s,is)->
-           (println("best id: $(is[1].id)");
-              m=StatisticalMeasurement(OutputValue, evaluate.(is), generation(s));
-             @info m;))
+    meu(interactions) = sum(int.score for int in interactions)
 
+
+    function meu_individual(inds)
+        @assert length(inds) > 0
+        meu_max = -Inf
+        meu_ind = nothing
+        for ind in inds
+            length(ind.interactions) == 0 && continue  # skip new inds without interactions
+            new_meu = meu(ind.interactions)
+            new_meu <= meu_max && continue
+            meu_ind = ind
+            meu_max = new_meu
+        end
+        @assert !isnothing(meu_ind)
+        @info "found meu_ind $(meu_ind.id)"
+        meu_ind
+    end
+
+    BestReporter() = create_op("Reporter",
+            retriever=Jevo.get_individuals,
+            operator=(s,is)->
+            (m= StatisticalMeasurement(OutputValue, [evaluate(meu_individual(is))], generation(s));
+              @info m; @h5 m;),
+            time=true)
+    BestVisualizer() = create_op("Reporter",
+            retriever=Jevo.PopulationRetriever(),
+            operator=(s,ps)-> (meu_ind = meu_individual(ps[1][1].individuals);
+                               @info(string(meu_ind.id)* " "*visualize(meu_ind, ps[1][1]))))
     verifier = create_op("Assertor",
             condition=s->generation(s) > genepool_start,
             retriever=PopulationRetriever(),
             operator=map(map((s,p)->verify(s,p))))
         
-    Visualizer() = create_op("Reporter",
-        retriever=Jevo.PopulationRetriever(),
-        operator=(s,ps)-> ( ind = ps[1][1].individuals[1];
-                           @info(string(ind.id)* " "*visualize(ind, ps[1][1]))))
-
     mrs = (0.1f0, 0.01f0, 0.001f0)
     state = State("", rng, [pop_creator, env_creator], 
                   [InitializeAllPopulations(),
@@ -380,10 +422,11 @@ end
                     Performer(time=true),
                     ScalarFitnessEvaluator(["p"]), 
                     TruncationSelector(k),
-                    BestLogger(),
+                    BestReporter(),
+                    ClearCurrentGenWeights(),
                     UpdateGenePool(n_latest=n_latest, after_gen=genepool_start),
-                    ComputeMaxMrPerLayerFromGenePool(after_gen=genepool_start),
-                    Visualizer(),
+                    ComputeGenePoolNetwork(after_gen=genepool_start, no_layer_norm=false, time=true),
+                    BestVisualizer(),
                     CloneUniformReproducer(n_inds),
                     Mutator(mr=mrs, condition=s->generation(s) <= genepool_start),
                     NNGenePoolMutator(mr=mrs, after_gen=genepool_start, no_layer_norm=true),
