@@ -103,7 +103,6 @@ function nn_genepool_mutate(rng::AbstractRNG, state::State, pop::AbstractPopulat
     gp_weights = Jevo.get_weights(gp_network.network, no_layer_norm=no_layer_norm)
     genotype = deepcopy(genotype)
     gene_counter = get_counter(AbstractGene, state)
-    should_mutate = what_layers_should_we_mutate(rng, genotype, n=n, no_layer_norm=no_layer_norm)
     n_deltas = getonly(x->x isa GenePool, pop.data).deltas |> length
     n_sparse, n_muts = 0, 0
     for gp_w in gp_weights, mut in gp_w.muts
@@ -119,25 +118,33 @@ function nn_genepool_mutate(rng::AbstractRNG, state::State, pop::AbstractPopulat
         sparse_mut = rand(rng) < percent_sparse  # sample sparse mut with small chance
     end
 
-    # Determine which weights to mutate based off n
-    idx = 0
-    map!(genotype, weights_only=true) do layers
-        weight = layers[end]               
-        no_layer_norm && is_layer_norm(layers) && return     # Skip if we're a layer norm
-        idx += 1
-        gp_w = gp_weights[idx]
-        !popfirst!(should_mutate) && return # Skip if we don't want to mutate this weight
-        rand(rng, 1:n_deltas) > length(gp_w.muts) + 1 && return # skip proportional to selected weight
-        mrf0 = mr isa Float32 ? mr : rand(rng, mr)
-        init! = sparse_mut ? apply_sparse_noise! : compute_init(layers)
-        max_mr = maximum(m.mr for m in gp_w.muts; init=0f0)
-        max_mr = max_mr == 0f0 ? rand(rng, mr) : max_mr
-        mrf0 > max_mr && rand(rng) > 0.01 && return
-        gene = NetworkGene(rng, gene_counter, mrf0, init!) 
-        push!(weight.muts, gene)
+    added_weight = false
+    loops = 0
+    while !added_weight
+        should_mutate = what_layers_should_we_mutate(rng, genotype, n=n, no_layer_norm=no_layer_norm)
+        # Determine which weights to mutate based off n
+        idx = 0
+        map!(genotype, weights_only=true) do layers
+            weight = layers[end]               
+            no_layer_norm && is_layer_norm(layers) && return     # Skip if we're a layer norm
+            idx += 1
+            gp_w = gp_weights[idx]
+            !popfirst!(should_mutate) && return # Skip if we don't want to mutate this weight
+            rand(rng, 1:n_deltas) > length(gp_w.muts) + 1 && return # skip proportional to selected weight
+            mrf0 = mr isa Float32 ? mr : rand(rng, mr)
+            init! = sparse_mut ? apply_sparse_noise! : compute_init(layers)
+            max_mr = maximum(m.mr for m in gp_w.muts; init=0f0)
+            max_mr = max_mr == 0f0 ? rand(rng, mr) : max_mr
+            mrf0 > max_mr && rand(rng) > 0.01 && return
+            gene = NetworkGene(rng, gene_counter, mrf0, init!) 
+            push!(weight.muts, gene)
+            added_weight = true
+        end
+        loops += 1
+        @assert loops <= 10
+        @assert idx == length(gp_weights) "Should have iterated through all weights, idx=$idx, $(length(gp_weights)) left"
+        @assert isempty(should_mutate) "Should have iterated through all weights, $(length(should_mutate)) left"
     end
-    @assert idx == length(gp_weights) "Should have iterated through all weights, idx=$idx, $(length(gp_weights)) left"
-    @assert isempty(should_mutate) "Should have iterated through all weights, $(length(should_mutate)) left"
     genotype
 end
 
