@@ -55,8 +55,8 @@ function scores(rng, input, scores, split_size, trf)
         end_idx = idx+split_size-1
         split_input = (token = input.token[:,:,idx:end_idx], attention_mask = Transformers.NeuralAttentionlib.LengthMask(input.attention_mask.len[idx:end_idx]))
         split_logits = trf(split_input)
-        split_input_token_sum = sum(input.token[:,:,idx:end_idx] |> Transformers.tocpudevice)
-        tfr_param_sum = sum([sum(Transformers.tocpudevice(pv)) for pv in collect(Flux.params(trf.trf))])
+        #= split_input_token_sum = sum(input.token[:,:,idx:end_idx] |> Transformers.tocpudevice) =#
+        #= tfr_param_sum = sum([sum(Transformers.tocpudevice(pv)) for pv in collect(Flux.params(trf.trf))]) =#
         #= @info "splitidx $idx: logits: $(sum(split_logits)) inputs: $(split_input_token_sum) params: $tfr_param_sum" =#
         split_ce_loss = shift_decode_loss(split_logits, split_input.token, split_input.attention_mask)
         ce_loss[idx:end_idx] .= split_ce_loss
@@ -70,8 +70,6 @@ function scores(rng, input, scores, split_size, trf)
     end
     ce_loss
 end
-
-preprocess(trf::TransformerPhenotype, batch) = encode(trf.textenc, batch)
 
 function infer(trf::TransformerPhenotype, str::String; max_len::Int=10, n_logits::Int=3, print_output::Bool=false)
     decoder_onehot = encode(trf.textenc, str).token
@@ -107,7 +105,7 @@ function infer(trf::TransformerPhenotype, str::String; max_len::Int=10, n_logits
 end
 
 
-function get_preprocessed_batch(env, tfr)
+function get_preprocessed_batch(env::RepeatSequence, tfr)
     if !isdefined(Main, :preprocessed_batch)
         @warn "Creating variable Main.preprocessed_batch"
         Main.preprocessed_batch = preprocess(tfr, sample_batch(env))
@@ -127,7 +125,6 @@ function get_best_scores(env::RepeatSequence)
     end
     Main.best_scores
 end
-(creator::Creator{RepeatSequence})(;kwargs...) = RepeatSequence(creator.kwargs...)
 
 function play(env::RepeatSequence, ids::Vector{Int}, models::Vector{TransformerPhenotype})
     @assert length(models) == 1 "Only one model is supported for now"
