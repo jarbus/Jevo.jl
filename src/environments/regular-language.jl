@@ -19,8 +19,7 @@ function get_strings(env::RegularLanguage)
     @assert env.n_strings % 2 == 0 "Need an even number of strings"
     @assert 2^env.seq_len >= env.n_strings "Not enough strings possible, got $(2^env.seq_len) need $(env.n_strings)"
     # Generate strings
-    accept = String[]
-    reject = String[]
+    accept, reject = String[], String[]
     # Generate all binary strings up to seq_len
     for i = 0:(2^env.seq_len)-1
         s = string(i, base=2)
@@ -50,22 +49,63 @@ function get_preprocessed_batch(env::RegularLanguage, tfr)
         @warn "Creating variable Main.preprocessed_batch"
         strings = [(s,) for s in get_strings(env)]
         batch = batched(strings)[1]
+        @info "Batch: $batch"
         Main.preprocessed_batch = preprocess(tfr, batch)
     end
     Main.preprocessed_batch |> deepcopy |> gpu
 end
 
+# Use a custom kernel to find the index on each row
+# dims are (vocab_size, seq_len, batch_size)
+function find_end_indices_on_gpu(matrix)
+    indices = CUDA.fill(Int32(0), size(matrix, 3)) # batch_size 
+    @cuda threads=size(matrix, 3) find_end_indices_kernel!(indices, matrix)
+    @assert all(indices .>= 0) "End token not found"
+    return indices
+end
+function find_end_indices_kernel!(indices, matrix)
+    test_case = threadIdx().x
+    for col in 2:size(matrix, 2)  # seq_len
+        if matrix[3, col, test_case] == 1 # hardcoded one-hot end token
+            indices[test_case] = col-1  # we want the index before the end token
+            return
+        end
+    end
+    indices[test_case] = -1
+    nothing
+end
+
+# if we do [:, idxs, :] it returns a 3d array, which is not what we want
+# we want a 2d array of (vocab_size, batch_size), where rows are the logits
+# at each end idx, which can be different.
+function get_final_logits_on_gpu(indices, matrix)
+    logits = CUDA.fill(0f0, size(matrix, 1), size(matrix, 3)) # vocab_size, batch_size
+    @cuda threads=size(matrix, 3) get_final_logits_kernel!(logits, indices, matrix)
+    return logits
+end
+
+function get_final_logits_kernel!(logits, indices, matrix)
+    test_case = threadIdx().x
+    idx = indices[test_case]
+    for row in 1:size(matrix, 1)  # vocab_size
+        logits[row, test_case] = matrix[row, idx, test_case]
+    end
+    nothing
+end
 
 function infer(env::RegularLanguage, model::TransformerPhenotype)
     batch = get_preprocessed_batch(env, model)
     logits = model(batch)
-    end_idx = size(batch.token, 2)
+    # Compute end index per sequence on gpu using custom kernel
+    # We assume that the end token is token 3. This uses a one-hot encoding.
+    # dims are (vocab_size, seq_len, batch_size)
+    end_idxs = find_end_indices_on_gpu(batch.token)
     # We only optimize for the end-token and the accept/reject before it
     # batch.token includes a start token
-    accept_or_reject = @view(batch.token[:,end_idx-1:end_idx,:])
-    logits_view = @view(logits[:, end_idx-2:end_idx-1, :])
-    loss = -logitcrossentropy(logits_view, accept_or_reject)
-    loss, logits, accept_or_reject
+    accept_or_reject_final = get_final_logits_on_gpu(end_idxs, batch.token)
+    logits_final = get_final_logits_on_gpu(end_idxs .- 1, logits)
+    loss = -logitcrossentropy(logits_final, accept_or_reject_final)
+    loss, logits_final, accept_or_reject_final
 end
 function step!(env::RegularLanguage, ids::Vector{Int}, models::Vector{TransformerPhenotype})
     # One shot classification of accept / reject
@@ -76,8 +116,13 @@ end
 function percent_correct(logits, accept_or_reject)
     # only the first column is the accept/reject, the second is the end token
     # (vocab_size, seq_len , batch_size)
-    preds = argmax(logits[:,1,:], dims=1) |> Transformers.tocpudevice
-    targets = argmax(accept_or_reject[:,1,:], dims=1) |> Transformers.tocpudevice
+    pred_logits = logits[:,:] |> Transformers.tocpudevice
+    target_logits = accept_or_reject[:,:] |> Transformers.tocpudevice
+    preds = argmax(pred_logits, dims=1) 
+    targets = argmax(target_logits, dims=1)
+    for i in 1:size(preds,2)
+        @info "Pred: $(round.(softmax(pred_logits[:,i]), digits=2)) Target: $(targets[i].I[1])"
+    end
     same = preds .== targets
     sum(same) / length(same)
 end
