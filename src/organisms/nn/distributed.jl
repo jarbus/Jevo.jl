@@ -89,23 +89,6 @@ function master_construct_genome(ind::Individual, tree::PhylogeneticTree, dc::De
     genome
 end
 
-add_delta_to_genome(genome::AbstractGenotype, delta::Delta) = genome + delta
-function add_delta_to_genome(full_genome::Network, delta::Delta{Network}; n_back=20)
-    # Likely a performance bottleneck, because we keep copying the network
-    # for each delta application
-    compact_genome = copyarchitecture(full_genome)
-    ws_compact, ws_delta, ws_full =
-        get_weights(compact_genome), get_weights(delta.change), get_weights(full_genome)
-
-    for (wc, wd, wf) in zip(ws_compact, ws_delta, ws_full)
-        wc.dims != wd.dims && @assert false "Different dimensions in compact network and delta"
-        @assert isempty(wc.muts) "wc with dims $(wc.dims) not empty for type $(typeof(compact_genome))"
-        start_idx = max(1, length(wf.muts)-n_back)
-        append!(wc.muts, wf.muts[start_idx:end]) # add last 10 muts from full genome
-        append!(wc.muts, wd.muts)                # then add delta muts
-    end
-    compact_genome
-end
 
 function worker_construct_child_genome(ind::Individual{G, D, I}) where {G <: Delta, D, I}
     @assert length(ind.parents) <= 1

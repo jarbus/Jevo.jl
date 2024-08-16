@@ -143,7 +143,7 @@ Decoder-only transformer genotype
 """
 struct Transformer <: AbstractLayer
     embed::Embed
-    blocks::Tuple{Vararg{TransformerDecoderBlock}}
+    blocks::Vector{TransformerDecoderBlock}
     embeddecoder::EmbedDecoder
 end
 
@@ -153,7 +153,7 @@ struct PostNormResidual <: AbstractLayer
 end
 
 """
-    struct SelfAttention <: AbstractLayer
+    mutable struct SelfAttention <: AbstractLayer
         n_heads::Int
         qkv::Dense
         out::Dense
@@ -161,7 +161,7 @@ end
 
 A self-attention layer. Cross-attention is not supported.
 """
-struct SelfAttention <: AbstractLayer
+mutable struct SelfAttention <: AbstractLayer
     n_heads::Int
     qkv::Dense
     out::Dense

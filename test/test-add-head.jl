@@ -1,3 +1,7 @@
+@testset "test-add-head-unit" begin
+    #= TODO =#
+end
+
 function Jevo.SelfAttention(rng::Jevo.AbstractRNG, counter::Jevo.AbstractCounter;
         n_heads::Int, head_dim::Int, hidden_dim::Int,
         qkv_rank::Int=-1, o_rank::Int=-1,
@@ -28,7 +32,7 @@ function Jevo.SelfAttention(rng::Jevo.AbstractRNG, counter::Jevo.AbstractCounter
     out = Jevo.Dense(rng, counter, dims=(n_heads*head_dim, hidden_dim), σ=identity, rank=o_rank)
     Jevo.SelfAttention(n_heads, qkv, out)
 end
-@testset "test-attention-head-add" begin
+@testset "test-attention-head-add integration" begin
     k = 1
     n_inds = 200
     seq_len = 8
@@ -84,10 +88,11 @@ end
                     Visualizer(condition=s->generation(s) % 10 == 0),
                     BestLogger(condition=s->generation(s) % 10 == 0),
                     Mutator(mr=mrs),
-                    AddAttentionHeads(),
+                    AddDecoderBlock(;prob=0.1, head_dims=(4,), tfr_args...),
+                    #AddAttentionHeads(prob=0.1),
                     UpdatePhylogeny(),
                     UpdateDeltaCache(),
                     ClearInteractionsAndRecords(),
                 ], counters=counters)
-    run!(state, 1)
+    run!(state, 2)
 end

@@ -83,7 +83,8 @@ end
 
 function create_layer(layer::Jevo.TransformerDecoderBlock; weight_cache::_WeightCache)
     attn_layer = create_layer(layer.attention, weight_cache=weight_cache)
-    ff_layer = create_layer(layer.ff, weight_cache=weight_cache)
+    #= ff_layer = create_layer(layer.ff, weight_cache=weight_cache) =#
+    ff_layer =identity
     Transformers.Layers.TransformerDecoderBlock(
         attn_layer,
         ff_layer
@@ -113,11 +114,8 @@ function create_layer(layer::Jevo.SelfAttention; weight_cache::_WeightCache)
     )
 end
 
-function create_layer(geno_blocks::Tuple{Vararg{TransformerDecoderBlock}}; weight_cache::_WeightCache)
-    pheno_blocks = Vector{Transformers.Layers.TransformerDecoderBlock}(undef, length(geno_blocks))
-    for i in eachindex(geno_blocks)
-        pheno_blocks[i] = create_layer(geno_blocks[i], weight_cache=weight_cache)
-    end
+function create_layer(geno_blocks::Vector{TransformerDecoderBlock}; weight_cache::_WeightCache)
+    pheno_blocks =[create_layer(geno_blocks[i], weight_cache=weight_cache) for i in eachindex(geno_blocks)]
     Transformers.Transformer(Tuple(pheno_blocks)) |> gpu
 end
 

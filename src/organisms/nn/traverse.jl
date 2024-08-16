@@ -19,24 +19,25 @@ end
 
 
 """
-    map(f::Function, x::AbstractLayer; weights_only::Bool=false)
+    map(f::Function, x::Union{AbstractLayer,AbstractWeights}; weights_only::Bool=false)
     map(f::Function, x::Delta; weights_only::Bool=false)
 
 Apply a function to all weights in a neural network. Return a vector of the output of each function application in the order which it was applied. See also: [map!](@ref).
 """
-function map(f::Function, x::AbstractLayer; weights_only::Bool=false)
+function map(f::Function, x::Union{AbstractLayer,AbstractWeights}; weights_only::Bool=false)
     ret = []
     _map!(f, ret, Any[x], weights_only=weights_only)
     ret
 end
 
 """
+    map!(f::Function, x::AbstractWeights; weights_only::Bool=false)
     map!(f::Function, x::AbstractLayer; weights_only::Bool=false)
     map!(f::Function, x::Delta; weights_only::Bool=false)
 
 Apply a function to all weights in a neural network. See also: [map](@ref).
 """
-map!(f::Function, x::AbstractLayer; weights_only::Bool=false) = _map!(f, [], Any[x], weights_only=weights_only)
+map!(f::Function, x::Union{AbstractLayer,AbstractWeights}; weights_only::Bool=false) = _map!(f, [], Any[x], weights_only=weights_only)
 
 map(f::Function, d::Delta, args...; kwargs...) = map(f, d.change, args...; kwargs...)
 map!(f::Function, d::Delta, args...; kwargs...) = map!(f, d.change, args...; kwargs...)

@@ -51,11 +51,20 @@ WeightCache(;maxsize::Int, by::Function=Base.summarysize) =
 GenotypeCache(;maxsize::Int, by::Function=Base.summarysize) =
     LRU{Int, Network}(maxsize=maxsize, by=by)
 
+"""
+    Base.:+(a::Network b::Delta) -> Network
 
-function Base.:+(a::Network, b::Delta) 
+Adds delta to genome, returns a new, full genome.
+
+Where `add_delta_to_genome(genome::Network delta::Delta; n_back::Float)` creates a compact copy of the tail genes for each weight on a worker, this function adds the delta to a full copy of the genome on master.
+
+See also: [add_delta_to_genome(genome::Network delta::Delta)](@ref)
+"""
+function Base.:+(a::Network, b::Delta)
     # Likely a performance bottleneck, because we keep copying the network
     # for each delta application
     a = deepcopy(a)
+    insert_new_decoder_blocks!(a, b)
     ws_a, ws_b = get_weights(a), get_weights(b.change)
     @assert length(ws_a) == length(ws_b) "Different number of weights in network and delta"
     for (wa, wb) in zip(ws_a, ws_b)
@@ -65,6 +74,71 @@ function Base.:+(a::Network, b::Delta)
     a
 end
 
+"""
+    add_delta_to_genome(genome::Network delta::Delta; n_back=20) -> Network
+
+Adds delta to genome, keeping track of the last `n_back` mutations from the full genome. Does not look at mutations before the last `n_back` mutations to save memory and time.
+
+Where `Base.:+(a::Network, b::Delta)` adds a delta to the full genome on master, this function only adds the delta to a compact genome on workers for evaluation. This isn't great; we'd rather use Base.:+ for both purposes, but this is essential for performance.
+
+See also: [Base.:+(a::Network, b::Delta)](@ref)
+"""
+add_delta_to_genome(genome::AbstractGenotype, delta::Delta) = genome + delta
+function add_delta_to_genome(full_genome::Network, delta::Delta{Network}; n_back=20)
+    # Likely a performance bottleneck, because we keep copying the network
+    # for each delta application
+    compact_genome = copyarchitecture(full_genome)
+    insert_new_decoder_blocks!(compact_genome, delta)
+    ws_compact, ws_delta, ws_full =
+        get_weights(compact_genome), get_weights(delta.change), get_weights(full_genome)
+    @assert length(ws_compact) == length(ws_delta) "Different number of weights in compact genome and delta"
+    # full genome might have different number of weights than compact genome, so we need
+    # to copy full genome for the existing weights at different indices. We explicitly
+    # copy new layers and attention heads before this, so we can ignore fresh weights.
+    full_idx, delta_idx = 1, 1
+    while delta_idx <= length(ws_compact)
+        if is_fresh(ws_delta[delta_idx])
+            delta_idx += 1
+            continue
+        end
+        wc, wd, wf = ws_compact[delta_idx], ws_delta[delta_idx], ws_full[full_idx]
+        wc.dims != wd.dims && @assert false "Different dimensions in compact network and delta"
+        @assert isempty(wc.muts) || wc.muts[1].id < 0 "wc with dims $(wc.dims) not empty for type $(typeof(compact_genome)) and is not a fresh weight"
+        @assert !isempty(wf.muts) || wc.muts[1].id < 0 "Full genome has no mutations"
+        start_idx = max(1, length(wf.muts)-n_back)
+        append!(wc.muts, wf.muts[start_idx:end]) # add last n_back muts from full genome
+        append!(wc.muts, wd.muts)                # then add delta muts
+        full_idx += 1
+        delta_idx += 1
+    end
+    compact_genome
+end
+
+function insert_new_attention_heads!(genome::Network, delta::Delta)
+    tfr1, tfr2 = genome.layers[1], delta.change.layers[1]
+    !(tfr1 isa Transformer && tfr2 isa Transformer) && return
+end
+
+
+function insert_new_decoder_blocks!(genome::Network, delta::Delta)
+    tfr1, tfr2 = genome.layers[1], delta.change.layers[1]
+    !(tfr1 isa Transformer && tfr2 isa Transformer) && return
+    # check if transformer has a new block
+    new_blocks = [is_fresh(block) for block in tfr2.blocks]
+    !any(new_blocks) && length(tfr1.blocks) == length(tfr2.blocks) && return
+    @assert length(tfr1.blocks) < length(tfr2.blocks) "New block must be added to delta"
+    # deep copy new blocks from delta into genome at same index
+    for i in 1:length(tfr2.blocks)
+        !new_blocks[i] && continue
+        insert!(tfr1.blocks, i, deepcopy(tfr2.blocks[i]))
+    end
+    @assert length(tfr1.blocks) == length(tfr2.blocks) "Should be same number of blocks, $(length(tfr1.blocks)) ≠ $(length(tfr2.blocks))"
+    @info "Delta has new block, added to genome"
+end
+
+"""
+Check if two networks have the same architecture, but *not* the same weights.
+"""
 function Base.:(==)(a::Network, b::Network)
     ws_a, ws_b = get_weights(a), get_weights(b)
     length(ws_a) != length(ws_b) && return false
@@ -150,7 +224,8 @@ function TransformerDecoderBlock(rng::AbstractRNG, counter::AbstractCounter;
         )
     # postnorm
     pnr_sa = Jevo.PostNormResidual(rng, counter, sa, hidden_dim=hidden_dim)
-    pnr_ff = Jevo.PostNormResidual(rng, counter, ff, hidden_dim=hidden_dim)
+    pnr_ff = nothing
+    #= pnr_ff = Jevo.PostNormResidual(rng, counter, ff, hidden_dim=hidden_dim) =#
     TransformerDecoderBlock(pnr_sa, pnr_ff)
 end
 
@@ -167,7 +242,7 @@ function Transformer(rng::AbstractRNG, counter::AbstractCounter;
         vocab_size::Int)
     """Create a transformer with n_layers of attention and feedforward blocks"""
     embed, embeddecoder = create_embeds(rng, counter, (hidden_dim, vocab_size), rank=embed_rank)
-    blocks = Tuple(TransformerDecoderBlock(rng, counter,
+    blocks = [TransformerDecoderBlock(rng, counter,
                                            n_heads=n_heads,
                                            head_dim=head_dim,
                                            ff_dim=ff_dim,
@@ -175,6 +250,6 @@ function Transformer(rng::AbstractRNG, counter::AbstractCounter;
                                            qkv_rank=qkv_rank,
                                            o_rank=o_rank,
                                            ff_rank=ff_rank,
-                                          ) for _ in 1:n_blocks)
+                                           ) for _ in 1:n_blocks]
     Transformer(embed, blocks, embeddecoder)
 end

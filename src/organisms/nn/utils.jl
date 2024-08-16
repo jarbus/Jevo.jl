@@ -110,6 +110,7 @@ function get_weight_symbols(weights::Weights)
     str *= get_symbols(weights.muts) * "\n"
 end
 
+get_weight_symbols(::Nothing) = ""
 get_weight_symbols(wc::WeightsCollection) = "weightscollection\n" *
     join([get_weight_symbols(w) for w in wc.weights])
 get_weight_symbols(factorized_weights::FactorWeight) =
@@ -144,7 +145,15 @@ get_weight_symbols(ind::Individual) = get_weight_symbols(ind.genotype)
 
 is_layer_norm(layers) = any(l->l isa LayerNorm, layers)
 
-function get_weights(x::Union{Network, AbstractLayer, AbstractGenotype}; no_layer_norm::Bool=false)
+function get_weight_collections(layer::AbstractLayer)
+    weight_collections = map(layer) do layer
+        if layer[end] isa WeightsCollection
+            return layer[end]
+        end 
+    end |> filter(!isnothing)
+end
+
+function get_weights(x::Union{Network, AbstractLayer, AbstractGenotype,AbstractWeights}; no_layer_norm::Bool=false)
     map(x, weights_only=true) do hierarchy
         no_layer_norm && is_layer_norm(hierarchy) && return nothing
         return hierarchy[end]
@@ -159,3 +168,12 @@ function set_device()
     Main.jevo_device_id = device_id
     nothing
 end
+
+"""
+    is_fresh(layer::AbstractLayer) -> Bool
+    is_fresh(weight::AbstractWeights) -> Bool
+
+Returns true if all weights in the layer are fresh, i.e. have only one gene with id < 0. Doesn't include weights that were created by population initializers.
+"""
+is_fresh(layer::Union{AbstractLayer,AbstractWeights}) = 
+    all((length(w.muts) == 1 && w.muts[1].id < 0) for w in get_weights(layer))

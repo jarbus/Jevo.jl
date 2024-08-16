@@ -1,9 +1,10 @@
-export NNGenePoolMutator, ClearCurrentGenWeights, ComputeGenePoolNetwork, AddAttentionHeads
+export NNGenePoolMutator, ClearCurrentGenWeights, ComputeGenePoolNetwork, AddAttentionHeads, AddDecoderBlock
 
 @define_op "ComputeGenePoolNetwork"
 @define_op "ClearCurrentGenWeights" "AbstractMutator"
 @define_op "NNGenePoolMutator" "AbstractMutator"
 @define_op "AddAttentionHeads" "AbstractMutator"
+@define_op "AddDecoderBlock" "AbstractMutator"
 
 
 function compute_init(layers)
@@ -160,20 +161,16 @@ NNGenePoolMutator(ids::Vector{String}=String[]; condition::Function=always, time
               time=time;)
 
 """ Choose a random layer to add an attention head to."""
-function add_attention_head(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Network, prob=0.1, args...; kwargs...)
+function add_attention_head(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Network, args...; prob::Float64,kwargs...)
     rand(rng) > prob && return genotype
     genotype = deepcopy(genotype)
     gene_counter = get_counter(AbstractGene, state)
     @assert genotype.layers[1] isa Transformer "Must be a Transformer"
-    attention_layers = [l.attention for l in genotype.layers[1].blocks]
+    attention_layers = [l.attention.layer for l in genotype.layers[1].blocks]
     @assert length(attention_layers) > 0 "No attention layers found"
-    layer = rand(rng, attention_layers)
+    attn_layer = rand(rng, attention_layers)
+    weight_collections = get_weight_collections(attn_layer)
     # Find weight collection sub-layer. This needs to work with lora and non-lora.
-    weight_collections = map(layer) do layer
-        if layer[end] isa WeightsCollection
-            return layer[end]
-        end 
-    end |> filter(!isnothing)
     @assert length(weight_collections) > 0 "No weight collections found"
     wc = rand(rng, weight_collections)
     @assert wc.dims[1] % 3 == 0 "Found weight collection in attention layer not divisible by 3, got $(wc.dims[2])"
@@ -192,8 +189,8 @@ function add_attention_head(rng::AbstractRNG, state::State, pop::AbstractPopulat
       head = Weights(dims, [NetworkGene(-inc!(gene_counter), rand(rng, UInt64), 1f0, apply_kaiming_normal_noise!)])
       insert!(wc.weights, (i*third)+1, head)
     end
-    @info "Added attention head to layer $(layer)"
-    @info get_weight_symbols(genotype)
+    attn_layer.n_heads += 1
+    @assert length(wc.weights) == 3 * attn_layer.n_heads "Invalid number of heads"
     genotype
 end
 
@@ -205,3 +202,33 @@ AddAttentionHeads(ids::Vector{String}=String[]; condition::Function=always, time
               condition=condition,
               retriever=PopulationRetriever(ids),
               updater=map(map((s,p)-> mutate!(s, p; fn=add_attention_head, kwargs...))), time=time;)
+
+function add_decoder_block(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Network, args...; prob::Float64, head_dims::Tuple{Vararg{Int}}, ff_dim::Int, hidden_dim::Int, qkv_rank::Int=-1, o_rank::Int=-1, ff_rank::Int=-1, kwargs...)
+    rand(rng) > prob && return genotype
+    genotype = deepcopy(genotype)
+    gene_counter = get_counter(AbstractGene, state)
+    @assert genotype.layers[1] isa Transformer "Must be a Transformer"
+    head_dim = rand(rng, head_dims)
+    # Create new block with one head
+    block = TransformerDecoderBlock(rng, gene_counter, n_heads=1, head_dim=head_dim, hidden_dim=hidden_dim, ff_dim=ff_dim, qkv_rank=qkv_rank, o_rank=o_rank, ff_rank=ff_rank)
+    # Invert ids of all weights in block to indicate new genes
+    map!(block, weights_only=true) do layers
+        muts = layers[end].muts
+        @assert length(muts) == 1 "Expected one NetworkGene for $(layers)"
+        gene = muts[1]
+        muts[1] = NetworkGene(-gene.id, gene.seed, gene.mr, gene.init!)
+    end
+    # randomly insert the block
+    blocks = genotype.layers[1].blocks
+    insert!(blocks, rand(rng, 1:length(blocks)+1), block)
+    @info visualize(genotype)
+    genotype
+end
+add_decoder_block(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Delta, args...; kwargs...) = 
+    Delta(add_decoder_block(rng, state, pop, genotype.change, args...; kwargs...))
+
+AddDecoderBlock(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
+    create_op("AddDecoderBlock", 
+              condition=condition,
+              retriever=PopulationRetriever(ids),
+              updater=map(map((s,p)-> mutate!(s, p; fn=add_decoder_block, kwargs...))), time=time;)
