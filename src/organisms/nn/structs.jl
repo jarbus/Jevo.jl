@@ -1,5 +1,4 @@
 export TransformerPhenotype, Transformer, FactorWeight, CompositeWeight, WeightsCollection, Weights, Dense, SelfAttention, Chain, Network, Model, PostNormResidual, Embed, EmbedDecoder, LayerNorm, TransformerDecoderBlock
-# Weights
 """
     struct NetworkGene <: AbstractMutation
         id::Int

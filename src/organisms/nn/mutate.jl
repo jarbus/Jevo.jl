@@ -1,8 +1,9 @@
-export NNGenePoolMutator, ClearCurrentGenWeights, ComputeGenePoolNetwork
+export NNGenePoolMutator, ClearCurrentGenWeights, ComputeGenePoolNetwork, AddAttentionHeads
 
 @define_op "ComputeGenePoolNetwork"
 @define_op "ClearCurrentGenWeights" "AbstractMutator"
 @define_op "NNGenePoolMutator" "AbstractMutator"
+@define_op "AddAttentionHeads" "AbstractMutator"
 
 
 function compute_init(layers)
@@ -157,3 +158,50 @@ NNGenePoolMutator(ids::Vector{String}=String[]; condition::Function=always, time
               retriever=PopulationRetriever(ids),
               updater=map(map((s,p)->mutate!(s, p; fn=nn_genepool_mutate, kwargs...))),
               time=time;)
+
+""" Choose a random layer to add an attention head to."""
+function add_attention_head(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Network, prob=0.1, args...; kwargs...)
+    rand(rng) > prob && return genotype
+    genotype = deepcopy(genotype)
+    gene_counter = get_counter(AbstractGene, state)
+    @assert genotype.layers[1] isa Transformer "Must be a Transformer"
+    attention_layers = [l.attention for l in genotype.layers[1].blocks]
+    @assert length(attention_layers) > 0 "No attention layers found"
+    layer = rand(rng, attention_layers)
+    # Find weight collection sub-layer. This needs to work with lora and non-lora.
+    weight_collections = map(layer) do layer
+        if layer[end] isa WeightsCollection
+            return layer[end]
+        end 
+    end |> filter(!isnothing)
+    @assert length(weight_collections) > 0 "No weight collections found"
+    wc = rand(rng, weight_collections)
+    @assert wc.dims[1] % 3 == 0 "Found weight collection in attention layer not divisible by 3, got $(wc.dims[2])"
+    @assert wc.weights[1] isa Weights "First weight in weight collection is not a Weights, behavior is undefined"
+    # insert three heads, one for q, k, v
+    dims = wc.weights[1].dims
+    init! = wc.weights[1].muts[1].init!
+    third = div(dims[1], 3)
+    # Do this in reverse order so we don't mess up the indices
+    for i in (3,2,1) 
+      # insert at the end of each third of an arrayy
+      # [ 1 2 3 ] heads [ a b c d e f ] weights third=2
+      # [ 1 2 ] heads [ a b c d e f 3] weights
+      # [ 1 ] heads [ a b c d 2 e f 3] weights
+      # [ ] heads [ a b 1 c d 2 e f 3] weights
+      head = Weights(dims, [NetworkGene(-inc!(gene_counter), rand(rng, UInt64), 1f0, apply_kaiming_normal_noise!)])
+      insert!(wc.weights, (i*third)+1, head)
+    end
+    @info "Added attention head to layer $(layer)"
+    @info get_weight_symbols(genotype)
+    genotype
+end
+
+add_attention_head(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Delta, args...; kwargs...) = 
+    Delta(add_attention_head(rng, state, pop, genotype.change, args...; kwargs...))
+
+AddAttentionHeads(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
+    create_op("AddAttentionHeads", 
+              condition=condition,
+              retriever=PopulationRetriever(ids),
+              updater=map(map((s,p)-> mutate!(s, p; fn=add_attention_head, kwargs...))), time=time;)
