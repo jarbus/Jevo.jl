@@ -78,7 +78,7 @@ function master_construct_genome(ind::Individual, tree::PhylogeneticTree, dc::De
     # restore from cache if there's an extant parent, otherwise, start from last node
     parent = path[end].parent
     genome = if !isnothing(parent) && parent.id ∈ keys(gc)
-        gc[pop!(path).parent.id]
+        gc[parent.id]
     else
         dc[pop!(path).id].change
     end

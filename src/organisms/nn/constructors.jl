@@ -71,6 +71,7 @@ function Base.:+(a::Network, b::Delta)
     @assert length(ws_a) == length(ws_b) "Different number of weights in network and delta"
     for (wa, wb) in zip(ws_a, ws_b)
         wa.dims != wb.dims && @assert false "Different dimensions in network and delta"
+        is_fresh(wb) && continue
         append!(wa.muts, wb.muts)
     end
     a
@@ -165,7 +166,7 @@ function insert_new_attention_heads!(genome::Network, delta::Delta)
                 if is_fresh(d_wc.weights[d_idx]) && 
                     (length(g_wc.weights) <= g_idx ||
                     isempty(g_wc.weights[g_idx].muts) ||
-                    d_wc.weights[d_idx].muts[1].idx != g_wc.weights[g_idx].muts[1].idx)
+                    d_wc.weights[d_idx].muts[1].id != g_wc.weights[g_idx].muts[1].id)
                     if g_idx <= length(g_wc.weights)
                         g_wc.weights = concatenate(g_wc.weights[1:g_idx-1], deepcopy(d_wc.weights[d_idx]), g_wc.weights[g_idx:end])
                     else

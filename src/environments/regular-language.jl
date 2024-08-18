@@ -126,7 +126,7 @@ function percent_correct(logits, accept_or_reject)
     same = preds .== targets
     sum(same) / length(same)
 end
-function evaluate(env_creator::Creator, individual::Individual)
+function evaluate(env_creator::Creator{RegularLanguage}, individual::Individual)
     model = develop(individual.developer, individual)
     loss, logits, accept_or_reject = infer(env_creator(), model)
     p_correct = percent_correct(logits, accept_or_reject)

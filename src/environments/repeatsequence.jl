@@ -1,6 +1,6 @@
 using Transformers.Datasets: batched
 using Flux.Losses
-export RepeatSequence, preprocess, infer
+export RepeatSequence, preprocess, infer, NegativeLoss
 Base.@kwdef struct RepeatSequence <: AbstractEnvironment
     n_labels::Int
     batch_size::Int
@@ -133,7 +133,34 @@ function play(env::RepeatSequence, ids::Vector{Int}, models::Vector{TransformerP
     tfr = models[1]
     input_batch = get_preprocessed_batch(env, tfr)
     best_scores = get_best_scores(env)
-    split_size = env.n_labels ^ (env.seq_len - 1)
+    split_size = env.n_labels ^ (env.seq_len) # basically batch size
     results = scores(StableRNG(ids[1]), input_batch, best_scores, split_size, tfr)
     [Interaction(ids[1], [test_idx], r) for (test_idx, r) in enumerate(results)]
+end
+
+abstract type NegativeLoss <: AbstractMetric end
+
+function evaluate(env_creator::Creator{RepeatSequence}, individual::Individual)
+  percent_correct = fetch(@spawnat(2, begin
+    function percentage_evaluation_npeat(trf::TransformerPhenotype; n::Int, kwargs...)
+        n_perfect = 0
+        for i in 0:n-1, j in 0:n-1, k in 0:n-1
+            prompt = "$i $j $k $i $j $k"
+            full_str = infer(trf, prompt; kwargs...)[1]
+            if length(full_str) >= 27
+              n_perfect += full_str[5:15] == full_str[17:27]
+              @info full_str
+            else
+            end
+        end
+        n_perfect / n^3
+    end
+    model = develop(individual.developer, individual)
+    percentage_evaluation_npeat(model, n=env_creator.kwargs.n_labels - 3, max_len=15)
+  end))
+  @info "Percentage perfect: $(round(percent_correct, digits=3))"
+  fetch(@spawnat(2, begin
+      device!(Main.jevo_device_id)
+      mean(interaction.score for interaction in Jevo.play(env_creator, [individual]))
+    end))
 end

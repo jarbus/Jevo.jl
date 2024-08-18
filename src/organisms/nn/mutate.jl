@@ -161,7 +161,7 @@ NNGenePoolMutator(ids::Vector{String}=String[]; condition::Function=always, time
               time=time;)
 
 """ Choose a random layer to add an attention head to."""
-function add_attention_head(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Network, args...; prob::Float64,kwargs...)
+function add_attention_head(rng::AbstractRNG, state::State, ::AbstractPopulation, genotype::Network, args...; prob::Float64,kwargs...)
     rand(rng) > prob && return genotype
     genotype = deepcopy(genotype)
     gene_counter = get_counter(AbstractGene, state)
