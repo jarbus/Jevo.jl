@@ -65,6 +65,8 @@ function Base.:+(a::Network, b::Delta)
     # for each delta application
     a = deepcopy(a)
     insert_new_decoder_blocks!(a, b)
+    insert_new_attention_heads!(a, b)
+    update_dimensions!(a)
     ws_a, ws_b = get_weights(a), get_weights(b.change)
     @assert length(ws_a) == length(ws_b) "Different number of weights in network and delta"
     for (wa, wb) in zip(ws_a, ws_b)
@@ -89,6 +91,8 @@ function add_delta_to_genome(full_genome::Network, delta::Delta{Network}; n_back
     # for each delta application
     compact_genome = copyarchitecture(full_genome)
     insert_new_decoder_blocks!(compact_genome, delta)
+    insert_new_attention_heads!(compact_genome, delta)
+    update_dimensions!(compact_genome)
     ws_compact, ws_delta, ws_full =
         get_weights(compact_genome), get_weights(delta.change), get_weights(full_genome)
     @assert length(ws_compact) == length(ws_delta) "Different number of weights in compact genome and delta"
@@ -114,12 +118,80 @@ function add_delta_to_genome(full_genome::Network, delta::Delta{Network}; n_back
     compact_genome
 end
 
+
+update_dimensions!(x::Delta) = update_dimensions!(x.change)
+update_dimensions!(x) = nothing
+update_dimensions!(x::Weights) = nothing
+update_dimensions!(x::FactorWeight) = x.dims = (x.A.dims[1], x.B[2].dims[2])
+function update_dimensions!(x::CompositeWeight) 
+    @assert 1 == length(unique(w.dims for w in x.weights)) "All weights should have the same dimension for a composite weight"
+    x.dims = x.weights[1].dims
+end
+function update_dimensions!(x::WeightsCollection)
+    @assert 1 <= length(x.dims) <= 2 "WeightsCollection must be a vector or matrix"
+    old_dims = x.dims
+    n_rows = sum(r[1].dims[1] for r in eachrow(x.weights))
+    if length(x.dims) == 1
+        x.dims = (n_rows,)
+        return
+    end
+    n_cols = sum(c[1].dims[2] for c in eachcol(x.weights))
+    x.dims = (n_rows, n_cols)
+end
+update_dimensions!(x::AbstractLayer) = map!(x, postordering=true) do hierarchy
+    x != hierarchy[end] && update_dimensions!(hierarchy[end])  # prevent stack overflow
+end
+
+"""
+    insert_new_attention_heads!(genome::Network, delta::Delta)
+
+Goes through all weight collections in each self attention layer, and makes copies of fresh heads from the delta where appropriate.
+"""
 function insert_new_attention_heads!(genome::Network, delta::Delta)
-    tfr1, tfr2 = genome.layers[1], delta.change.layers[1]
-    !(tfr1 isa Transformer && tfr2 isa Transformer) && return
+    genome_attn_layers = map_get(genome, SelfAttention)
+    delta_attn_layers = map_get(delta, SelfAttention)
+    @assert length(genome_attn_layers) == length(delta_attn_layers) "Different number of attention layers in genome and delta"
+    for (g_attn, d_attn) in zip(genome_attn_layers, delta_attn_layers)
+        g_wcs, d_wcs = map_get(g_attn, WeightsCollection), map_get(d_attn, WeightsCollection)
+        @assert length(d_wcs) == 3 "Delta must have 4 weight collections for qkv and o, got $(length(d_wcs))"
+        for (idx, (g_wc, d_wc)) in enumerate(zip(g_wcs, d_wcs))
+            length(g_wc.weights) == length(d_wc.weights) && continue
+            @assert length(d_wc.weights) > length(g_wc.weights) "New heads must be added to delta"
+            concatenate = idx == 3 ? hcat : vcat
+            g_idx, d_idx = 1, 1
+            while d_idx <= length(d_wc.weights)
+                # If a weight is fresh, it might be part of a new layer,
+                # so we need to make sure it's not already in the genome.
+                if is_fresh(d_wc.weights[d_idx]) && 
+                    (length(g_wc.weights) <= g_idx ||
+                    isempty(g_wc.weights[g_idx].muts) ||
+                    d_wc.weights[d_idx].muts[1].idx != g_wc.weights[g_idx].muts[1].idx)
+                    if g_idx <= length(g_wc.weights)
+                        g_wc.weights = concatenate(g_wc.weights[1:g_idx-1], deepcopy(d_wc.weights[d_idx]), g_wc.weights[g_idx:end])
+                    else
+                        g_wc.weights =concatenate(g_wc.weights, deepcopy(d_wc.weights[d_idx]))
+                    end
+
+                    d_idx += 1
+                    continue
+                end
+                g_idx += 1
+                d_idx += 1
+            end
+            @assert length(g_wc.weights) == length(d_wc.weights) "Should be same number of weights, $(length(g_wc.weights)) ≠ $(d_idx)"
+        end
+        g_attn.n_heads = length(d_wcs[3].weights)
+    end
 end
 
 
+"""
+    insert_new_decoder_blocks!(genome::Network, delta::Delta)
+
+If a delta was created that has new decoder blocks, this function inserts them into the genome at the same index. Used for creating new genomes by applying a delta.
+
+See also: [Base.:+(a::Network, b::Delta)](@ref), [add_delta_to_genome(genome::Network delta::Delta)](@ref)
+"""
 function insert_new_decoder_blocks!(genome::Network, delta::Delta)
     tfr1, tfr2 = genome.layers[1], delta.change.layers[1]
     !(tfr1 isa Transformer && tfr2 isa Transformer) && return
@@ -133,7 +205,6 @@ function insert_new_decoder_blocks!(genome::Network, delta::Delta)
         insert!(tfr1.blocks, i, deepcopy(tfr2.blocks[i]))
     end
     @assert length(tfr1.blocks) == length(tfr2.blocks) "Should be same number of blocks, $(length(tfr1.blocks)) ≠ $(length(tfr2.blocks))"
-    @info "Delta has new block, added to genome"
 end
 
 """

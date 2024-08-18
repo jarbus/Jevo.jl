@@ -145,10 +145,10 @@ get_weight_symbols(ind::Individual) = get_weight_symbols(ind.genotype)
 
 is_layer_norm(layers) = any(l->l isa LayerNorm, layers)
 
-function get_weight_collections(layer::AbstractLayer)
-    weight_collections = map(layer) do layer
-        if layer[end] isa WeightsCollection
-            return layer[end]
+function map_get(x::Union{AbstractLayer,AbstractWeights,AbstractGenotype}, type::Type)
+    map(x) do hierarchy
+        if hierarchy[end] isa type
+            return hierarchy[end]
         end 
     end |> filter(!isnothing)
 end

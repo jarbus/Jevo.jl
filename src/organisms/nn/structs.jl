@@ -24,7 +24,7 @@ end
 
 A collection of genes which generate a tensor of `Float32` when developed. Each gene in `muts` is developed into a tensor and added together to form the final tensor. A [`_WeightCache`](@ref) can be used to cache intermediate tensors to avoid redundant computation.
 """
-struct Weights <: AbstractWeights
+mutable struct Weights <: AbstractWeights
     dims::Tuple{Vararg{Int}}
     muts::Vector{NetworkGene}
 end
@@ -36,7 +36,7 @@ end
     end
 Concatenation of multiple weight blocks into a single weight tensor, to adjust subsets of weights independently
 """
-struct WeightsCollection{T<:AbstractWeights} <: AbstractWeights
+mutable struct WeightsCollection{T<:AbstractWeights} <: AbstractWeights
     dims::Tuple{Vararg{Int}}
     weights::Array{T}
 end
@@ -47,9 +47,9 @@ end
         A::F1
         B::F2
     end
-Low-rank factorization of a weight matrix
+Low-rank factorization of a weight matrix, final tensor is A * B.
 """
-struct FactorWeight{F1<:AbstractWeights, F2<:AbstractWeights} <: AbstractWeights
+mutable struct FactorWeight{F1<:AbstractWeights, F2<:AbstractWeights} <: AbstractWeights
     dims::Tuple{Vararg{Int}}
     A::F1
     B::F2
@@ -63,7 +63,7 @@ end
 
 A collection of weights which are added together. Each element must develop to the same size
 """
-struct CompositeWeight{T<:AbstractWeights} <: AbstractWeights
+mutable struct CompositeWeight{T<:AbstractWeights} <: AbstractWeights
     dims::Tuple{Vararg{Int}}
     weights::Vector{T}
 end
@@ -159,7 +159,7 @@ end
         out::Dense
     end
 
-A self-attention layer. Cross-attention is not supported.
+A self-attention layer. Cross-attention is not supported. This struct is mutable to allow for a dynamic number of heads.
 """
 mutable struct SelfAttention <: AbstractLayer
     n_heads::Int

@@ -13,7 +13,7 @@ function Jevo.SelfAttention(rng::Jevo.AbstractRNG, counter::Jevo.AbstractCounter
     # NOTE: QKV weights are transposed, because we aren't going through our custom Dense constructor
     #       which automatically transposes for us.
     # =============================================================================================
-    head_init! = qkv_rank < 1 ? init! : Jevo.apply_zero!
+    head_init! = qkv_rank < 1 ? init! : Jevo.apply_kaiming_normal_noise_factored!
     head_weights = Jevo.WeightsCollection(
         (head_dim*n_heads*3, hidden_dim),
         vcat([Jevo.Weights(rng, counter, (head_dim, hidden_dim), init=head_init!) for i in 1:n_heads*3]))
@@ -26,10 +26,21 @@ function Jevo.SelfAttention(rng::Jevo.AbstractRNG, counter::Jevo.AbstractCounter
     
     qkv_weight = qkv_rank < 1 ? head_weights : Jevo.CompositeWeight((hidden_dim, head_dim*n_heads*3), [head_weights, factors])
 
-    qkv_bias = Jevo.Weights(rng, counter, (head_dim*n_heads*3,), init=init!)
+    #= qkv_bias = Jevo.Weights(rng, counter, (head_dim*n_heads*3,), init=init!) =#
+    qkv_bias = Jevo.WeightsCollection(
+        (head_dim*n_heads*3,),
+        [Jevo.Weights(rng, counter, (head_dim,), init=init!) for i in 1:n_heads*3]
+    )
+
+    out_weight = Jevo.WeightsCollection(
+        (hidden_dim, head_dim*n_heads),
+        [Jevo.Weights(rng, counter, (hidden_dim, head_dim), init=head_init!) for _ in 1:1, h in 1:n_heads])
+
+    out_bias = Jevo.Weights(rng, counter, (hidden_dim,), init=init!)
     
     qkv = Jevo.Dense(qkv_weight, qkv_bias, identity)
-    out = Jevo.Dense(rng, counter, dims=(n_heads*head_dim, hidden_dim), σ=identity, rank=o_rank)
+    out = Jevo.Dense(out_weight, out_bias, identity)
+
     Jevo.SelfAttention(n_heads, qkv, out)
 end
 @testset "test-attention-head-add integration" begin
@@ -43,7 +54,7 @@ end
     labels = ["0", "1", ":", "r", "a"]
     vocab = [unksym, startsym, endsym, labels...]
     vocab_size = length(vocab)
-    n_blocks, n_heads, head_dim, hidden_dim, ff_dim = 1, 1, 4, 4, 4 # start out with 1 head
+    n_blocks, n_heads, head_dim, hidden_dim, ff_dim = 1, 1, 4, 5, 4 # start out with 1 head
     env_args = (regex=r"^0*1*0*1*$", seq_len=seq_len, n_strings=n_strings) # 7th sequence
 
     textenc = TransformerTextEncoder(x->split(x,""), vocab; startsym, endsym, unksym, padsym=unksym)
@@ -88,8 +99,8 @@ end
                     Visualizer(condition=s->generation(s) % 10 == 0),
                     BestLogger(condition=s->generation(s) % 10 == 0),
                     Mutator(mr=mrs),
-                    AddDecoderBlock(;prob=0.1, head_dims=(4,), tfr_args...),
-                    #AddAttentionHeads(prob=0.1),
+                    #= AddDecoderBlock(;prob=0.1, head_dims=(4,), tfr_args...), =#
+                    AddAttentionHeads(prob=0.1),
                     UpdatePhylogeny(),
                     UpdateDeltaCache(),
                     ClearInteractionsAndRecords(),

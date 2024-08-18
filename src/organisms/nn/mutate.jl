@@ -166,31 +166,43 @@ function add_attention_head(rng::AbstractRNG, state::State, pop::AbstractPopulat
     genotype = deepcopy(genotype)
     gene_counter = get_counter(AbstractGene, state)
     @assert genotype.layers[1] isa Transformer "Must be a Transformer"
-    attention_layers = [l.attention.layer for l in genotype.layers[1].blocks]
+    # Get random weight collection within a random attention layer
+    attention_layers = map_get(genotype, SelfAttention)
     @assert length(attention_layers) > 0 "No attention layers found"
-    attn_layer = rand(rng, attention_layers)
-    weight_collections = get_weight_collections(attn_layer)
+    attn_layer = rand(rng, attention_layers) 
+    weight_collections = map_get(attn_layer, WeightsCollection)
     # Find weight collection sub-layer. This needs to work with lora and non-lora.
-    @assert length(weight_collections) > 0 "No weight collections found"
-    wc = rand(rng, weight_collections)
-    @assert wc.dims[1] % 3 == 0 "Found weight collection in attention layer not divisible by 3, got $(wc.dims[2])"
-    @assert wc.weights[1] isa Weights "First weight in weight collection is not a Weights, behavior is undefined"
-    # insert three heads, one for q, k, v
-    dims = wc.weights[1].dims
-    init! = wc.weights[1].muts[1].init!
-    third = div(dims[1], 3)
-    # Do this in reverse order so we don't mess up the indices
-    for i in (3,2,1) 
-      # insert at the end of each third of an arrayy
-      # [ 1 2 3 ] heads [ a b c d e f ] weights third=2
-      # [ 1 2 ] heads [ a b c d e f 3] weights
-      # [ 1 ] heads [ a b c d 2 e f 3] weights
-      # [ ] heads [ a b 1 c d 2 e f 3] weights
-      head = Weights(dims, [NetworkGene(-inc!(gene_counter), rand(rng, UInt64), 1f0, apply_kaiming_normal_noise!)])
-      insert!(wc.weights, (i*third)+1, head)
-    end
+    @assert length(weight_collections) != 0 "No weight collections found"
+    @assert length(weight_collections) % 3 == 0 "There should be a multiple of 3 weight collects, qkv weight, qkv bias, out weight"
+    @assert length(weight_collections) == 3 "Only one weight collection per matrix supported for dynamic heads right now"
     attn_layer.n_heads += 1
-    @assert length(wc.weights) == 3 * attn_layer.n_heads "Invalid number of heads"
+    for wc in weight_collections
+        @assert length(size(wc.weights)) == 1 || 1 ∈ size(wc.weights) "WeightCollection should have one dimension or a dimension of length 1"
+        @assert wc.weights[1] isa Weights "First weight in weight collection is not a Weights, behavior is undefined"
+    end
+    for wc in weight_collections[1:2]  # qkv weight and bias
+        @assert length(wc.weights) % 3 == 0 "Found weight collection in attention layer not divisible by 3, got $(wc.dims[1])"
+        # insert three heads, one for q, k, v
+        dims, init! = wc.weights[1].dims, wc.weights[1].muts[1].init!
+        third = div(length(wc.weights), 3)
+        # Do this in reverse order so we don't mess up the indices
+        for i in (3,2,1) 
+          # insert at the end of each third of an arrayy
+          # [ 1 2 3 ] heads [ a b c d e f ] weights third=2
+          # [ 1 2 ] heads [ a b c d e f 3] weights
+          # [ 1 ] heads [ a b c d 2 e f 3] weights
+          # [ ] heads [ a b 1 c d 2 e f 3] weights
+          head = Weights(dims, [NetworkGene(-inc!(gene_counter), rand(rng, UInt64), 1f0, init!)])
+          insert!(wc.weights, (i*third)+1, head)
+        end
+        @assert length(wc.weights) == 3 * attn_layer.n_heads "Invalid number of heads, got $(length(wc.weights)), expected $(3 * attn_layer.n_heads)"
+    end
+    wc = weight_collections[3]  # out projection weights
+    dims, init! = wc.weights[1].dims, wc.weights[1].muts[1].init!
+    @assert size(wc.weights, 1) == 1 "Out projection weight collection should have a first dimension of 1"
+    head = Weights(dims, [NetworkGene(-inc!(gene_counter), rand(rng, UInt64), 1f0, init!)])
+    wc.weights = hcat(wc.weights, head)
+    @assert size(wc.weights, 2) == attn_layer.n_heads "Invalid number of heads, got $(length(wc.weights)), expected $(attn_layer.n_heads)"
     genotype
 end
 
@@ -221,7 +233,6 @@ function add_decoder_block(rng::AbstractRNG, state::State, pop::AbstractPopulati
     # randomly insert the block
     blocks = genotype.layers[1].blocks
     insert!(blocks, rand(rng, 1:length(blocks)+1), block)
-    @info visualize(genotype)
     genotype
 end
 add_decoder_block(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Delta, args...; kwargs...) = 
