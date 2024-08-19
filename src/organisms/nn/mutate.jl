@@ -29,7 +29,7 @@ function what_layers_should_we_mutate(rng::AbstractRNG, genotype::Network; n::In
     n_weights = length(get_weights(genotype, no_layer_norm=no_layer_norm))
     n == -1 && return ones(Bool, n_weights)
     should_mutate = zeros(Bool, n_weights)
-    should_mutate[1:n] .= true
+    should_mutate[1:min(n,n_weights)] .= true
     shuffle!(rng, should_mutate)
     should_mutate
 end
