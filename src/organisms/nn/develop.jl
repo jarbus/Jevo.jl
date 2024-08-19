@@ -83,7 +83,8 @@ end
 
 function create_layer(layer::Jevo.TransformerDecoderBlock; weight_cache::_WeightCache)
     attn_layer = create_layer(layer.attention, weight_cache=weight_cache)
-    ff_layer = create_layer(layer.ff, weight_cache=weight_cache)
+    #ff_layer = create_layer(layer.ff, weight_cache=weight_cache)
+    ff_layer = identity
     Transformers.Layers.TransformerDecoderBlock(
         attn_layer,
         ff_layer

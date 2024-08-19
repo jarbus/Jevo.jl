@@ -150,7 +150,8 @@ function TransformerDecoderBlock(rng::AbstractRNG, counter::AbstractCounter;
         )
     # postnorm
     pnr_sa = Jevo.PostNormResidual(rng, counter, sa, hidden_dim=hidden_dim)
-    pnr_ff = Jevo.PostNormResidual(rng, counter, ff, hidden_dim=hidden_dim)
+    pnr_ff = nothing
+    #pnr_ff = Jevo.PostNormResidual(rng, counter, ff, hidden_dim=hidden_dim)
     TransformerDecoderBlock(pnr_sa, pnr_ff)
 end
 
