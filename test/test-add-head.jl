@@ -1,12 +1,6 @@
-k = 1
-n_inds = 20
-
-n_tokens = 5
-seq_len = 3
-n_repeat = 4
-startsym = "<s>"
-endsym = "</s>"
-unksym = "<unk>"
+k, n_inds = 1, 20
+n_tokens, seq_len, n_repeat = 5, 3, 4
+startsym, endsym, unksym = "<s>", "</s>", "<unk>"
 labels = string.(0:n_tokens-1)
 vocab = [unksym, startsym, endsym, labels...]
 vocab_size = length(vocab)
@@ -17,13 +11,7 @@ block_args = (attn_args..., ff_dim=ff_dim)
 tfr_args = (block_args..., n_blocks=n_blocks, vocab_size=vocab_size)
 env_args = (n_labels = length(labels), batch_size = n_tokens^seq_len, seq_len = seq_len, n_repeat = n_repeat,)
 
-function Jevo.SelfAttention(rng::Jevo.AbstractRNG, counter::Jevo.AbstractCounter;
-        n_heads::Int, head_dim::Int, hidden_dim::Int,
-        qkv_rank::Int=-1, o_rank::Int=-1,
-        init!::Function=Jevo.apply_kaiming_normal_noise!,
-    )
-    """Create a self-attention layer with n_heads and head_dim"""
-    
+function Jevo.SelfAttention(rng::Jevo.AbstractRNG, counter::Jevo.AbstractCounter; n_heads::Int, head_dim::Int, hidden_dim::Int, qkv_rank::Int=-1, o_rank::Int=-1, init!::Function=Jevo.apply_kaiming_normal_noise!,)
     # =============================================================================================
     # NOTE: QKV weights are transposed, because we aren't going through our custom Dense constructor
     #       which automatically transposes for us.
@@ -59,26 +47,45 @@ function Jevo.SelfAttention(rng::Jevo.AbstractRNG, counter::Jevo.AbstractCounter
     Jevo.SelfAttention(n_heads, qkv, out)
 end
 
-@testset "test-add-head-unit" begin
-    #= TODO =#
-end
-
-@testset "test-add-layer-unit" begin
-    #= TODO =#
-    # need to confirm added decoder block only adds one weight
+@testset "units" begin
     counters = default_counters()
     gene_counter = find(:type, AbstractGene, counters)
     tfr_gc = Creator(Delta, (Creator(Network, (rng, gene_counter, [(Jevo.Transformer, tfr_args)])),))
     developer = Creator(TransformerPhenotype, (;textenc=textenc))
     pop_creator = Creator(Population, ("p", n_inds, PassThrough(tfr_gc), PassThrough(developer), counters))
     env_creator = Creator(RepeatSequence, env_args)
-    pop, genome = pop_creator(), tfr_gc()
-    state = State()
-    new_genome = Jevo.add_decoder_block(rng, state, pop, genome; prob=1.0, head_dims=(head_dim,), tfr_args...)
-    @test length(new_genome.change.layers[1].blocks) == n_blocks + 1
-    println(visualize(new_genome.change))
 
-    # need to confirm added attention head only adds one weight
+    @testset "test-add-head-unit" begin
+        pop, genome, state = pop_creator(), tfr_gc(), State()
+        new_genome = Jevo.copyarchitecture(genome)
+        @test !any(Jevo.is_fresh, Jevo.map_get(new_genome, Jevo.Weights))
+        new_genome = Jevo.add_attention_head(rng, state, pop, new_genome; prob=1.0, inits=(Jevo.apply_kaiming_normal_noise!,), tfr_args...)
+        # {q,k,v}_{weight,bias} + out_weight
+        @test  sum(Jevo.is_fresh.(Jevo.map_get(new_genome, Jevo.Weights))) == 7
+        @test !all(Jevo.is_fresh.(Jevo.map_get(new_genome, Jevo.Weights)))
+
+        for fn in (+, Jevo.add_delta_to_genome)
+            new_full_genome = fn(genome.change, new_genome)
+            @test  any(Jevo.is_fresh, Jevo.map_get(new_full_genome, Jevo.Weights))
+            @test !all(Jevo.is_fresh, Jevo.map_get(new_full_genome, Jevo.Weights))
+            @test length(new_full_genome.layers[1].blocks) == 1
+        end
+    end
+
+    @testset "test-add-layer-unit" begin
+        pop, genome, state = pop_creator(), tfr_gc(), State()
+        new_genome = Jevo.copyarchitecture(genome)
+        new_genome = Jevo.add_decoder_block(rng, state, pop, new_genome; prob=1.0, head_dims=(head_dim,), tfr_args...)
+        @test length(new_genome.change.layers[1].blocks) == n_blocks + 1
+        @test sum(Jevo.is_fresh.(new_genome.change.layers[1].blocks)) == 1 
+        @test !all(Jevo.is_fresh.(Jevo.map_get(new_genome, Jevo.Weights)))
+        for fn in (+, Jevo.add_delta_to_genome)
+            new_full_genome = fn(genome.change, new_genome)
+            @test  any(Jevo.is_fresh, Jevo.map_get(new_full_genome, Jevo.Weights))
+            @test !all(Jevo.is_fresh, Jevo.map_get(new_full_genome, Jevo.Weights))
+            @test length(new_full_genome.layers[1].blocks) == n_blocks + 1
+        end
+    end
 end
 
 

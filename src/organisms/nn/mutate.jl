@@ -161,11 +161,12 @@ NNGenePoolMutator(ids::Vector{String}=String[]; condition::Function=always, time
               time=time;)
 
 """ Choose a random layer to add an attention head to."""
-function add_attention_head(rng::AbstractRNG, state::State, ::AbstractPopulation, genotype::Network, args...; prob::Float64,kwargs...)
+function add_attention_head(rng::AbstractRNG, state::State, ::AbstractPopulation, genotype::Network, args...; prob::Float64, inits::Tuple{Vararg{Function}}, kwargs...)
     rand(rng) > prob && return genotype
     genotype = deepcopy(genotype)
     gene_counter = get_counter(AbstractGene, state)
     @assert genotype.layers[1] isa Transformer "Must be a Transformer"
+    @assert length(inits) > 0 "No initialization function provided"
     # Get random weight collection within a random attention layer
     attention_layers = map_get(genotype, SelfAttention)
     @assert length(attention_layers) > 0 "No attention layers found"
@@ -176,6 +177,7 @@ function add_attention_head(rng::AbstractRNG, state::State, ::AbstractPopulation
     @assert length(weight_collections) % 3 == 0 "There should be a multiple of 3 weight collects, qkv weight, qkv bias, out weight"
     @assert length(weight_collections) == 3 "Only one weight collection per matrix supported for dynamic heads right now"
     attn_layer.n_heads += 1
+    init! = rand(rng, inits)
     for wc in weight_collections
         @assert length(size(wc.weights)) == 1 || 1 ∈ size(wc.weights) "WeightCollection should have one dimension or a dimension of length 1"
         @assert wc.weights[1] isa Weights "First weight in weight collection is not a Weights, behavior is undefined"
@@ -183,7 +185,7 @@ function add_attention_head(rng::AbstractRNG, state::State, ::AbstractPopulation
     for wc in weight_collections[1:2]  # qkv weight and bias
         @assert length(wc.weights) % 3 == 0 "Found weight collection in attention layer not divisible by 3, got $(wc.dims[1])"
         # insert three heads, one for q, k, v
-        dims, init! = wc.weights[1].dims, wc.weights[1].muts[1].init!
+        dims = wc.weights[1].dims
         third = div(length(wc.weights), 3)
         # Do this in reverse order so we don't mess up the indices
         for i in (3,2,1) 
@@ -198,7 +200,7 @@ function add_attention_head(rng::AbstractRNG, state::State, ::AbstractPopulation
         @assert length(wc.weights) == 3 * attn_layer.n_heads "Invalid number of heads, got $(length(wc.weights)), expected $(3 * attn_layer.n_heads)"
     end
     wc = weight_collections[3]  # out projection weights
-    dims, init! = wc.weights[1].dims, wc.weights[1].muts[1].init!
+    dims = wc.weights[1].dims
     @assert size(wc.weights, 1) == 1 "Out projection weight collection should have a first dimension of 1"
     head = Weights(dims, [NetworkGene(-inc!(gene_counter), rand(rng, UInt64), 1f0, init!)])
     wc.weights = hcat(wc.weights, head)
@@ -209,7 +211,7 @@ end
 add_attention_head(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Delta, args...; kwargs...) = 
     Delta(add_attention_head(rng, state, pop, genotype.change, args...; kwargs...))
 
-AddAttentionHeads(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
+    AddAttentionHeads(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
     create_op("AddAttentionHeads", 
               condition=condition,
               retriever=PopulationRetriever(ids),
