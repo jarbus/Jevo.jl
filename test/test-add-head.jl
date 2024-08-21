@@ -117,21 +117,21 @@ end
                     CreateMissingWorkers(1, slurm=false),
                     InitializePhylogeny(),
                     InitializeDeltaCache(),
-                    UpdateParentsAcrossAllWorkers(time=true),
                     SoloMatchMaker(["p"]), 
                     Performer(time=true),
                     ScalarFitnessEvaluator(),
                     TruncationSelector(k),
                     CloneUniformReproducer(n_inds),
-                    Visualizer(condition=s->generation(s) % 1 == 0),
+                    UpdatePhylogeny(),
+                    UpdateParentsAcrossAllWorkers(time=true),
+                    #= Visualizer(condition=s->generation(s) % 1 == 0), =#
                     BestLogger(condition=s->generation(s) % 1 == 0),
                     ClearCurrentGenWeights(),
-                    NBackMutator(n_back=20, mrs=mrs, no_layer_norm=true),
+                    NBackMutator(n_back=3, mrs=mrs, no_layer_norm=true),
                     AddAttentionHeads(prob=0.05, inits=(Jevo.apply_kaiming_normal_noise!,)),
                     AddDecoderBlock(;prob=0.05, head_dims=(head_dim,), tfr_args...),
-                    UpdatePhylogeny(),
                     UpdateDeltaCache(),
                     ClearInteractionsAndRecords(),
                 ], counters=counters)
-    run!(state, 10)
+    run!(state, 1000)
 end

@@ -7,17 +7,47 @@ export NNGenePoolMutator, ClearCurrentGenWeights, ComputeGenePoolNetwork, AddAtt
 @define_op "AddDecoderBlock" "AbstractMutator"
 @define_op "NBackMutator" "AbstractMutator"
 
+"""
+    non_ancestral_mutate!(rng, gene_counter, weight::Weights; mrs::Tuple{Vararg{Float32}})
+    non_ancestral_mutate!(rng, gene_counter, hist_weight::Weights, weight::Weights; mrs::Tuple{Vararg{Float32}})
+
+Adds a new gene to the weight. If `hist_weight` is provided, the gene's initialization is that of the last historical mutation, otherwise, we assume the gene is fresh and use the only initialization in `weight.muts`.
+"""
 function non_ancestral_mutate!(rng, gene_counter, weight::Weights; mrs::Tuple{Vararg{Float32}})
+    @assert length(weight.muts) == 1 
     init! = weight.muts[end].init!
     push!(weight.muts, NetworkGene(rng, gene_counter, rand(rng, mrs), init!))
 end
 
-function ancestral_mutate!(rng, gene_counter, historical_weight, weight::Weights; mrs::Tuple{Vararg{Float32}})
-    @error "Not implemented"
+# we only use historical weight to figure out what init to use for fresh-ish weights
+function non_ancestral_mutate!(rng, gene_counter, hist_weight::Weights, weight::Weights; mrs::Tuple{Vararg{Float32}})
+    init! = hist_weight.muts[end].init!
+    push!(weight.muts, NetworkGene(rng, gene_counter, rand(rng, mrs), init!))
+end
+
+"""
+    ancestral_mutate!(rng, gene_counter, historical_weight, weight::Weights; n_back::Int, mrs::Tuple{Vararg{Float32}})
+
+Adds a new gene to the weight
+"""
+function ancestral_mutate!(rng, gene_counter, historical_weight, weight::Weights; n_back::Int, mrs::Tuple{Vararg{Float32}})
+    # choose whether to use existing or sparse init
+    init! = if rand(rng) < 0.01  # sample random init with small chance
+        rand(rng, (apply_kaiming_normal_noise!, apply_sparse_noise!))
+    else  # otherwise, sample init based on previously selected inits
+        rand(rng, historical_weight.muts[end-n_back+1:end]).init!
+    end
+    # choose a mutation rate. if it's higher than the max selected mutation rate, skip
+    # with 0.01 chance, we can sample a higher mutation rate
+    mr = rand(rng, mrs)
+    max_mr = maximum(m.mr for m in historical_weight.muts)
+    mr > max_mr && rand(rng) > 0.01 && return
+    gene = NetworkGene(rng, gene_counter, mr, init!) 
+    push!(weight.muts, gene)
 end
 
 function compute_mutation_probabilities(weights, min_mutation_prob)
-    last_gene_ids = [abs(weight.muts[end].id) for weight in weights]
+    last_gene_ids = Float64.([abs(weight.muts[end].id) for weight in weights])
     last_gene_ids .-= minimum(last_gene_ids)
     last_gene_ids ./= maximum(last_gene_ids)
     clamp!(last_gene_ids, min_mutation_prob, 1.0)
@@ -32,24 +62,26 @@ function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind:
         non_ancestral_mutate!.(rng, fresh_weights, mrs=mrs)
         return
     end
-    println(ind.id," ", ind.generation," ", ind.parents)
     historical_genome = ind.generation == 0 ? deepcopy(genome) : get_genotype_cache()[ind.parents[1]]
-    if ind.generation > 0
-        println("found parent")
-    end
-    probabilities = @inline compute_mutation_probabilities(weights, min_mutation_prob)
     gene_counter = @inline get_counter(AbstractGene, state)
     historical_weights = get_weights(historical_genome, no_layer_norm=no_layer_norm)
+    probabilities = @inline compute_mutation_probabilities(historical_weights, min_mutation_prob)
     @assert historical_genome == genome  # confirm architectures are the same, we override ==
     @assert length(weights) == length(historical_weights) == length(probabilities)
-    for (weight, hist_weight, prob) in zip(weights, historical_weights, probabilities)
-        rand(rng) < prob && continue
-        if length(weight.muts) < n_back
-            @inline non_ancestral_mutate!(rng, gene_counter, weight, mrs=mrs)
-        else
-            @inline ancestral_mutate!(rng, gene_counter, hist_weight, weight, mrs=mrs)
+    tries, added_mutation = 0, false
+    while tries < 10 && !added_mutation
+        for (weight, hist_weight, prob) in zip(weights, historical_weights, probabilities)
+            rand(rng) < prob && continue
+            if length(hist_weight.muts) < n_back
+                @inline non_ancestral_mutate!(rng, gene_counter, hist_weight, weight, mrs=mrs)
+            else
+                @inline ancestral_mutate!(rng, gene_counter, hist_weight, weight, mrs=mrs, n_back=n_back)
+            end
+            added_mutation = true
         end
+        tries += 1
     end
+    @assert added_mutation "No mutations added"
     genome
 end
 

@@ -222,6 +222,8 @@ function Base.:(==)(a::Network, b::Network)
     end
     true
 end
+Base.:(==)(a::Network, b::Delta) = a == b.change
+Base.:(==)(a::Delta, b::Network) = a.change == b
 
 """
     copyarchitecture(x)

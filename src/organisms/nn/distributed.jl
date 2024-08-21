@@ -25,6 +25,8 @@ function master_get_gpid_pid_pds(ind::Individual, tree::PhylogeneticTree, dc::De
         if !isnothing(grandparent) 
             gpid = grandparent.id
         end
+    else  # we encode genesis individuals as pid=-1, gpid=id
+        gpid, pid, parent_delta = ind.id, -1, dc[ind.id]
     end
     gpid, pid, parent_delta
 end
@@ -53,8 +55,13 @@ end
 function worker_mk_parents_from_deltas_and_ret_missing!(gpid_pid_pds::Vector{GPID_PID_PD})
     miss, geno_cache = Int[], get_genotype_cache()
     for (gpid, pid, pd) in gpid_pid_pds
-        pid == -1 && continue
-        if gpid != -1 && gpid ∈ keys(geno_cache)
+        if pid == -1 && gpid == -1
+            error("Found an individual with no parent and no grandparent, this used to be valid for all genesis inds, but now we encode geneis as pid=-1, gpid=id")
+        elseif pid == -1 && gpid != -1 
+            # we encode an org with no parent by it's grandparent id
+            # this is only for the first generation
+            geno_cache[gpid] = deepcopy(pd.change)
+        elseif gpid != -1 && gpid ∈ keys(geno_cache)
             geno_cache[pid] = geno_cache[gpid] + pd
         else
             push!(miss, pid)
@@ -113,7 +120,7 @@ function master_construct_parents_genomes(pops::Vector{Vector{Population}}, work
             end
         end
     end
-    @assert pids ⊆ keys(parent_genomes) "missing $(setdiff(pids, keys(parent_genomes))). Is your genotype cache too large?"
+    @assert pids ⊆ keys(parent_genomes) "missing $(setdiff(pids, keys(parent_genomes))). Is your genotype cache too small?"
     worker_parent_genomes = Dict(wid =>[(pid, parent_genomes[pid]) for pid in pids]
                                  for (wid, pids) in workers_missing_parents)
     return worker_parent_genomes
