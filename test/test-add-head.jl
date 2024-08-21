@@ -29,7 +29,6 @@ function Jevo.SelfAttention(rng::Jevo.AbstractRNG, counter::Jevo.AbstractCounter
     
     qkv_weight = qkv_rank < 1 ? head_weights : Jevo.CompositeWeight((hidden_dim, head_dim*n_heads*3), [head_weights, factors])
 
-    #= qkv_bias = Jevo.Weights(rng, counter, (head_dim*n_heads*3,), init=init!) =#
     qkv_bias = Jevo.WeightsCollection(
         (head_dim*n_heads*3,),
         [Jevo.Weights(rng, counter, (head_dim,), init=init!) for i in 1:n_heads*3]
@@ -56,31 +55,33 @@ end
     env_creator = Creator(RepeatSequence, env_args)
 
     @testset "test-add-head-unit" begin
-        pop, genome, state = pop_creator(), tfr_gc(), State()
-        new_genome = Jevo.copyarchitecture(genome)
-        @test !any(Jevo.is_fresh, Jevo.map_get(new_genome, Jevo.Weights))
-        new_genome = Jevo.add_attention_head(rng, state, pop, new_genome; prob=1.0, inits=(Jevo.apply_kaiming_normal_noise!,), tfr_args...)
+        pop, delta, state = pop_creator(), tfr_gc(), State()
+        # TODO confirm that four more weights are added
+        blank_delta = Jevo.copyarchitecture(delta)
+        @test !any(Jevo.is_fresh, Jevo.map_get(blank_delta, Jevo.Weights))
+        new_delta = Jevo.add_attention_head(rng, state, pop, blank_delta; prob=1.0, inits=(Jevo.apply_kaiming_normal_noise!,), tfr_args...)
         # {q,k,v}_{weight,bias} + out_weight
-        @test  sum(Jevo.is_fresh.(Jevo.map_get(new_genome, Jevo.Weights))) == 7
-        @test !all(Jevo.is_fresh.(Jevo.map_get(new_genome, Jevo.Weights)))
+        @test  sum(Jevo.is_fresh.(Jevo.map_get(new_delta, Jevo.Weights))) == 7
+        @test !all(Jevo.is_fresh.(Jevo.map_get(new_delta, Jevo.Weights)))
 
         for fn in (+, Jevo.add_delta_to_genome)
-            new_full_genome = fn(genome.change, new_genome)
+            new_full_genome = fn(delta.change, new_delta)
+            @test  sum(Jevo.is_fresh.(Jevo.map_get(new_delta, Jevo.Weights))) == 7
             @test  any(Jevo.is_fresh, Jevo.map_get(new_full_genome, Jevo.Weights))
             @test !all(Jevo.is_fresh, Jevo.map_get(new_full_genome, Jevo.Weights))
             @test length(new_full_genome.layers[1].blocks) == 1
         end
     end
 
-    @testset "test-add-layer-unit" begin
-        pop, genome, state = pop_creator(), tfr_gc(), State()
-        new_genome = Jevo.copyarchitecture(genome)
-        new_genome = Jevo.add_decoder_block(rng, state, pop, new_genome; prob=1.0, head_dims=(head_dim,), tfr_args...)
-        @test length(new_genome.change.layers[1].blocks) == n_blocks + 1
-        @test sum(Jevo.is_fresh.(new_genome.change.layers[1].blocks)) == 1 
-        @test !all(Jevo.is_fresh.(Jevo.map_get(new_genome, Jevo.Weights)))
+    @testset "test-add-decoder-block-unit" begin
+        pop, delta, state = pop_creator(), tfr_gc(), State()
+        new_delta = Jevo.copyarchitecture(delta)
+        new_delta = Jevo.add_decoder_block(rng, state, pop, new_delta; prob=1.0, head_dims=(head_dim,), tfr_args...)
+        @test length(new_delta.change.layers[1].blocks) == n_blocks + 1
+        @test sum(Jevo.is_fresh.(new_delta.change.layers[1].blocks)) == 1 
+        @test !all(Jevo.is_fresh.(Jevo.map_get(new_delta, Jevo.Weights)))
         for fn in (+, Jevo.add_delta_to_genome)
-            new_full_genome = fn(genome.change, new_genome)
+            new_full_genome = fn(delta.change, new_delta)
             @test  any(Jevo.is_fresh, Jevo.map_get(new_full_genome, Jevo.Weights))
             @test !all(Jevo.is_fresh, Jevo.map_get(new_full_genome, Jevo.Weights))
             @test length(new_full_genome.layers[1].blocks) == n_blocks + 1
@@ -89,48 +90,48 @@ end
 end
 
 
-#= @testset "test-attention-head-add integration" begin =#
-#=     counters = default_counters() =#
-#=     gene_counter = find(:type, AbstractGene, counters) =#
-#=     tfr_gc = Creator(Delta, (Creator(Network, (rng, gene_counter, [(Jevo.Transformer, tfr_args)])),)) =#
-#=     developer = Creator(TransformerPhenotype, (;textenc=textenc)) =#
-#=     pop_creator = Creator(Population, ("p", n_inds, PassThrough(tfr_gc), PassThrough(developer), counters)) =#
-#=     env_creator = Creator(RepeatSequence, env_args) =#
-#==#
-#=     Visualizer(;kwargs...) = create_op("Reporter", =#
-#=         retriever=Jevo.PopulationRetriever(), =#
-#=         operator=(s,ps)-> ( ind = ps[1][1].individuals[1]; =#
-#=                            @info(string(ind.id)* " "*visualize(ind, ps[1][1]))); kwargs...) =#
-#==#
-#=     BestLogger(;kwargs...) = create_op("Reporter", =#
-#=             retriever=Jevo.get_individuals, =#
-#=             operator=(s,is)-> =#
-#=             (println("best id: $(is[1].id)"); =#
-#=                 m=Measurement(NegativeLoss, evaluate(env_creator, is[1]), generation(s)); =#
-#=               @info m;); kwargs...) =#
-#==#
-#==#
-#=     mrs = (0.1f0, 0.01f0, 0.001f0) =#
-#=     state = State("", rng, [pop_creator, env_creator],  =#
-#=                   [InitializeAllPopulations(), =#
-#=                     CreateMissingWorkers(1, slurm=false), =#
-#=                     InitializePhylogeny(), =#
-#=                     InitializeDeltaCache(), =#
-#=                     UpdateParentsAcrossAllWorkers(time=true), =#
-#=                     SoloMatchMaker(["p"]),  =#
-#=                     Performer(time=true), =#
-#=                     ScalarFitnessEvaluator(), =#
-#=                     TruncationSelector(k), =#
-#=                     CloneUniformReproducer(n_inds), =#
-#=                     Visualizer(condition=s->generation(s) % 1 == 0), =#
-#=                     BestLogger(condition=s->generation(s) % 1 == 0), =#
-#=                     ClearCurrentGenWeights(), =#
-#=                     Mutator(mr=mrs), =#
-#=                     AddAttentionHeads(prob=0.05), =#
-#=                     AddDecoderBlock(;prob=0.05, head_dims=(head_dim,), tfr_args...), =#
-#=                     UpdatePhylogeny(), =#
-#=                     UpdateDeltaCache(), =#
-#=                     ClearInteractionsAndRecords(), =#
-#=                 ], counters=counters) =#
-#=     run!(state, 10) =#
-#= end =#
+@testset "test-attention-head-add integration" begin
+    counters = default_counters()
+    gene_counter = find(:type, AbstractGene, counters)
+    tfr_gc = Creator(Delta, (Creator(Network, (rng, gene_counter, [(Jevo.Transformer, tfr_args)])),))
+    developer = Creator(TransformerPhenotype, (;textenc=textenc))
+    pop_creator = Creator(Population, ("p", n_inds, PassThrough(tfr_gc), PassThrough(developer), counters))
+    env_creator = Creator(RepeatSequence, env_args)
+
+    Visualizer(;kwargs...) = create_op("Reporter",
+        retriever=Jevo.PopulationRetriever(),
+        operator=(s,ps)-> ( ind = ps[1][1].individuals[1];
+                           @info(string(ind.id)* " "*visualize(ind, ps[1][1]))); kwargs...)
+
+    BestLogger(;kwargs...) = create_op("Reporter",
+            retriever=Jevo.get_individuals,
+            operator=(s,is)->
+            (println("best id: $(is[1].id)");
+                m=Measurement(NegativeLoss, evaluate(env_creator, is[1]), generation(s));
+              @info m;); kwargs...)
+
+
+    mrs = (0.1f0, 0.01f0, 0.001f0)
+    state = State("", rng, [pop_creator, env_creator], 
+                  [InitializeAllPopulations(),
+                    CreateMissingWorkers(1, slurm=false),
+                    InitializePhylogeny(),
+                    InitializeDeltaCache(),
+                    UpdateParentsAcrossAllWorkers(time=true),
+                    SoloMatchMaker(["p"]), 
+                    Performer(time=true),
+                    ScalarFitnessEvaluator(),
+                    TruncationSelector(k),
+                    CloneUniformReproducer(n_inds),
+                    Visualizer(condition=s->generation(s) % 1 == 0),
+                    BestLogger(condition=s->generation(s) % 1 == 0),
+                    ClearCurrentGenWeights(),
+                    NBackMutator(n_back=20, mrs=mrs, no_layer_norm=true),
+                    AddAttentionHeads(prob=0.05, inits=(Jevo.apply_kaiming_normal_noise!,)),
+                    AddDecoderBlock(;prob=0.05, head_dims=(head_dim,), tfr_args...),
+                    UpdatePhylogeny(),
+                    UpdateDeltaCache(),
+                    ClearInteractionsAndRecords(),
+                ], counters=counters)
+    run!(state, 10)
+end

@@ -54,7 +54,7 @@ GenotypeCache(;maxsize::Int, by::Function=Base.summarysize) =
 """
     Base.:+(a::Network b::Delta) -> Network
 
-Adds delta to genome, returns a new, full genome.
+Adds delta to genome, returns a new, full genome. Only valid for applying a child delta to a parent genome, behavior is undefined otherwise.
 
 Where `add_delta_to_genome(genome::Network delta::Delta; n_back::Float)` creates a compact copy of the tail genes for each weight on a worker, this function adds the delta to a full copy of the genome on master.
 
@@ -71,7 +71,7 @@ function Base.:+(a::Network, b::Delta)
     @assert length(ws_a) == length(ws_b) "Different number of weights in network and delta"
     for (wa, wb) in zip(ws_a, ws_b)
         wa.dims != wb.dims && @assert false "Different dimensions in network and delta"
-        is_fresh(wb) && continue
+        is_fresh(wb) && continue  # fresh weights have already been added above
         append!(wa.muts, wb.muts)
     end
     a
@@ -80,7 +80,7 @@ end
 """
     add_delta_to_genome(genome::Network delta::Delta; n_back=20) -> Network
 
-Adds delta to genome, keeping track of the last `n_back` mutations from the full genome. Does not look at mutations before the last `n_back` mutations to save memory and time.
+Adds delta to genome, keeping track of the last `n_back` mutations from the full genome. Does not look at mutations before the last `n_back` mutations to save memory and time. Only valid for applying a child delta to a parent genome, behavior is undefined otherwise.
 
 Where `Base.:+(a::Network, b::Delta)` adds a delta to the full genome on master, this function only adds the delta to a compact genome on workers for evaluation. This isn't great; we'd rather use Base.:+ for both purposes, but this is essential for performance.
 
@@ -102,7 +102,7 @@ function add_delta_to_genome(full_genome::Network, delta::Delta{Network}; n_back
     # copy new layers and attention heads before this, so we can ignore fresh weights.
     full_idx, delta_idx = 1, 1
     while delta_idx <= length(ws_compact)
-        if is_fresh(ws_delta[delta_idx])
+        if is_fresh(ws_delta[delta_idx])  # fresh weights have been added above
             delta_idx += 1
             continue
         end
@@ -146,15 +146,18 @@ end
 """
     insert_new_attention_heads!(genome::Network, delta::Delta)
 
-Goes through all weight collections in each self attention layer, and makes copies of fresh heads from the delta where appropriate.
+Goes through all weight collections in each self attention layer, and makes copies of fresh heads from the delta where appropriate. Only valid for a parent and a child network with at most one extra head.
 """
 function insert_new_attention_heads!(genome::Network, delta::Delta)
     genome_attn_layers = map_get(genome, SelfAttention)
     delta_attn_layers = map_get(delta, SelfAttention)
+    # TODO simplify this!!
     @assert length(genome_attn_layers) == length(delta_attn_layers) "Different number of attention layers in genome and delta"
+    # go over each attention layer
     for (g_attn, d_attn) in zip(genome_attn_layers, delta_attn_layers)
         g_wcs, d_wcs = map_get(g_attn, WeightsCollection), map_get(d_attn, WeightsCollection)
         @assert length(d_wcs) == 3 "Delta must have 4 weight collections for qkv and o, got $(length(d_wcs))"
+        # enumerate qkv weights, qkv bias, out weights
         for (idx, (g_wc, d_wc)) in enumerate(zip(g_wcs, d_wcs))
             length(g_wc.weights) == length(d_wc.weights) && continue
             @assert length(d_wc.weights) > length(g_wc.weights) "New heads must be added to delta"

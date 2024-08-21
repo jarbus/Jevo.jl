@@ -109,7 +109,7 @@ function master_construct_parents_genomes(pops::Vector{Vector{Population}}, work
         tree, dc = get_tree(subpop), get_delta_cache(subpop)
         for ind in subpop.individuals
             if ind.id in pids && !(ind.id in keys(parent_genomes))
-                parent_genomes[ind.id] = master_construct_genome(ind, tree, dc, gc)
+                gc[ind.id] = parent_genomes[ind.id] = master_construct_genome(ind, tree, dc, gc)
             end
         end
     end

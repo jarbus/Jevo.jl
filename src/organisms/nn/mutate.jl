@@ -1,10 +1,78 @@
-export NNGenePoolMutator, ClearCurrentGenWeights, ComputeGenePoolNetwork, AddAttentionHeads, AddDecoderBlock
+export NNGenePoolMutator, ClearCurrentGenWeights, ComputeGenePoolNetwork, AddAttentionHeads, AddDecoderBlock, NBackMutator
 
 @define_op "ComputeGenePoolNetwork"
 @define_op "ClearCurrentGenWeights" "AbstractMutator"
 @define_op "NNGenePoolMutator" "AbstractMutator"
 @define_op "AddAttentionHeads" "AbstractMutator"
 @define_op "AddDecoderBlock" "AbstractMutator"
+@define_op "NBackMutator" "AbstractMutator"
+
+function non_ancestral_mutate!(rng, gene_counter, weight::Weights; mrs::Tuple{Vararg{Float32}})
+    init! = weight.muts[end].init!
+    push!(weight.muts, NetworkGene(rng, gene_counter, rand(rng, mrs), init!))
+end
+
+function ancestral_mutate!(rng, gene_counter, historical_weight, weight::Weights; mrs::Tuple{Vararg{Float32}})
+    @error "Not implemented"
+end
+
+function compute_mutation_probabilities(weights, min_mutation_prob)
+    last_gene_ids = [abs(weight.muts[end].id) for weight in weights]
+    last_gene_ids .-= minimum(last_gene_ids)
+    last_gene_ids ./= maximum(last_gene_ids)
+    clamp!(last_gene_ids, min_mutation_prob, 1.0)
+    last_gene_ids
+end
+
+function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind::Individual; n_back::Int, min_mutation_prob::Float64=0.01, mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool=true)
+    genome = deepcopy(ind.genotype)
+    weights = get_weights(genome, no_layer_norm=no_layer_norm)
+    fresh_weights = filter(is_fresh, weights)
+    if !isempty(fresh_weights)
+        non_ancestral_mutate!.(rng, fresh_weights, mrs=mrs)
+        return
+    end
+    println(ind.id," ", ind.generation," ", ind.parents)
+    historical_genome = ind.generation == 0 ? deepcopy(genome) : get_genotype_cache()[ind.parents[1]]
+    if ind.generation > 0
+        println("found parent")
+    end
+    probabilities = @inline compute_mutation_probabilities(weights, min_mutation_prob)
+    gene_counter = @inline get_counter(AbstractGene, state)
+    historical_weights = get_weights(historical_genome, no_layer_norm=no_layer_norm)
+    @assert historical_genome == genome  # confirm architectures are the same, we override ==
+    @assert length(weights) == length(historical_weights) == length(probabilities)
+    for (weight, hist_weight, prob) in zip(weights, historical_weights, probabilities)
+        rand(rng) < prob && continue
+        if length(weight.muts) < n_back
+            @inline non_ancestral_mutate!(rng, gene_counter, weight, mrs=mrs)
+        else
+            @inline ancestral_mutate!(rng, gene_counter, hist_weight, weight, mrs=mrs)
+        end
+    end
+    genome
+end
+
+function mutate!(rng::AbstractRNG, state::AbstractState, population::AbstractPopulation, ind::Individual{G, D, I}, args...; fn, kwargs...) where {G <: Delta, D, I}
+    # I really, really don't like this, but this is just an experimental mutator.
+    # If we keep this, we should refactor the mutation scheme to properly dispatch this.
+    if fn != nback_mutate
+        ind.genotype = fn(rng, state, population, ind.genotype, args...; kwargs...)
+        return
+    end
+    ind.genotype = fn(rng, state, population, ind, args...; kwargs...)
+end
+
+
+"""
+    NBackMutator(ids::Vector{String}=String[]; n_back::Int, mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool, condition::Function=always, time::Bool=false, kwargs...)
+"""
+NBackMutator(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
+    create_op("NBackMutator",
+              condition=condition,
+              retriever=PopulationRetriever(ids),
+              updater=map(map((s,p)->mutate!(s, p; fn=nback_mutate, kwargs...))),
+              time=time;)
 
 
 function compute_init(layers)
@@ -45,8 +113,7 @@ ClearCurrentGenWeights(ids::Vector{String}=String[]; condition::Function=always,
               retriever=PopulationRetriever(ids),
               updater=map(map((s,p)->mutate!(s, p; fn=clear_weights, kwargs...))),
               time=time;)
-clear_weights(::AbstractRNG, ::State, ::Population, genotype) =
-    copyarchitecture(genotype)
+clear_weights(::AbstractRNG, ::State, ::Population, genotype) = copyarchitecture(genotype)
 
 function mutate(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Network; mr::Union{Float32,Tuple{Vararg{Float32}}}, n::Int=-1, no_layer_norm::Bool=true, kwargs...)
     genotype = deepcopy(genotype)
@@ -77,6 +144,7 @@ struct GenePoolNetwork
     network
 end
 function update_genepool_network!(pop::Population; no_layer_norm::Bool)
+    # TODO make this work with dynamic architecture
     gp = getonly(x->x isa GenePool, pop.data)
     length(gp.deltas) == 0 && @error "Genepool empty" 
     stat_net = copyarchitecture(gp.deltas[1])
@@ -162,11 +230,10 @@ NNGenePoolMutator(ids::Vector{String}=String[]; condition::Function=always, time
 
 """ Choose a random layer to add an attention head to."""
 function add_attention_head(rng::AbstractRNG, state::State, ::AbstractPopulation, genotype::Network, args...; prob::Float64, inits::Tuple{Vararg{Function}}, kwargs...)
+    @assert genotype.layers[1] isa Transformer "Must be a Transformer"
     rand(rng) > prob && return genotype
     genotype = deepcopy(genotype)
     gene_counter = get_counter(AbstractGene, state)
-    @assert genotype.layers[1] isa Transformer "Must be a Transformer"
-    @assert length(inits) > 0 "No initialization function provided"
     # Get random weight collection within a random attention layer
     attention_layers = map_get(genotype, SelfAttention)
     @assert length(attention_layers) > 0 "No attention layers found"

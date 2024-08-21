@@ -175,5 +175,5 @@ end
 
 Returns true if all weights in the layer are fresh, i.e. have only one gene with id < 0. Doesn't include weights that were created by population initializers.
 """
-is_fresh(layer::Union{AbstractLayer,AbstractWeights}) = 
-    all((length(w.muts) == 1 && w.muts[1].id < 0) for w in get_weights(layer))
+is_fresh(w::Weights) = length(w.muts) == 1 && w.muts[1].id < 0
+is_fresh(layer::Union{AbstractLayer,AbstractWeights}) = all(is_fresh, get_weights(layer))
