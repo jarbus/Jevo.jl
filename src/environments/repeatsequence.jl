@@ -156,7 +156,7 @@ function evaluate(env_creator::Creator{RepeatSequence}, individual::Individual)
         n_perfect / n^3
     end
     model = develop(individual.developer, individual)
-    percentage_evaluation_npeat(model, n=env_creator.kwargs.n_labels - 3, max_len=15)
+    percentage_evaluation_npeat(model, n=env_creator.kwargs.n_labels, max_len=15)
   end))
   @info "Percentage perfect: $(round(percent_correct, digits=3))"
   fetch(@spawnat(2, begin

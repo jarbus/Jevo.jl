@@ -13,6 +13,7 @@ export NNGenePoolMutator, ClearCurrentGenWeights, ComputeGenePoolNetwork, AddAtt
 
 Adds a new gene to the weight. If `hist_weight` is provided, the gene's initialization is that of the last historical mutation, otherwise, we assume the gene is fresh and use the only initialization in `weight.muts`.
 """
+# this version of the function is only for fresh weights with no history
 function non_ancestral_mutate!(rng, gene_counter, weight::Weights; mrs::Tuple{Vararg{Float32}})
     @assert length(weight.muts) == 1 
     init! = weight.muts[end].init!
@@ -46,32 +47,42 @@ function ancestral_mutate!(rng, gene_counter, historical_weight, weight::Weights
     push!(weight.muts, gene)
 end
 
+# TODO this is a non-deterministic hack, because gene ids are assigned in threads
+# We need to figure out a fix for this, for reproducibility
 function compute_mutation_probabilities(weights, min_mutation_prob)
     last_gene_ids = Float64.([abs(weight.muts[end].id) for weight in weights])
+    last_gene_ids .= round.(last_gene_ids ./ 10000 ) # TODO hack to mitigate non-determinism, get rid of this
     last_gene_ids .-= minimum(last_gene_ids)
-    last_gene_ids ./= maximum(last_gene_ids)
+    _max = maximum(last_gene_ids)
+    if _max != 0
+        last_gene_ids ./= _max
+    end
     clamp!(last_gene_ids, min_mutation_prob, 1.0)
     last_gene_ids
 end
 
-function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind::Individual; n_back::Int, min_mutation_prob::Float64=0.01, mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool=true)
+function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind::Individual; n_back::Int, min_mutation_prob::Float64=0.05, mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool=true)
     genome = deepcopy(ind.genotype)
     weights = get_weights(genome, no_layer_norm=no_layer_norm)
     fresh_weights = filter(is_fresh, weights)
+
     if !isempty(fresh_weights)
         non_ancestral_mutate!.(rng, fresh_weights, mrs=mrs)
+        @assert false
         return
     end
+
+
     historical_genome = ind.generation == 0 ? deepcopy(genome) : get_genotype_cache()[ind.parents[1]]
     gene_counter = @inline get_counter(AbstractGene, state)
     historical_weights = get_weights(historical_genome, no_layer_norm=no_layer_norm)
     probabilities = @inline compute_mutation_probabilities(historical_weights, min_mutation_prob)
-    @assert historical_genome == genome  # confirm architectures are the same, we override ==
+    @assert samearchitecture(historical_genome, genome)
     @assert length(weights) == length(historical_weights) == length(probabilities)
     tries, added_mutation = 0, false
-    while tries < 10 && !added_mutation
+    while tries < 20 && !added_mutation
         for (weight, hist_weight, prob) in zip(weights, historical_weights, probabilities)
-            rand(rng) < prob && continue
+            rand(rng) > prob && continue
             if length(hist_weight.muts) < n_back
                 @inline non_ancestral_mutate!(rng, gene_counter, hist_weight, weight, mrs=mrs)
             else
@@ -304,6 +315,7 @@ function add_attention_head(rng::AbstractRNG, state::State, ::AbstractPopulation
     head = Weights(dims, [NetworkGene(-inc!(gene_counter), rand(rng, UInt64), 1f0, init!)])
     wc.weights = hcat(wc.weights, head)
     @assert size(wc.weights, 2) == attn_layer.n_heads "Invalid number of heads, got $(length(wc.weights)), expected $(attn_layer.n_heads)"
+    update_dimensions!(genotype)
     genotype
 end
 

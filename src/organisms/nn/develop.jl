@@ -3,7 +3,7 @@
 function get_earliest_cached_weight(dims::NTuple{N, Int}, genes::Vector{NetworkGene}, weight_cache::_WeightCache)::Tuple{Array{Float32}, Int} where {N}
     """Return the earliest cached weight in the gene list. If none are cached, return a zero tensor of the given dimensions. Allocates memory. Also returns the idx of the earliest cached gene."""
     isnothing(weight_cache) && return zeros(Float32, dims), 0
-    @inbounds @simd for i in length(genes):-1:1
+    @inbounds for i in length(genes):-1:1
         weights = get(weight_cache, genes[i].id, nothing)
         if !isnothing(weights)
             @assert size(weights) == dims "Cached weight for $(genes[i].id) has different dimensions than requested"
@@ -74,7 +74,8 @@ end
 
 function create_layer(layer::Jevo.Embed; weight_cache::_WeightCache)
     weights = @inline tensor(layer.weights, weight_cache=weight_cache)
-    Transformers.Embed(weights; scale=nothing) |> gpu
+    embed = Transformers.Embed(weights; scale=nothing) |> gpu
+    embed
 end
 
 function create_layer(layer::Jevo.EmbedDecoder; weight_cache::_WeightCache)

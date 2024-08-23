@@ -1,4 +1,4 @@
-import Base: +, ==
+import Base: +, ==, hash
 
 NetworkGene(rng::AbstractRNG, counter::Counter, mr::Float32, init::Function=Jevo.apply_kaiming_normal_noise!) = 
     NetworkGene(inc!(counter), rand(rng, UInt64), mr, init)
@@ -63,6 +63,8 @@ See also: [add_delta_to_genome(genome::Network delta::Delta)](@ref)
 function Base.:+(a::Network, b::Delta)
     # Likely a performance bottleneck, because we keep copying the network
     # for each delta application
+
+
     a = deepcopy(a)
     insert_new_decoder_blocks!(a, b)
     insert_new_attention_heads!(a, b)
@@ -74,6 +76,7 @@ function Base.:+(a::Network, b::Delta)
         is_fresh(wb) && continue  # fresh weights have already been added above
         append!(wa.muts, wb.muts)
     end
+
     a
 end
 
@@ -90,6 +93,7 @@ add_delta_to_genome(genome::AbstractGenotype, delta::Delta) = genome + delta
 function add_delta_to_genome(full_genome::Network, delta::Delta{Network}; n_back=20)
     # Likely a performance bottleneck, because we keep copying the network
     # for each delta application
+
     compact_genome = copyarchitecture(full_genome)
     insert_new_decoder_blocks!(compact_genome, delta)
     insert_new_attention_heads!(compact_genome, delta)
@@ -109,13 +113,15 @@ function add_delta_to_genome(full_genome::Network, delta::Delta{Network}; n_back
         wc, wd, wf = ws_compact[delta_idx], ws_delta[delta_idx], ws_full[full_idx]
         wc.dims != wd.dims && @assert false "Different dimensions in compact network and delta"
         @assert isempty(wc.muts) || wc.muts[1].id < 0 "wc with dims $(wc.dims) not empty for type $(typeof(compact_genome)) and is not a fresh weight"
-        @assert !isempty(wf.muts) || wc.muts[1].id < 0 "Full genome has no mutations"
+        @assert !isempty(wf.muts) "Full genome has weight with no mutations: $(visualize(full_genome))"
         start_idx = max(1, length(wf.muts)-n_back)
         append!(wc.muts, wf.muts[start_idx:end]) # add last n_back muts from full genome
         append!(wc.muts, wd.muts)                # then add delta muts
         full_idx += 1
         delta_idx += 1
-    end
+    end 
+    l1 = compact_genome.layers[1]
+    @assert pointer(l1.embed.weights.muts) == pointer(l1.embeddecoder.embed.weights.muts) "Embed and embed decoder weights must the same"
     compact_genome
 end
 
@@ -149,35 +155,32 @@ end
 Goes through all weight collections in each self attention layer, and makes copies of fresh heads from the delta where appropriate. Only valid for a parent and a child network with at most one extra head.
 """
 function insert_new_attention_heads!(genome::Network, delta::Delta)
-    genome_attn_layers = map_get(genome, SelfAttention)
-    delta_attn_layers = map_get(delta, SelfAttention)
-    # TODO simplify this!!
+    genome_attn_layers, delta_attn_layers = map_get(genome, SelfAttention), map_get(delta, SelfAttention)
     @assert length(genome_attn_layers) == length(delta_attn_layers) "Different number of attention layers in genome and delta"
     # go over each attention layer
     for (g_attn, d_attn) in zip(genome_attn_layers, delta_attn_layers)
         g_wcs, d_wcs = map_get(g_attn, WeightsCollection), map_get(d_attn, WeightsCollection)
-        @assert length(d_wcs) == 3 "Delta must have 4 weight collections for qkv and o, got $(length(d_wcs))"
-        # enumerate qkv weights, qkv bias, out weights
+        @assert length(d_wcs) == 3 "Delta must have 3 weight collections for qkv and o, got $(length(d_wcs))"
+        # enumerate qkv weight collection,, qkv bias collection,, out weight collection
         for (idx, (g_wc, d_wc)) in enumerate(zip(g_wcs, d_wcs))
             length(g_wc.weights) == length(d_wc.weights) && continue
             @assert length(d_wc.weights) > length(g_wc.weights) "New heads must be added to delta"
             concatenate = idx == 3 ? hcat : vcat
             g_idx, d_idx = 1, 1
             while d_idx <= length(d_wc.weights)
-                # If a weight is fresh, it might be part of a new layer,
-                # so we need to make sure it's not already in the genome.
-                if is_fresh(d_wc.weights[d_idx]) && 
-                    (length(g_wc.weights) <= g_idx ||
-                    isempty(g_wc.weights[g_idx].muts) ||
-                    d_wc.weights[d_idx].muts[1].id != g_wc.weights[g_idx].muts[1].id)
+                if is_fresh(d_wc.weights[d_idx])
+                    # If a weight is fresh, it might be part of a new layer,
+                    # so we skip if it's already in the genome.
+                    if g_idx <= length(g_wc.weights) && 
+                        !isempty(g_wc.weights[g_idx].muts) && 
+                        d_wc.weights[d_idx].muts[1].id == g_wc.weights[g_idx].muts[1].id
+                        continue
+                    end
                     if g_idx <= length(g_wc.weights)
                         g_wc.weights = concatenate(g_wc.weights[1:g_idx-1], deepcopy(d_wc.weights[d_idx]), g_wc.weights[g_idx:end])
                     else
                         g_wc.weights =concatenate(g_wc.weights, deepcopy(d_wc.weights[d_idx]))
                     end
-
-                    d_idx += 1
-                    continue
                 end
                 g_idx += 1
                 d_idx += 1
@@ -211,19 +214,29 @@ function insert_new_decoder_blocks!(genome::Network, delta::Delta)
     @assert length(tfr1.blocks) == length(tfr2.blocks) "Should be same number of blocks, $(length(tfr1.blocks)) ≠ $(length(tfr2.blocks))"
 end
 
-"""
-Check if two networks have the same architecture, but *not* the same weights.
-"""
 function Base.:(==)(a::Network, b::Network)
     ws_a, ws_b = get_weights(a), get_weights(b)
     length(ws_a) != length(ws_b) && return false
     for (wa, wb) in zip(ws_a, ws_b)
-        wa.dims != wb.dims && return false
+        wa != wb && return false
     end
     true
 end
-Base.:(==)(a::Network, b::Delta) = a == b.change
-Base.:(==)(a::Delta, b::Network) = a.change == b
+Base.:(==)(a::Weights, b::Weights) = a.dims == b.dims && a.muts == b.muts
+Base.:(==)(a::FactorWeight, b::FactorWeight) = a.dims == b.dims && a.A == b.A && a.B == b.B
+Base.:(==)(a::CompositeWeight, b::CompositeWeight) = a.dims == b.dims && a.weights == b.weights
+Base.:(==)(a::WeightsCollection, b::WeightsCollection) = a.dims == b.dims && a.weights == b.weights
+hash(x::Weights) = hash((x.dims, x.muts))
+hash(x::FactorWeight) = hash((x.dims, x.A, x.B))
+hash(x::Union{CompositeWeight,WeightsCollection}) = hash((x.dims, x.weights))
+hash(l::Union{AbstractLayer, Delta}) = hash(hash.(get_weights(l)))
+hash(m::Model) = m.chain |> Transformers.tocpudevice |> Flux.params |> Iterators.flatten |> collect |> hash
+function hash(tfr::TransformerPhenotype) 
+    embed_decode_params = tfr.embeddecoder |> Transformers.tocpudevice |> Flux.params |> Iterators.flatten |> collect
+    tfr_params = tfr.trf |> Transformers.tocpudevice |> Flux.params |> Iterators.flatten |> collect
+    hash((embed_decode_params, tfr_params))
+end
+
 
 """
     copyarchitecture(x)
@@ -238,7 +251,12 @@ copyarchitecture(itr::Union{Array, Tuple}) = copyarchitecture.(itr)
 # embed decoder holds a reference to Embed. We assume this function is always called
 # on the Transformer, and thus is called on the Embed layer first, implying the layer
 # has already been copied without the weights. We just want to reference that.
-copyarchitecture(ed::EmbedDecoder) = EmbedDecoder(ed.embed, copyarchitecture(ed.bias))
+copyarchitecture(ed::EmbedDecoder) = error("Invalid, we need to copy Embed and EmbedDecoder together")
+function copyarchitecture(tfr::Transformer) 
+    embed = copyarchitecture(tfr.embed)
+    embeddecoder = EmbedDecoder(embed, copyarchitecture(tfr.embeddecoder.bias))
+    Transformer(embed , copyarchitecture(tfr.blocks),  embeddecoder)
+end
 copyarchitecture(d::Delta) = Delta(copyarchitecture(d.change))
 copyarchitecture(net::T) where {T <: Union{Jevo.AbstractLayer, Jevo.AbstractWeights}} =
     T((copyarchitecture(getfield(net, p)) for p in propertynames(net))...)

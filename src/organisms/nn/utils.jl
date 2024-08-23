@@ -177,3 +177,13 @@ Returns true if all weights in the layer are fresh, i.e. have only one gene with
 """
 is_fresh(w::Weights) = length(w.muts) == 1 && w.muts[1].id < 0
 is_fresh(layer::Union{AbstractLayer,AbstractWeights}) = all(is_fresh, get_weights(layer))
+
+
+function samearchitecture(a, b)
+    ws_a, ws_b = get_weights(a), get_weights(b)
+    length(ws_a) != length(ws_b) && return false
+    for (wa, wb) in zip(ws_a, ws_b)
+        wa.dims != wb.dims && return false
+    end
+    true
+end
