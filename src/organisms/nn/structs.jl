@@ -127,9 +127,29 @@ struct LayerNorm{T} <: AbstractLayer where T <: Union{Nothing, <:AbstractWeights
     bias::T
 end
 
+"""
+    mutable struct SelfAttention <: AbstractLayer
+        n_heads::Int
+        qkv::Dense
+        out::Dense
+    end
+
+A self-attention layer. Cross-attention is not supported. This struct is mutable to allow for a dynamic number of heads.
+"""
+mutable struct SelfAttention <: AbstractLayer
+    n_heads::Int
+    qkv::Dense
+    out::Dense
+end
+
+struct PostNormResidual <: AbstractLayer
+    layer::Union{SelfAttention,Dense} # ff or attention
+    norm::LayerNorm # layer norm
+end
+
 struct TransformerDecoderBlock <: AbstractLayer
-    attention # postnorm residual
-    ff # postnorm residual Chain Dense Dense
+    attention::PostNormResidual # postnorm residual
+    ff::Nothing # postnorm residual Chain Dense Dense
 end
 
 """
@@ -145,26 +165,6 @@ struct Transformer <: AbstractLayer
     embed::Embed
     blocks::Vector{TransformerDecoderBlock}
     embeddecoder::EmbedDecoder
-end
-
-struct PostNormResidual <: AbstractLayer
-    layer # ff or attention
-    norm # layer norm
-end
-
-"""
-    mutable struct SelfAttention <: AbstractLayer
-        n_heads::Int
-        qkv::Dense
-        out::Dense
-    end
-
-A self-attention layer. Cross-attention is not supported. This struct is mutable to allow for a dynamic number of heads.
-"""
-mutable struct SelfAttention <: AbstractLayer
-    n_heads::Int
-    qkv::Dense
-    out::Dense
 end
 
 """

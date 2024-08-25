@@ -28,11 +28,11 @@ function tensor(w::Weights; weight_cache::_WeightCache=nothing)::Array{Float32}
     arr, ancestor_idx = @inline get_earliest_cached_weight(dims, genes, weight_cache)
     yes_weight_cache = !isnothing(weight_cache)
     # iteratively apply remaining mutations
-    @inbounds @fastmath @simd for i in ancestor_idx+1:n_genes
+    @inbounds for i in ancestor_idx+1:n_genes
         gene = genes[i]
         gid = gene.id
         rng = StableRNG(gene.seed)
-        gene.init!(rng, Float32, arr, gene.mr)
+        @fastmath gene.init!(rng, Float32, arr, gene.mr)
         # update cache if we are using one
         if yes_weight_cache && i != n_genes && gid ∉ keys(weight_cache)
             gene_id = genes[i].id
