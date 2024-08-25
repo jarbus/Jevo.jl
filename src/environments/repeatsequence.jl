@@ -141,7 +141,8 @@ end
 abstract type NegativeLoss <: AbstractMetric end
 
 function evaluate(env_creator::Creator{RepeatSequence}, individual::Individual)
-  percent_correct = fetch(@spawnat(2, begin
+  wid = workers()[1]
+  percent_correct = fetch(@spawnat(wid, begin
     function percentage_evaluation_npeat(trf::TransformerPhenotype; n::Int, kwargs...)
         n_perfect = 0
         for i in 0:n-1, j in 0:n-1, k in 0:n-1
@@ -159,7 +160,7 @@ function evaluate(env_creator::Creator{RepeatSequence}, individual::Individual)
     percentage_evaluation_npeat(model, n=env_creator.kwargs.n_labels, max_len=15)
   end))
   @info "Percentage perfect: $(round(percent_correct, digits=3))"
-  fetch(@spawnat(2, begin
+  fetch(@spawnat(wid, begin
       device!(Main.jevo_device_id)
       mean(interaction.score for interaction in Jevo.play(env_creator, [individual]))
     end))
