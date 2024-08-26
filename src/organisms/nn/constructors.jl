@@ -136,7 +136,6 @@ function update_dimensions!(x::CompositeWeight)
 end
 function update_dimensions!(x::WeightsCollection)
     @assert 1 <= length(x.dims) <= 2 "WeightsCollection must be a vector or matrix"
-    old_dims = x.dims
     n_rows = sum(r[1].dims[1] for r in eachrow(x.weights))
     if length(x.dims) == 1
         x.dims = (n_rows,)
@@ -146,7 +145,7 @@ function update_dimensions!(x::WeightsCollection)
     x.dims = (n_rows, n_cols)
 end
 update_dimensions!(x::AbstractLayer) = map!(x, postordering=true) do hierarchy
-    x != hierarchy[end] && update_dimensions!(hierarchy[end])  # prevent stack overflow
+    x != hierarchy[end] && hierarchy[end] isa AbstractWeights && update_dimensions!(hierarchy[end])  # prevent stack overflow
 end
 
 """
