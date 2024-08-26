@@ -1,4 +1,4 @@
-export RegularLanguage, evaluate
+export RegularLanguage, evaluate, AcceptRejectStrings
 # TODO figure out what is the max string length in dynarec
 #   i think he trains on smaller sequences and then observes behavior in the limit
 #   i think he also trains on the same set of sequences
@@ -14,6 +14,10 @@ struct RegularLanguage <: AbstractEnvironment
     n_strings::Int
 end
 
+struct AcceptRejectStrings <: AbstractEnvironment
+    accept::Vector{String}
+    reject::Vector{String}
+end
 
 function get_strings(env::RegularLanguage)
     @assert env.n_strings % 2 == 0 "Need an even number of strings"
@@ -38,8 +42,15 @@ function get_strings(env::RegularLanguage)
     strings
 end
 
+
+function get_strings(env::AcceptRejectStrings)
+    strings = vcat([s*":a" for s in env.accept], [s*":r" for s in env.reject])
+    shuffle!(StableRNG(1), strings)
+    strings
+end
+
 preprocess(trf::TransformerPhenotype, batch) = encode(trf.textenc, batch)
-function get_preprocessed_batch(env::RegularLanguage, tfr)
+function get_preprocessed_batch(env::Union{RegularLanguage, AcceptRejectStrings}, tfr)
     # There appears to be some memory management issue, where GPU OOMs.
     # Allocating a large amount of memory on the CPU appears to alleviate this 
     # issue. Garbage collection does not help. Unable to justify spending
@@ -93,7 +104,7 @@ function get_final_logits_kernel!(logits, indices, matrix)
     nothing
 end
 
-function infer(env::RegularLanguage, model::TransformerPhenotype)
+function infer(env::Union{RegularLanguage, AcceptRejectStrings}, model::TransformerPhenotype)
     batch = get_preprocessed_batch(env, model)
     logits = model(batch)
     # Compute end index per sequence on gpu using custom kernel
@@ -107,7 +118,7 @@ function infer(env::RegularLanguage, model::TransformerPhenotype)
     loss = -logitcrossentropy(logits_final, accept_or_reject_final)
     loss, logits_final, accept_or_reject_final
 end
-function step!(env::RegularLanguage, ids::Vector{Int}, models::Vector{TransformerPhenotype})
+function step!(env::Union{RegularLanguage, AcceptRejectStrings}, ids::Vector{Int}, models::Vector{TransformerPhenotype})
     # One shot classification of accept / reject
     @assert length(models) == length(ids) == 1
     loss, _, _ = infer(env, models[1])
@@ -126,7 +137,7 @@ function percent_correct(logits, accept_or_reject)
     same = preds .== targets
     sum(same) / length(same)
 end
-function evaluate(env_creator::Creator{RegularLanguage}, individual::Individual)
+function evaluate(env_creator::Union{Creator{AcceptRejectStrings}, Creator{RegularLanguage}}, individual::Individual)
     model = develop(individual.developer, individual)
     loss, logits, accept_or_reject = infer(env_creator(), model)
     p_correct = percent_correct(logits, accept_or_reject)
