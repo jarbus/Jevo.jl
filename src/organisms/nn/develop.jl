@@ -3,7 +3,7 @@
 function get_earliest_cached_weight(dims::NTuple{N, Int}, genes::Vector{NetworkGene}, weight_cache::_WeightCache)::Tuple{Array{Float32}, Int} where {N}
     """Return the earliest cached weight in the gene list. If none are cached, return a zero tensor of the given dimensions. Allocates memory. Also returns the idx of the earliest cached gene."""
     isnothing(weight_cache) && return zeros(Float32, dims), 0
-    @inbounds @simd for i in length(genes):-1:1
+    @inbounds for i in length(genes):-1:1
         weights = get(weight_cache, genes[i].id, nothing)
         if !isnothing(weights)
             @assert size(weights) == dims "Cached weight for $(genes[i].id) has different dimensions than requested"
@@ -28,11 +28,11 @@ function tensor(w::Weights; weight_cache::_WeightCache=nothing)::Array{Float32}
     arr, ancestor_idx = @inline get_earliest_cached_weight(dims, genes, weight_cache)
     yes_weight_cache = !isnothing(weight_cache)
     # iteratively apply remaining mutations
-    @inbounds @fastmath @simd for i in ancestor_idx+1:n_genes
+    @inbounds for i in ancestor_idx+1:n_genes
         gene = genes[i]
         gid = gene.id
         rng = StableRNG(gene.seed)
-        gene.init!(rng, Float32, arr, gene.mr)
+        @fastmath gene.init!(rng, Float32, arr, gene.mr)
         # update cache if we are using one
         if yes_weight_cache && i != n_genes && gid ∉ keys(weight_cache)
             gene_id = genes[i].id
@@ -50,15 +50,17 @@ function tensor(cw::CompositeWeight; weight_cache::_WeightCache=nothing)::Array{
     gpu_weights = [gpu(tensor(w, weight_cache=weight_cache)) for w in cw.weights]
     reduce(+, gpu_weights) |> Transformers.tocpudevice
 end
-function tensor(w::WeightsCollection; weight_cache::_WeightCache=nothing)
-    @assert ndims(w.weights) <= 2 "WeightsCollection only supports 2 or fewer dimensions, got $(ndims(w.weights))"
-    developed_weights = map(w->tensor(w, weight_cache=weight_cache), w.weights)
-    mat = zeros(Float32, w.dims...)
+function tensor(wc::WeightsCollection; weight_cache::_WeightCache=nothing)
+    @assert ndims(wc.weights) <= 2 "WeightsCollection only supports 2 or fewer dimensions, got $(ndims(wc.weights))"
+    developed_weights = map(w->tensor(w, weight_cache=weight_cache), wc.weights)
+    mat = zeros(Float32, wc.dims...)
     row_idx, col_idx = 1, 1
+    # TODO confirm this works for qkv and o projm i.e. 3nxd and dxn
     for row in eachrow(developed_weights)
         nrows = size(row[1], 1)
         for developed_weight in row
             ncols = size(developed_weight, 2)
+            # ERROR HERE
             mat[row_idx:row_idx+nrows-1, col_idx:col_idx+ncols-1] = developed_weight
             col_idx += ncols
         end
@@ -72,7 +74,8 @@ end
 
 function create_layer(layer::Jevo.Embed; weight_cache::_WeightCache)
     weights = @inline tensor(layer.weights, weight_cache=weight_cache)
-    Transformers.Embed(weights; scale=nothing) |> gpu
+    embed = Transformers.Embed(weights; scale=nothing) |> gpu
+    embed
 end
 
 function create_layer(layer::Jevo.EmbedDecoder; weight_cache::_WeightCache)
@@ -114,11 +117,8 @@ function create_layer(layer::Jevo.SelfAttention; weight_cache::_WeightCache)
     )
 end
 
-function create_layer(geno_blocks::Tuple{Vararg{TransformerDecoderBlock}}; weight_cache::_WeightCache)
-    pheno_blocks = Vector{Transformers.Layers.TransformerDecoderBlock}(undef, length(geno_blocks))
-    for i in eachindex(geno_blocks)
-        pheno_blocks[i] = create_layer(geno_blocks[i], weight_cache=weight_cache)
-    end
+function create_layer(geno_blocks::Vector{TransformerDecoderBlock}; weight_cache::_WeightCache)
+    pheno_blocks =[create_layer(geno_blocks[i], weight_cache=weight_cache) for i in eachindex(geno_blocks)]
     Transformers.Transformer(Tuple(pheno_blocks)) |> gpu
 end
 

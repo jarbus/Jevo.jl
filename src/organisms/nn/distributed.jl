@@ -9,8 +9,11 @@ UpdateParentsAcrossAllWorkers(ids::Vector{String}=String[];kwargs...) = create_o
 
 function update_parents_across_all_workers!(s::State, pops::Vector{Vector{Population}})
     # all these functions run on master, and make calls to workers
+    # check which workers are missing parents of the current generation
     workers_missing_parents = master_send_pids_and_gpids(pops)
+    # construct all missing parents on master 
     worker_pid_genomes = master_construct_parents_genomes(pops, workers_missing_parents)
+    # send to workers and cache
     master_cache_parents!(worker_pid_genomes)
 end
 
@@ -25,6 +28,8 @@ function master_get_gpid_pid_pds(ind::Individual, tree::PhylogeneticTree, dc::De
         if !isnothing(grandparent) 
             gpid = grandparent.id
         end
+    else  # we encode genesis individuals as pid=-1, gpid=id
+        gpid, pid, parent_delta = ind.id, -1, dc[ind.id]
     end
     gpid, pid, parent_delta
 end
@@ -53,8 +58,13 @@ end
 function worker_mk_parents_from_deltas_and_ret_missing!(gpid_pid_pds::Vector{GPID_PID_PD})
     miss, geno_cache = Int[], get_genotype_cache()
     for (gpid, pid, pd) in gpid_pid_pds
-        pid == -1 && continue
-        if gpid != -1 && gpid ∈ keys(geno_cache)
+        if pid == -1 && gpid == -1
+            error("Found an individual with no parent and no grandparent, this used to be valid for all genesis inds, but now we encode geneis as pid=-1, gpid=id")
+        elseif pid == -1 && gpid != -1 
+            # we encode an org with no parent by it's grandparent id
+            # this is only for the first generation
+            geno_cache[gpid] = deepcopy(pd.change)
+        elseif gpid != -1 && gpid ∈ keys(geno_cache)
             geno_cache[pid] = geno_cache[gpid] + pd
         else
             push!(miss, pid)
@@ -78,7 +88,7 @@ function master_construct_genome(ind::Individual, tree::PhylogeneticTree, dc::De
     # restore from cache if there's an extant parent, otherwise, start from last node
     parent = path[end].parent
     genome = if !isnothing(parent) && parent.id ∈ keys(gc)
-        gc[pop!(path).parent.id]
+        gc[parent.id]
     else
         dc[pop!(path).id].change
     end
@@ -89,23 +99,6 @@ function master_construct_genome(ind::Individual, tree::PhylogeneticTree, dc::De
     genome
 end
 
-add_delta_to_genome(genome::AbstractGenotype, delta::Delta) = genome + delta
-function add_delta_to_genome(full_genome::Network, delta::Delta{Network}; n_back=20)
-    # Likely a performance bottleneck, because we keep copying the network
-    # for each delta application
-    compact_genome = copyarchitecture(full_genome)
-    ws_compact, ws_delta, ws_full =
-        get_weights(compact_genome), get_weights(delta.change), get_weights(full_genome)
-
-    for (wc, wd, wf) in zip(ws_compact, ws_delta, ws_full)
-        wc.dims != wd.dims && @assert false "Different dimensions in compact network and delta"
-        @assert isempty(wc.muts) "wc with dims $(wc.dims) not empty for type $(typeof(compact_genome))"
-        start_idx = max(1, length(wf.muts)-n_back)
-        append!(wc.muts, wf.muts[start_idx:end]) # add last 10 muts from full genome
-        append!(wc.muts, wd.muts)                # then add delta muts
-    end
-    compact_genome
-end
 
 function worker_construct_child_genome(ind::Individual{G, D, I}) where {G <: Delta, D, I}
     @assert length(ind.parents) <= 1
@@ -126,11 +119,11 @@ function master_construct_parents_genomes(pops::Vector{Vector{Population}}, work
         tree, dc = get_tree(subpop), get_delta_cache(subpop)
         for ind in subpop.individuals
             if ind.id in pids && !(ind.id in keys(parent_genomes))
-                parent_genomes[ind.id] = master_construct_genome(ind, tree, dc, gc)
+                gc[ind.id] = parent_genomes[ind.id] = master_construct_genome(ind, tree, dc, gc)
             end
         end
     end
-    @assert pids ⊆ keys(parent_genomes) "missing $(setdiff(pids, keys(parent_genomes))). Is your genotype cache too large?"
+    @assert pids ⊆ keys(parent_genomes) "missing $(setdiff(pids, keys(parent_genomes))). Is your genotype cache too small?"
     worker_parent_genomes = Dict(wid =>[(pid, parent_genomes[pid]) for pid in pids]
                                  for (wid, pids) in workers_missing_parents)
     return worker_parent_genomes

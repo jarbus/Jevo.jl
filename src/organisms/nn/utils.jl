@@ -145,7 +145,15 @@ get_weight_symbols(ind::Individual) = get_weight_symbols(ind.genotype)
 
 is_layer_norm(layers) = any(l->l isa LayerNorm, layers)
 
-function get_weights(x::Union{Network, AbstractLayer, AbstractGenotype}; no_layer_norm::Bool=false)
+function map_get(x::Union{AbstractLayer,AbstractWeights,AbstractGenotype}, type::Type)
+    map(x) do hierarchy
+        if hierarchy[end] isa type
+            return hierarchy[end]
+        end 
+    end |> filter(!isnothing)
+end
+
+function get_weights(x::Union{Network, AbstractLayer, AbstractGenotype,AbstractWeights}; no_layer_norm::Bool=false)
     map(x, weights_only=true) do hierarchy
         no_layer_norm && is_layer_norm(hierarchy) && return nothing
         return hierarchy[end]
@@ -159,4 +167,23 @@ function set_device()
     println("$(myid()) has devices $(collect(devices())), setting to $device_id")
     Main.jevo_device_id = device_id
     nothing
+end
+
+"""
+    is_fresh(layer::AbstractLayer) -> Bool
+    is_fresh(weight::AbstractWeights) -> Bool
+
+Returns true if all weights in the layer are fresh, i.e. have only one gene with id < 0. Doesn't include weights that were created by population initializers.
+"""
+is_fresh(w::Weights) = length(w.muts) == 1 && w.muts[1].id < 0
+is_fresh(layer::Union{AbstractLayer,AbstractWeights}) = all(is_fresh, get_weights(layer))
+
+
+function samearchitecture(a, b)
+    ws_a, ws_b = get_weights(a), get_weights(b)
+    length(ws_a) != length(ws_b) && return false
+    for (wa, wb) in zip(ws_a, ws_b)
+        wa.dims != wb.dims && return false
+    end
+    true
 end

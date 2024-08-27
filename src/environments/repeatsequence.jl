@@ -1,6 +1,6 @@
 using Transformers.Datasets: batched
 using Flux.Losses
-export RepeatSequence, preprocess, infer
+export RepeatSequence, preprocess, infer, NegativeLoss
 Base.@kwdef struct RepeatSequence <: AbstractEnvironment
     n_labels::Int
     batch_size::Int
@@ -55,8 +55,8 @@ function scores(rng, input, scores, split_size, trf)
         end_idx = idx+split_size-1
         split_input = (token = input.token[:,:,idx:end_idx], attention_mask = Transformers.NeuralAttentionlib.LengthMask(input.attention_mask.len[idx:end_idx]))
         split_logits = trf(split_input)
-        split_input_token_sum = sum(input.token[:,:,idx:end_idx] |> Transformers.tocpudevice)
-        tfr_param_sum = sum([sum(Transformers.tocpudevice(pv)) for pv in collect(Flux.params(trf.trf))])
+        #= split_input_token_sum = sum(input.token[:,:,idx:end_idx] |> Transformers.tocpudevice) =#
+        #= tfr_param_sum = sum([sum(Transformers.tocpudevice(pv)) for pv in collect(Flux.params(trf.trf))]) =#
         #= @info "splitidx $idx: logits: $(sum(split_logits)) inputs: $(split_input_token_sum) params: $tfr_param_sum" =#
         split_ce_loss = shift_decode_loss(split_logits, split_input.token, split_input.attention_mask)
         ce_loss[idx:end_idx] .= split_ce_loss
@@ -70,8 +70,6 @@ function scores(rng, input, scores, split_size, trf)
     end
     ce_loss
 end
-
-preprocess(trf::TransformerPhenotype, batch) = encode(trf.textenc, batch)
 
 function infer(trf::TransformerPhenotype, str::String; max_len::Int=10, n_logits::Int=3, print_output::Bool=false)
     decoder_onehot = encode(trf.textenc, str).token
@@ -107,7 +105,7 @@ function infer(trf::TransformerPhenotype, str::String; max_len::Int=10, n_logits
 end
 
 
-function get_preprocessed_batch(env, tfr)
+function get_preprocessed_batch(env::RepeatSequence, tfr)
     if !isdefined(Main, :preprocessed_batch)
         @warn "Creating variable Main.preprocessed_batch"
         Main.preprocessed_batch = preprocess(tfr, sample_batch(env))
@@ -127,7 +125,6 @@ function get_best_scores(env::RepeatSequence)
     end
     Main.best_scores
 end
-(creator::Creator{RepeatSequence})(;kwargs...) = RepeatSequence(creator.kwargs...)
 
 function play(env::RepeatSequence, ids::Vector{Int}, models::Vector{TransformerPhenotype})
     @assert length(models) == 1 "Only one model is supported for now"
@@ -136,7 +133,35 @@ function play(env::RepeatSequence, ids::Vector{Int}, models::Vector{TransformerP
     tfr = models[1]
     input_batch = get_preprocessed_batch(env, tfr)
     best_scores = get_best_scores(env)
-    split_size = env.n_labels ^ (env.seq_len - 1)
+    split_size = env.n_labels ^ (env.seq_len) # basically batch size
     results = scores(StableRNG(ids[1]), input_batch, best_scores, split_size, tfr)
     [Interaction(ids[1], [test_idx], r) for (test_idx, r) in enumerate(results)]
+end
+
+abstract type NegativeLoss <: AbstractMetric end
+
+function evaluate(env_creator::Creator{RepeatSequence}, individual::Individual)
+  wid = workers()[1]
+  percent_correct = fetch(@spawnat(wid, begin
+    function percentage_evaluation_npeat(trf::TransformerPhenotype; n::Int, kwargs...)
+        n_perfect = 0
+        for i in 0:n-1, j in 0:n-1, k in 0:n-1
+            prompt = "$i $j $k $i $j $k"
+            full_str = infer(trf, prompt; kwargs...)[1]
+            if length(full_str) >= 27
+              n_perfect += full_str[5:15] == full_str[17:27]
+              @info full_str
+            else
+            end
+        end
+        n_perfect / n^3
+    end
+    model = develop(individual.developer, individual)
+    percentage_evaluation_npeat(model, n=env_creator.kwargs.n_labels, max_len=15)
+  end))
+  @info "Percentage perfect: $(round(percent_correct, digits=3))"
+  fetch(@spawnat(wid, begin
+      device!(Main.jevo_device_id)
+      mean(interaction.score for interaction in Jevo.play(env_creator, [individual]))
+    end))
 end
