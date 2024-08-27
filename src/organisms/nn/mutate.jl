@@ -13,17 +13,12 @@ export NNGenePoolMutator, ClearCurrentGenWeights, ComputeGenePoolNetwork, AddAtt
 
 Adds a new gene to the weight. If `hist_weight` is provided, the gene's initialization is that of the last historical mutation, otherwise, we assume the gene is fresh and use the only initialization in `weight.muts`.
 """
-# this version of the function is only for fresh weights with no history
-function non_ancestral_mutate!(rng, gene_counter, weight::Weights; mrs::Tuple{Vararg{Float32}})
-    @assert length(weight.muts) == 1 
-    init! = weight.muts[end].init!
-    push!(weight.muts, NetworkGene(rng, gene_counter, rand(rng, mrs), init!))
-end
 
 # we only use historical weight to figure out what init to use for fresh-ish weights
 function non_ancestral_mutate!(rng, gene_counter, hist_weight::Weights, weight::Weights; mrs::Tuple{Vararg{Float32}})
     init! = hist_weight.muts[end].init!
     push!(weight.muts, NetworkGene(rng, gene_counter, rand(rng, mrs), init!))
+    true
 end
 
 """
@@ -42,9 +37,10 @@ function ancestral_mutate!(rng, gene_counter, historical_weight, weight::Weights
     # with 0.01 chance, we can sample a higher mutation rate
     mr = rand(rng, mrs)
     max_mr = maximum(m.mr for m in historical_weight.muts)
-    mr > max_mr && rand(rng) > 0.01 && return
+    mr > max_mr && rand(rng) > 0.01 && return false
     gene = NetworkGene(rng, gene_counter, mr, init!) 
     push!(weight.muts, gene)
+    return true
 end
 
 # TODO this is a non-deterministic hack, because gene ids are assigned in threads
@@ -61,17 +57,10 @@ function compute_mutation_probabilities(weights, min_mutation_prob)
     last_gene_ids
 end
 
-function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind::Individual; n_back::Int, min_mutation_prob::Float64=0.05, mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool=true)
+function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind::Individual; n_back::Int, min_mutation_prob::Float64=0.05, mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool=true, max_n_muts::Int)
     genome = deepcopy(ind.genotype)
     weights = get_weights(genome, no_layer_norm=no_layer_norm)
     fresh_weights = filter(is_fresh, weights)
-
-    if !isempty(fresh_weights)
-        non_ancestral_mutate!.(rng, fresh_weights, mrs=mrs)
-        @assert false
-        return
-    end
-
 
     historical_genome = ind.generation == 0 ? deepcopy(genome) : get_genotype_cache()[ind.parents[1]]
     gene_counter = @inline get_counter(AbstractGene, state)
@@ -79,20 +68,23 @@ function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind:
     probabilities = @inline compute_mutation_probabilities(historical_weights, min_mutation_prob)
     @assert samearchitecture(historical_genome, genome)
     @assert length(weights) == length(historical_weights) == length(probabilities)
-    tries, added_mutation = 0, false
-    while tries < 20 && !added_mutation
-        for (weight, hist_weight, prob) in zip(weights, historical_weights, probabilities)
+    tries, n_added_mutations = 0, 0
+    while tries < 50 && n_added_mutations == 0
+        random_order = zip(weights, historical_weights, probabilities) |> collect |> shuffle
+        for (weight, hist_weight, prob) in random_order
             rand(rng) > prob && continue
-            if length(hist_weight.muts) < n_back
+            added_mut = if length(hist_weight.muts) < n_back
                 @inline non_ancestral_mutate!(rng, gene_counter, hist_weight, weight, mrs=mrs)
             else
                 @inline ancestral_mutate!(rng, gene_counter, hist_weight, weight, mrs=mrs, n_back=n_back)
             end
-            added_mutation = true
+            n_added_mutations += added_mut
+            n_added_mutations > max_n_muts && break
         end
+        n_added_mutations > 0 && break
         tries += 1
     end
-    @assert added_mutation "No mutations added"
+    @assert n_added_mutations > 0 "No mutations added given probabilities $probabilities"
     genome
 end
 

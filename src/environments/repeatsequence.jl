@@ -60,7 +60,7 @@ function scores(rng, input, scores, split_size, trf)
         #= @info "splitidx $idx: logits: $(sum(split_logits)) inputs: $(split_input_token_sum) params: $tfr_param_sum" =#
         split_ce_loss = shift_decode_loss(split_logits, split_input.token, split_input.attention_mask)
         ce_loss[idx:end_idx] .= split_ce_loss
-        if sum(split_ce_loss) < sum(scores[idx:end_idx])-10std(scores[idx:end_idx])
+        if mean(split_ce_loss) < mean(scores[idx:end_idx])-5std(scores[idx:end_idx])
             #= @info("skipping at idx $idx: $(sum(split_ce_loss)) < $(sum(scores[idx:end_idx])) - $(std(scores[idx:end_idx]))") =#
             return ce_loss
         end
@@ -133,7 +133,7 @@ function play(env::RepeatSequence, ids::Vector{Int}, models::Vector{TransformerP
     tfr = models[1]
     input_batch = get_preprocessed_batch(env, tfr)
     best_scores = get_best_scores(env)
-    split_size = env.n_labels ^ (env.seq_len) # basically batch size
+    split_size = env.n_labels ^ (env.seq_len-1) # basically batch size
     results = scores(StableRNG(ids[1]), input_batch, best_scores, split_size, tfr)
     [Interaction(ids[1], [test_idx], r) for (test_idx, r) in enumerate(results)]
 end
