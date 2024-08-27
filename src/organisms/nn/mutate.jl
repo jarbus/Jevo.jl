@@ -60,7 +60,6 @@ end
 function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind::Individual; n_back::Int, min_mutation_prob::Float64=0.05, mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool=true, max_n_muts::Int)
     genome = deepcopy(ind.genotype)
     weights = get_weights(genome, no_layer_norm=no_layer_norm)
-    fresh_weights = filter(is_fresh, weights)
 
     historical_genome = ind.generation == 0 ? deepcopy(genome) : get_genotype_cache()[ind.parents[1]]
     gene_counter = @inline get_counter(AbstractGene, state)
@@ -79,7 +78,7 @@ function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind:
                 @inline ancestral_mutate!(rng, gene_counter, hist_weight, weight, mrs=mrs, n_back=n_back)
             end
             n_added_mutations += added_mut
-            n_added_mutations > max_n_muts && break
+            n_added_mutations == max_n_muts && break
         end
         n_added_mutations > 0 && break
         tries += 1
