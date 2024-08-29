@@ -60,8 +60,6 @@ end
 function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind::Individual; n_back::Int, min_mutation_prob::Float64=0.05, mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool=true, max_n_muts::Int)
     genome = deepcopy(ind.genotype)
     weights = get_weights(genome, no_layer_norm=no_layer_norm)
-    fresh_weights = filter(is_fresh, weights)
-
     historical_genome = ind.generation == 0 ? deepcopy(genome) : get_genotype_cache()[ind.parents[1]]
     gene_counter = @inline get_counter(AbstractGene, state)
     historical_weights = get_weights(historical_genome, no_layer_norm=no_layer_norm)
@@ -296,7 +294,7 @@ function add_attention_head(rng::AbstractRNG, state::State, ::AbstractPopulation
           # [ 1 2 ] heads [ a b c d e f 3] weights
           # [ 1 ] heads [ a b c d 2 e f 3] weights
           # [ ] heads [ a b 1 c d 2 e f 3] weights
-          head = Weights(dims, [NetworkGene(-inc!(gene_counter), rand(rng, UInt64), 1f0, init!)])
+          head = Weights(dims, [NetworkGene(-inc!(gene_counter), rand(rng, UInt64), 0.1f0, init!)])
           insert!(wc.weights, (i*third)+1, head)
         end
         @assert length(wc.weights) == 3 * attn_layer.n_heads "Invalid number of heads, got $(length(wc.weights)), expected $(3 * attn_layer.n_heads)"
@@ -333,7 +331,7 @@ function add_decoder_block(rng::AbstractRNG, state::State, pop::AbstractPopulati
         muts = layers[end].muts
         @assert length(muts) == 1 "Expected one NetworkGene for $(layers)"
         gene = muts[1]
-        muts[1] = NetworkGene(-gene.id, gene.seed, gene.mr, gene.init!)
+        muts[1] = NetworkGene(-gene.id, gene.seed, 0.1f0, gene.init!)
     end
     # randomly insert the block
     blocks = genotype.layers[1].blocks
