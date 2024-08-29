@@ -77,7 +77,7 @@ function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind:
                 @inline ancestral_mutate!(rng, gene_counter, hist_weight, weight, mrs=mrs, n_back=n_back)
             end
             n_added_mutations += added_mut
-            n_added_mutations > max_n_muts && break
+            n_added_mutations == max_n_muts && break
         end
         n_added_mutations > 0 && break
         tries += 1
