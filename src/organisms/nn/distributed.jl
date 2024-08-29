@@ -51,7 +51,7 @@ function master_send_pids_and_gpids(pops::Vector{Vector{Population}})
              for wid in procs()]
     # Receive missing parents from workers 
     workers_missing_parents = Dict(task.where => fetch(task) for task in tasks)
-    @info workers_missing_parents
+    any(!isempty, values(workers_missing_parents)) && @info workers_missing_parents
     return workers_missing_parents
 end
 
