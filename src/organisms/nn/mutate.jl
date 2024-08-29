@@ -74,6 +74,7 @@ function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind:
             added_mut = if length(hist_weight.muts) < n_back
                 @inline non_ancestral_mutate!(rng, gene_counter, hist_weight, weight, mrs=mrs)
             else
+                length(weight.dims) == 1 && continue  # don't bother with biases that were mutated
                 @inline ancestral_mutate!(rng, gene_counter, hist_weight, weight, mrs=mrs, n_back=n_back)
             end
             n_added_mutations += added_mut
