@@ -68,7 +68,7 @@ function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind:
     while tries < 50 && n_added_mutations == 0
         random_order = zip(weights, historical_weights, probabilities) |> collect |> shuffle
         for (weight, hist_weight, prob) in random_order
-            rand(rng) > prob - min_mutation_prob && continue
+            rand(rng) > prob + min_mutation_prob && continue
             added_mut = if length(hist_weight.muts) < n_back
                 @inline non_ancestral_mutate!(rng, gene_counter, hist_weight, weight, mrs=mrs)
             else
