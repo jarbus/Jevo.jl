@@ -34,42 +34,16 @@ function sample_batch(env::RepeatSequence)
 end
 
 function shift_decode_loss(logits, trg, trg_mask::M) where M <: Transformers.NeuralAttentionlib.LengthMask
-    n_tests = size(trg, 3)
-    results = zeros(n_tests)
-    for i in 1:n_tests  # (vocab_size, seq_len , batch_size)
-        label = trg[:, 2:end, i:i]
-        logits_view = @view(logits[:, 1:end-1, i:i])
-        results[i] = -logitcrossentropy(logits_view, label, M(trg_mask.len[i:i]))
-    end
-    results
+    label = trg[:, 2:end, :]
+    -logitcrossentropy(@view(logits[:, 1:end-1, :]), label, trg_mask-1)
 end
 
-"""
-    scores(input, scores, split_size, trf)
-
-Computes losses in batches of size `split_size`. If a batch has a sufficiently lower loss than a good scorer, terminate early
-"""
-function scores(rng, input, scores, split_size, trf)
-    ce_loss = fill(-Inf, size(scores))
-    for idx in shuffle!(rng, collect(1:split_size:length(scores)))
-        end_idx = idx+split_size-1
-        split_input = (token = input.token[:,:,idx:end_idx], attention_mask = Transformers.NeuralAttentionlib.LengthMask(input.attention_mask.len[idx:end_idx]))
-        split_logits = trf(split_input)
-        #= split_input_token_sum = sum(input.token[:,:,idx:end_idx] |> Transformers.tocpudevice) =#
-        #= tfr_param_sum = sum([sum(Transformers.tocpudevice(pv)) for pv in collect(Flux.params(trf.trf))]) =#
-        #= @info "splitidx $idx: logits: $(sum(split_logits)) inputs: $(split_input_token_sum) params: $tfr_param_sum" =#
-        split_ce_loss = shift_decode_loss(split_logits, split_input.token, split_input.attention_mask)
-        ce_loss[idx:end_idx] .= split_ce_loss
-        if mean(split_ce_loss) < mean(scores[idx:end_idx])-5std(scores[idx:end_idx])
-            #= @info("skipping at idx $idx: $(sum(split_ce_loss)) < $(sum(scores[idx:end_idx])) - $(std(scores[idx:end_idx]))") =#
-            return ce_loss
-        end
-    end
-    if sum(ce_loss) .> sum(scores)
-        scores[:] .= ce_loss[:]
-    end
+function loss(input, trf)
+    logits = trf(input)
+    ce_loss = shift_decode_loss(logits, input.token, input.attention_mask)
     ce_loss
 end
+
 
 function infer(trf::TransformerPhenotype, str::String; max_len::Int=10, n_logits::Int=3, print_output::Bool=false)
     decoder_onehot = encode(trf.textenc, str).token
@@ -114,28 +88,18 @@ function get_preprocessed_batch(env::RepeatSequence, tfr)
     # Allocating a large amount of memory on the CPU appears to alleviate this 
     # issue. Garbage collection does not help. Unable to justify spending
     # more time on this, if it's resolved. On my laptop, this takes ~179μs per call
-    size(zeros(1_000_000)) # TODO see if we can change this to fill(undef, 1_000_000)
+    #size(zeros(1_000_000)) # TODO see if we can change this to fill(undef, 1_000_000)
+    size(fill(undef, 1_000_000))
     Main.preprocessed_batch |> deepcopy |> gpu
 end
 
-function get_best_scores(env::RepeatSequence)
-    if !isdefined(Main, :best_scores)
-        @warn "Creating variable Main.best_scores"
-        Main.best_scores = fill(-Inf, env.batch_size)
-    end
-    Main.best_scores
-end
-
-function play(env::RepeatSequence, ids::Vector{Int}, models::Vector{TransformerPhenotype})
+function step!(env::RepeatSequence, ids::Vector{Int}, models::Vector{TransformerPhenotype})
     @assert length(models) == 1 "Only one model is supported for now"
     @assert env.seq_len > 1
-    #= @info("evaluating $(ids[1])") =#
     tfr = models[1]
     input_batch = get_preprocessed_batch(env, tfr)
-    best_scores = get_best_scores(env)
-    split_size = env.n_labels ^ (env.seq_len-1) # basically batch size
-    results = scores(StableRNG(ids[1]), input_batch, best_scores, split_size, tfr)
-    [Interaction(ids[1], [test_idx], r) for (test_idx, r) in enumerate(results)]
+    ce_loss = loss(input_batch, tfr)
+    [Interaction(ids[1], [], ce_loss)]
 end
 
 abstract type NegativeLoss <: AbstractMetric end
