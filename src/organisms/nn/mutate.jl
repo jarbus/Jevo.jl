@@ -1,20 +1,17 @@
-export NNGenePoolMutator, ClearCurrentGenWeights, ComputeGenePoolNetwork, AddAttentionHeads, AddDecoderBlock, NBackMutator
+export ClearCurrentGenWeights, AddAttentionHeads, AddDecoderBlock, NBackMutator
 
-@define_op "ComputeGenePoolNetwork"
 @define_op "ClearCurrentGenWeights" "AbstractMutator"
-@define_op "NNGenePoolMutator" "AbstractMutator"
 @define_op "AddAttentionHeads" "AbstractMutator"
 @define_op "AddDecoderBlock" "AbstractMutator"
 @define_op "NBackMutator" "AbstractMutator"
 
 """
-    non_ancestral_mutate!(rng, gene_counter, weight::Weights; mrs::Tuple{Vararg{Float32}})
     non_ancestral_mutate!(rng, gene_counter, hist_weight::Weights, weight::Weights; mrs::Tuple{Vararg{Float32}})
 
 Adds a new gene to the weight. If `hist_weight` is provided, the gene's initialization is that of the last historical mutation, otherwise, we assume the gene is fresh and use the only initialization in `weight.muts`.
-"""
 
-# we only use historical weight to figure out what init to use for fresh-ish weights
+Returns true, because a mutation is added.
+"""
 function non_ancestral_mutate!(rng, gene_counter, hist_weight::Weights, weight::Weights; mrs::Tuple{Vararg{Float32}})
     init! = hist_weight.muts[end].init!
     push!(weight.muts, NetworkGene(rng, gene_counter, rand(rng, mrs), init!))
@@ -24,7 +21,9 @@ end
 """
     ancestral_mutate!(rng, gene_counter, historical_weight, weight::Weights; n_back::Int, mrs::Tuple{Vararg{Float32}})
 
-Adds a new gene to the weight
+Adds a new gene to the weight. If randomly sampled MR is greater than the max MR in the last `n_back` mutations, we skip the mutation.
+
+Returns true if a mutation is added, false otherwise.
 """
 function ancestral_mutate!(rng, gene_counter, historical_weight, weight::Weights; n_back::Int, mrs::Tuple{Vararg{Float32}})
     # choose whether to use existing or sparse init
@@ -43,9 +42,9 @@ function ancestral_mutate!(rng, gene_counter, historical_weight, weight::Weights
     return true
 end
 
-# TODO this is a non-deterministic hack, because gene ids are assigned in threads
+# TODO FIX this is a non-deterministic hack, because gene ids are assigned in threads
 # We need to figure out a fix for this, for reproducibility
-function compute_mutation_probabilities(weights, min_mutation_prob)
+function compute_mutation_probabilities(weights)
     last_gene_ids = Float64.([abs(weight.muts[end].id) for weight in weights])
     last_gene_ids .= round.(last_gene_ids ./ 10000 ) # TODO hack to mitigate non-determinism, get rid of this
     last_gene_ids .-= minimum(last_gene_ids)
@@ -53,7 +52,6 @@ function compute_mutation_probabilities(weights, min_mutation_prob)
     if _max != 0
         last_gene_ids ./= _max
     end
-    clamp!(last_gene_ids, min_mutation_prob, 1.0)
     last_gene_ids
 end
 
@@ -63,14 +61,14 @@ function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind:
     historical_genome = ind.generation == 0 ? deepcopy(genome) : get_genotype_cache()[ind.parents[1]]
     gene_counter = @inline get_counter(AbstractGene, state)
     historical_weights = get_weights(historical_genome, no_layer_norm=no_layer_norm)
-    probabilities = @inline compute_mutation_probabilities(historical_weights, min_mutation_prob)
+    probabilities = @inline compute_mutation_probabilities(historical_weights)
     @assert samearchitecture(historical_genome, genome)
     @assert length(weights) == length(historical_weights) == length(probabilities)
     tries, n_added_mutations = 0, 0
     while tries < 50 && n_added_mutations == 0
         random_order = zip(weights, historical_weights, probabilities) |> collect |> shuffle
         for (weight, hist_weight, prob) in random_order
-            rand(rng) > prob && continue
+            rand(rng) > prob - min_mutation_prob && continue
             added_mut = if length(hist_weight.muts) < n_back
                 @inline non_ancestral_mutate!(rng, gene_counter, hist_weight, weight, mrs=mrs)
             else
@@ -87,8 +85,7 @@ function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind:
 end
 
 function mutate!(rng::AbstractRNG, state::AbstractState, population::AbstractPopulation, ind::Individual{G, D, I}, args...; fn, kwargs...) where {G <: Delta, D, I}
-    # I really, really don't like this, but this is just an experimental mutator.
-    # If we keep this, we should refactor the mutation scheme to properly dispatch this.
+    # I really, really don't like this, but this is simpler less confusing than the alternative
     if fn != nback_mutate
         ind.genotype = fn(rng, state, population, ind.genotype, args...; kwargs...)
         return
@@ -98,7 +95,9 @@ end
 
 
 """
-    NBackMutator(ids::Vector{String}=String[]; n_back::Int, mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool, condition::Function=always, time::Bool=false, kwargs...)
+    NBackMutator(ids::Vector{String}=String[]; n_back::Int, mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool, condition::Function=always, time::Bool=false, min_mutation_prob::Float64=0.05, max_n_muts::Int)
+
+Mutates up to `max_n_muts` weights of the current individual based on the last `n_back` mutations in the historical individual. If the historical individual has less than `n_back` mutations, we mutate randomly. The mutation rate of the new gene is sampled from `mrs`, and if the sampled mutation rate is higher than the maximum mutation rate in the last `n_back` mutations, we skip the mutation with a `min_mutation_prob` chance.
 """
 NBackMutator(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
     create_op("NBackMutator",
@@ -148,6 +147,8 @@ ClearCurrentGenWeights(ids::Vector{String}=String[]; condition::Function=always,
               time=time;)
 clear_weights(::AbstractRNG, ::State, ::Population, genotype) = copyarchitecture(genotype)
 
+
+# Underpowered mutation op
 function mutate(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Network; mr::Union{Float32,Tuple{Vararg{Float32}}}, n::Int=-1, no_layer_norm::Bool=true, kwargs...)
     genotype = deepcopy(genotype)
     gene_counter = get_counter(AbstractGene, state)
@@ -158,7 +159,6 @@ function mutate(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotyp
         weight = layers[end]               
         no_layer_norm && is_layer_norm(layers) && return     # Skip if we're a layer norm
         !popfirst!(should_mutate) && return # Skip if we don't want to mutate this weight
-        # init = rand(rng, (compute_init(layers), apply_sparse_noise!))
         init = compute_init(layers)
         mrf0 = mr isa Float32 ? mr : rand(rng, mr)
         push!(weight.muts, NetworkGene(rng, gene_counter, mrf0, init))
@@ -170,98 +170,7 @@ end
 mutate(rng::AbstractRNG, state::State, population::AbstractPopulation, genotype::Delta, args...; kwargs...) =
     Delta(mutate(rng, state, population, genotype.change, args...; kwargs...))
 
-"""
-Network where each weight contains all genes in the gene pool
-"""
-struct GenePoolNetwork
-    network
-end
-function update_genepool_network!(pop::Population; no_layer_norm::Bool)
-    # TODO make this work with dynamic architecture
-    gp = getonly(x->x isa GenePool, pop.data)
-    length(gp.deltas) == 0 && @error "Genepool empty" 
-    stat_net = copyarchitecture(gp.deltas[1])
-    stat_net_ws = Jevo.get_weights(stat_net, no_layer_norm=no_layer_norm)
-    mut_found = false
-    for d in gp.deltas
-        for (stat_net_w, d_w) in zip(stat_net_ws, Jevo.get_weights(d, no_layer_norm=no_layer_norm))
-            push!(stat_net_w.muts, d_w.muts...)
-            mut_found = mut_found || !isempty(d_w.muts)
-        end
-    end
-    @assert mut_found "No mutations found when creating GenePoolNetwork"
-    filter!(d->!isa(d, GenePoolNetwork), pop.data) # get rid of any existing genepools
-    push!(pop.data, GenePoolNetwork(stat_net))
-end
-
-ComputeGenePoolNetwork(ids::Vector{String}=String[];after_gen::Int, no_layer_norm::Bool=true, kwargs...) =
-    create_op("ComputeGenePoolNetwork",
-    condition=s->generation(s) > after_gen,
-    retriever=PopulationRetriever(ids),
-    updater=map(map((_,p)->update_genepool_network!(p, no_layer_norm=no_layer_norm))); kwargs...)
-
-function nn_genepool_mutate(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Network, args...; mr::Union{Float32,Tuple{Vararg{Float32}}}, n::Int=-1, no_layer_norm::Bool=true, kwargs...)
-
-    gp_network = getonly(d->d isa GenePoolNetwork, pop.data)
-    gp_weights = Jevo.get_weights(gp_network.network, no_layer_norm=no_layer_norm)
-    genotype = deepcopy(genotype)
-    gene_counter = get_counter(AbstractGene, state)
-    n_deltas = getonly(x->x isa GenePool, pop.data).deltas |> length
-    n_sparse, n_muts = 0, 0
-    for gp_w in gp_weights, mut in gp_w.muts
-        n_sparse += mut.init! == apply_sparse_noise!
-        n_muts += 1
-    end
-    percent_sparse = n_sparse / n_muts
-    @assert 0 <= percent_sparse <= 1
-    # entire mutation has to be either sparse or full, not on a per-gene basis
-    if rand(rng) < 0.01  # sample random init with small chance
-        sparse_mut = rand(rng, Bool)
-    else 
-        sparse_mut = rand(rng) < percent_sparse  # sample sparse mut with small chance
-    end
-
-    added_weight = false
-    loops = 0
-    while !added_weight
-        should_mutate = what_layers_should_we_mutate(rng, genotype, n=n, no_layer_norm=no_layer_norm)
-        # Determine which weights to mutate based off n
-        idx = 0
-        map!(genotype, weights_only=true) do layers
-            weight = layers[end]               
-            no_layer_norm && is_layer_norm(layers) && return     # Skip if we're a layer norm
-            idx += 1
-            gp_w = gp_weights[idx]
-            !popfirst!(should_mutate) && return # Skip if we don't want to mutate this weight
-            rand(rng, 1:n_deltas) > length(gp_w.muts) + 1 && return # skip proportional to selected weight
-            mrf0 = mr isa Float32 ? mr : rand(rng, mr)
-            init! = sparse_mut ? apply_sparse_noise! : compute_init(layers)
-            max_mr = maximum(m.mr for m in gp_w.muts; init=0f0)
-            max_mr = max_mr == 0f0 ? rand(rng, mr) : max_mr
-            mrf0 > max_mr && rand(rng) > 0.01 && return
-            gene = NetworkGene(rng, gene_counter, mrf0, init!) 
-            push!(weight.muts, gene)
-            added_weight = true
-        end
-        loops += 1
-        @assert loops <= 10
-        @assert idx == length(gp_weights) "Should have iterated through all weights, idx=$idx, $(length(gp_weights)) left"
-        @assert isempty(should_mutate) "Should have iterated through all weights, $(length(should_mutate)) left"
-    end
-    genotype
-end
-
-nn_genepool_mutate(rng::AbstractRNG, state::State, population::AbstractPopulation, genotype::Delta, args...; kwargs...) =
-    Delta(nn_genepool_mutate(rng, state, population, genotype.change, args...; kwargs...))
-
-NNGenePoolMutator(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
-    create_op("NNGenePoolMutator", 
-              condition=condition,
-              retriever=PopulationRetriever(ids),
-              updater=map(map((s,p)->mutate!(s, p; fn=nn_genepool_mutate, kwargs...))),
-              time=time;)
-
-""" Choose a random layer to add an attention head to."""
+# Adds attention head to random self-attention layer
 function add_attention_head(rng::AbstractRNG, state::State, ::AbstractPopulation, genotype::Network, args...; prob::Float64, inits::Tuple{Vararg{Function}}, kwargs...)
     @assert genotype.layers[1] isa Transformer "Must be a Transformer"
     rand(rng) > prob && return genotype
@@ -312,7 +221,12 @@ end
 add_attention_head(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Delta, args...; kwargs...) = 
     Delta(add_attention_head(rng, state, pop, genotype.change, args...; kwargs...))
 
-    AddAttentionHeads(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
+"""
+    AddAttentionHeads(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, prob::Float64, inits::Tuple{Vararg{Function}}, kwargs...)
+
+Adds a new attention head to a random self-attention layer with a probability of `prob`. The new head is initialized with a randomly selected function from `inits`.
+"""
+AddAttentionHeads(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
     create_op("AddAttentionHeads", 
               condition=condition,
               retriever=PopulationRetriever(ids),
@@ -341,6 +255,11 @@ end
 add_decoder_block(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::Delta, args...; kwargs...) = 
     Delta(add_decoder_block(rng, state, pop, genotype.change, args...; kwargs...))
 
+"""
+    AddDecoderBlock(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, prob::Float64, head_dims::Tuple{Vararg{Int}}, ff_dim::Int, hidden_dim::Int, qkv_rank::Int=-1, o_rank::Int=-1, ff_rank::Int=-1, kwargs...)
+
+Adds a new decoder block to the transformer with a probability of `prob`. The new block has one head with a dimension randomly selected from `head_dims`.
+"""
 AddDecoderBlock(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
     create_op("AddDecoderBlock", 
               condition=condition,

@@ -13,7 +13,6 @@ function play(c::Creator{E}, inds::Vector{I}) where {E<:AbstractEnvironment, I<:
 end
 
 function play(env::E, ids::Vector{Int}, phenotypes::Vector{P}) where {E <: AbstractEnvironment, P<:AbstractPhenotype}
-    # TODO overwrite this at some point in the future?
     is_done = false
     interactions = Vector{Interaction}()
     while !is_done

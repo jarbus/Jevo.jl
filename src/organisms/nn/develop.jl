@@ -55,12 +55,10 @@ function tensor(wc::WeightsCollection; weight_cache::_WeightCache=nothing)
     developed_weights = map(w->tensor(w, weight_cache=weight_cache), wc.weights)
     mat = zeros(Float32, wc.dims...)
     row_idx, col_idx = 1, 1
-    # TODO confirm this works for qkv and o projm i.e. 3nxd and dxn
     for row in eachrow(developed_weights)
         nrows = size(row[1], 1)
         for developed_weight in row
             ncols = size(developed_weight, 2)
-            # ERROR HERE
             mat[row_idx:row_idx+nrows-1, col_idx:col_idx+ncols-1] = developed_weight
             col_idx += ncols
         end
