@@ -35,7 +35,7 @@ function ancestral_mutate!(rng, gene_counter, historical_weight, weight::Weights
     # choose a mutation rate. if it's higher than the max selected mutation rate, skip
     # with 0.01 chance, we can sample a higher mutation rate
     mr = rand(rng, mrs)
-    max_mr = maximum(m.mr for m in historical_weight.muts)
+    max_mr = maximum(m.mr for m in historical_weight.muts[end-n_back+1:end])
     mr > max_mr && rand(rng) > 0.01 && return false
     gene = NetworkGene(rng, gene_counter, mr, init!) 
     push!(weight.muts, gene)
