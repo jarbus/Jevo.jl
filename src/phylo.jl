@@ -19,9 +19,8 @@ struct GenePool
     deltas::Vector
 end
 
-DeltaCache = Dict{Int, Delta}
+DeltaCache = LRU{Int, Delta}
 
-Base.:(==)(a::Delta, b::Delta) = a.change == b.change
 
 function develop(creator::Creator, ind::Individual{G, D, I}) where {G <: Delta, D, I}
     genotype = worker_construct_child_genome(ind)
@@ -115,10 +114,10 @@ Creates a cache of Deltas for a population.
 """
 @define_op "InitializeDeltaCache"
 
-InitializeDeltaCache(ids::Vector{String}=String[];kwargs...) = create_op("InitializeDeltaCache",
+InitializeDeltaCache(ids::Vector{String}=String[];maxsize=10_000, kwargs...) = create_op("InitializeDeltaCache",
     condition=first_gen,
     retriever=PopulationRetriever(ids),
-    updater=map(map((s,p)->(push!(p.data, DeltaCache()); update_delta_cache!(s, p)))); kwargs...)
+    updater=map(map((s,p)->(push!(p.data, DeltaCache(maxsize=maxsize)); update_delta_cache!(s, p)))); kwargs...)
 
 """
     UpdateDeltaCache(ids::Vector{String}=String[];kwargs...)
