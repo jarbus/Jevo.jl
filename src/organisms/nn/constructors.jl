@@ -274,6 +274,13 @@ function Dense(rng::AbstractRNG, counter::AbstractCounter; dims::Tuple{Vararg{In
     Dense(weights, bias, σ)
 end
 
+function RNN(rng::AbstractRNG, counter::AbstractCounter; dims::Tuple{Int, Int}, σ::Function)
+    input = Weights(rng, counter, (dims[2], dims[1]))
+    hidden = Weights(rng, counter, (dims[2], dims[2]))
+    bias = Weights(rng, counter, (dims[2],))
+    RNN(input, hidden, bias, σ)
+end
+
 function create_embeds(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{Int}}; rank::Int=-1)
     """Create an embed layer with a (hidden_dim, vocab_dim) weight matrix"""
     @assert length(dims) == 2 "Embed layer must have 2 dimensions, got $(length(dims))"

@@ -1,4 +1,4 @@
-export TransformerPhenotype, Transformer, FactorWeight, CompositeWeight, WeightsCollection, Weights, Dense, SelfAttention, Chain, Network, Model, PostNormResidual, Embed, EmbedDecoder, LayerNorm, TransformerDecoderBlock
+export TransformerPhenotype, Transformer, FactorWeight, CompositeWeight, WeightsCollection, Weights, Dense, SelfAttention, Chain, Network, Model, PostNormResidual, Embed, EmbedDecoder, LayerNorm, TransformerDecoderBlock, RNN
 """
     struct NetworkGene <: AbstractMutation
         id::Int
@@ -90,6 +90,13 @@ Standard dense layer with weights, bias, and activation function
 """
 struct Dense{W,B} <: AbstractLayer where {W <: AbstractWeights, B <: AbstractWeights}
     weights::W
+    bias::B
+    σ::Function
+end
+
+struct RNN{Wi,Wh,B} <: AbstractLayer where {Wi <: AbstractWeights, Wh <: AbstractWeights, B <: AbstractWeights}
+    input::Wi
+    hidden::Wh
     bias::B
     σ::Function
 end

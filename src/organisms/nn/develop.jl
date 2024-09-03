@@ -69,6 +69,12 @@ function tensor(wc::WeightsCollection; weight_cache::_WeightCache=nothing)
 end
 # PERFORMANCE CRITICAL END
 ############################
+function create_layer(layer::Jevo.RNN, weight_cache::_WeightCache)
+    wi = @inline tensor(layer.input, weight_cache=weight_cache)
+    wh = @inline tensor(layer.hidden, weight_cache=weight_cache)
+    b = @inline tensor(layer.bias, weight_cache=weight_cache)
+    Flux.Recur(Flux.RNNCell(layer.σ, wi, wh, b, zeros(Float32, (size(wh, 1), 1))))
+end
 
 function create_layer(layer::Jevo.Embed; weight_cache::_WeightCache)
     weights = @inline tensor(layer.weights, weight_cache=weight_cache)
