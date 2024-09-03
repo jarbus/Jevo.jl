@@ -51,6 +51,8 @@ function compute_mutation_probabilities(weights)
     _max = maximum(last_gene_ids)
     if _max != 0
         last_gene_ids ./= _max
+    else
+        last_gene_ids .= 1.0
     end
     last_gene_ids
 end
