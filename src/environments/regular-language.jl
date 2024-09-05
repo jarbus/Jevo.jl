@@ -1,4 +1,4 @@
-export RegularLanguage, evaluate, AcceptRejectStrings
+export RegularLanguage, evaluate, AcceptRejectStrings, preprocess
 # TODO figure out what is the max string length in dynarec
 #   i think he trains on smaller sequences and then observes behavior in the limit
 #   i think he also trains on the same set of sequences

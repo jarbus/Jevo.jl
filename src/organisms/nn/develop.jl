@@ -69,7 +69,7 @@ function tensor(wc::WeightsCollection; weight_cache::_WeightCache=nothing)
 end
 # PERFORMANCE CRITICAL END
 ############################
-function create_layer(layer::Jevo.RNN, weight_cache::_WeightCache)
+function create_layer(layer::Jevo.RNN; weight_cache::_WeightCache)
     wi = @inline tensor(layer.input, weight_cache=weight_cache)
     wh = @inline tensor(layer.hidden, weight_cache=weight_cache)
     b = @inline tensor(layer.bias, weight_cache=weight_cache)
