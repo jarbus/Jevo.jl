@@ -149,7 +149,7 @@ function develop(c::Creator{TransformerPhenotype}, net::Network)
     hidden_dim = size(embed.embeddings, 1)
     TransformerPhenotype(
         c.kwargs.textenc,
-        Transformers.Layers.SinCosPositionEmbed(hidden_dim),
+        Transformers.Layers.RotaryPositionEmbed(),
         embed,
         create_layer(trf.blocks, weight_cache=weight_cache),
         create_layer(trf.embeddecoder, weight_cache=weight_cache),
@@ -159,10 +159,9 @@ end
 function (trf::TransformerPhenotype)(input)
     mask = get(input, :attention_mask, nothing)
     embeds = trf.embed(input.token)
-    pos_embed = trf.posembed(embeds) |> gpu
-    embeds = embeds .+ pos_embed
+    pos_embed = trf.posembed(embeds) |> gpu # changed for ROPE
     logits = Transformers.ChainRulesCore.ignore_derivatives() do
-        trf.trf(embeds, mask).hidden_state
+        trf.trf(pos_embed, mask).hidden_state
     end
     trf.embeddecoder(logits)
 end
