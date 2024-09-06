@@ -125,10 +125,10 @@ function create_layer(geno_blocks::Vector{TransformerDecoderBlock}; weight_cache
     pheno_blocks =[create_layer(geno_blocks[i], weight_cache=weight_cache) for i in eachindex(geno_blocks)]
     Transformers.Transformer(Tuple(pheno_blocks)) |> gpu
 end
-
-# Chain
-create_layer(layer::Jevo.Chain; weight_cache::_WeightCache) =
-    Transformers.Chain((create_layer(l, weight_cache=weight_cache) for l in layer.layers)...)
+create_layer(layers::Vector; weight_cache::_WeightCache) =
+    Flux.Chain((create_layer(l, weight_cache=weight_cache) for l in layers)...)
+create_layer(layer::Transformer; weight_cache::_WeightCache) = create_layer(layer.blocks, weight_cache=weight_cache)
+create_layer(layer::Jevo.Chain; weight_cache::_WeightCache) = create_layer(layer.layers, weight_cache=weight_cache)
 
 function create_layer(layer::Jevo.Dense; weight_cache::_WeightCache)
     weights = @inline tensor(layer.weights, weight_cache=weight_cache)
@@ -142,33 +142,30 @@ Creates a phenotype layer from a genotype, calls [tensor](@ref) on contained wei
 """
 create_layer(f::Function; kwargs...) = f
 
-function develop(::Creator{Model}, network::Network)
+function develop(::Creator{Chain}, chain::Chain)
     weight_cache = get_weight_cache()
-    Transformers.Chain((create_layer(l, weight_cache=weight_cache) for l in network.layers)...) |> Model
+    Flux.Chain((create_layer(l, weight_cache=weight_cache) for l in chain.layers)...)
 end
 
-function develop(c::Creator{TransformerPhenotype}, net::Network)
-    trf = net.layers[1]
-    @assert trf isa Transformer "Only TransformerPhenotype can be developed, got $(typeof(trf))"
+function develop(c::Creator{TextModel}, textnet::TextNetwork)
     weight_cache = get_weight_cache()
-    embed = create_layer(trf.embed, weight_cache=weight_cache)
-    hidden_dim = size(embed.embeddings, 1)
-    TransformerPhenotype(
+    TextModel(
         c.kwargs.textenc,
-        Transformers.Layers.SinCosPositionEmbed(hidden_dim),
-        embed,
-        create_layer(trf.blocks, weight_cache=weight_cache),
-        create_layer(trf.embeddecoder, weight_cache=weight_cache),
+        Transformers.Layers.SinCosPositionEmbed(textnet.embed.weights.dims[1]),
+        create_layer(textnet.embed, weight_cache=weight_cache),
+        create_layer(textnet.network, weight_cache=weight_cache),
+        create_layer(textnet.embeddecoder, weight_cache=weight_cache),
     )
 end
 
-function (trf::TransformerPhenotype)(input)
+
+function (tm::TextModel)(input)
     mask = get(input, :attention_mask, nothing)
-    embeds = trf.embed(input.token)
-    pos_embed = trf.posembed(embeds) |> gpu
+    embeds = tm.embed(input.token)
+    pos_embed = tm.posembed(embeds) |> gpu
     embeds = embeds .+ pos_embed
     logits = Transformers.ChainRulesCore.ignore_derivatives() do
-        trf.trf(embeds, mask).hidden_state
+        tm.model(embeds, mask).hidden_state
     end
-    trf.embeddecoder(logits)
+    tm.embeddecoder(logits)
 end

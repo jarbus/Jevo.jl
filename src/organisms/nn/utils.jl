@@ -127,17 +127,15 @@ get_weight_symbols(d::Dense) =
 get_weight_symbols(e::Embed) = get_weight_symbols(e.weights)
 get_weight_symbols(e::EmbedDecoder) =
     get_weight_symbols(e.embed) * get_weight_symbols(e.bias)
-get_weight_symbols(c::Chain) = 
-    "chain\n" * join([get_weight_symbols(l) for l in c.layers])
+get_weight_symbols(network::Chain) = join([get_weight_symbols(l) for l in network.layers])
+get_weight_symbols(tfr::Transformer) = join([get_weight_symbols(l) for l in tfr.blocks])
 get_weight_symbols(tdb::TransformerDecoderBlock) =
     get_weight_symbols(tdb.attention) * get_weight_symbols(tdb.ff)
 
-get_weight_symbols(t::Transformer) = "Transformer\n" *
-    "embed\n"* get_weight_symbols(t.embed) *
-    "blocks\n" * join([get_weight_symbols(b) for b in t.blocks]) *
-    "embeddecoder\n" * get_weight_symbols(t.embeddecoder) 
-
-get_weight_symbols(network::Network) = join([get_weight_symbols(l) for l in network.layers])
+get_weight_symbols(tn::TextNetwork) = "TextNetwork\n" *
+    "embed\n"* get_weight_symbols(tn.embed) *
+    "network\n" * get_weight_symbols(tn.network) *
+    "embeddecoder\n" * get_weight_symbols(tn.embeddecoder) 
 
 visualize = get_weight_symbols
 get_weight_symbols(ind::Individual{G,D,I}, pop::Population) where {G <: Delta,D,I} = get_weight_symbols(master_construct_genome(ind, pop))
@@ -153,7 +151,7 @@ function map_get(x::Union{AbstractLayer,AbstractWeights,AbstractGenotype}, type:
     end |> filter(!isnothing)
 end
 
-function get_weights(x::Union{Network, AbstractLayer, AbstractGenotype,AbstractWeights}; no_layer_norm::Bool=false)
+function get_weights(x::Union{AbstractLayer, AbstractGenotype, AbstractWeights}; no_layer_norm::Bool=false)
     map(x, weights_only=true) do hierarchy
         no_layer_norm && is_layer_norm(hierarchy) && return nothing
         return hierarchy[end]

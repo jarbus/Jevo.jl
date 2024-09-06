@@ -1,4 +1,4 @@
-export TransformerPhenotype, Transformer, FactorWeight, CompositeWeight, WeightsCollection, Weights, Dense, SelfAttention, Chain, Network, Model, PostNormResidual, Embed, EmbedDecoder, LayerNorm, TransformerDecoderBlock, RNN
+export TransformerPhenotype, Transformer, FactorWeight, CompositeWeight, WeightsCollection, Weights, Dense, SelfAttention, Chain, PostNormResidual, Embed, EmbedDecoder, LayerNorm, TransformerDecoderBlock, RNN, TextModel
 """
     struct NetworkGene <: AbstractMutation
         id::Int
@@ -66,17 +66,6 @@ A collection of weights which are added together. Each element must develop to t
 mutable struct CompositeWeight{T<:AbstractWeights} <: AbstractWeights
     dims::Tuple{Vararg{Int}}
     weights::Vector{T}
-end
-
-"""
-    struct Network <: AbstractLayer
-        layers::Vector
-    end
-
-A collection of sequential layers.
-"""
-struct Network <: AbstractLayer
-    layers::Vector
 end
 
 """
@@ -159,34 +148,26 @@ struct TransformerDecoderBlock <: AbstractLayer
     ff::Nothing # postnorm residual Chain Dense Dense
 end
 
-"""
-    struct Transformer <: AbstractLayer
-        embed::Embed
-        blocks::Tuple{Vararg{TransformerDecoderBlock}}
-        embeddecoder::EmbedDecoder
-    end
-
-Decoder-only transformer genotype
-"""
 struct Transformer <: AbstractLayer
-    embed::Embed
     blocks::Vector{TransformerDecoderBlock}
-    embeddecoder::EmbedDecoder
 end
 
 """
     struct Chain <: AbstractLayer
-        layers::Tuple{Vararg{<:AbstractLayer}}
+        layers::Vector
     end
 
-A collection of sequential layers
+A collection of sequential layers.
 """
 struct Chain <: AbstractLayer
-    layers::Tuple{Vararg{<:AbstractLayer}}
+    layers::Vector
 end
 
-struct Model <: AbstractPhenotype 
-    chain
+
+struct TextNetwork{N} <: AbstractLayer where {N <: AbstractLayer}
+    embed::Embed
+    network::N
+    embeddecoder::EmbedDecoder
 end
 
 """
@@ -195,8 +176,19 @@ end
 Stores developed tensors of weights for genes. Keys are tensor dimensions and the last gene id used. For a weight of dimensions `(a, b)` containing gene ids `1, 2, 3`, `_WeightCache[3, (a,b)]` would map to a tensor equivalent to `tensor(gene_1) + tensor(gene_2) + tensor(gene_3)`.
 """
 _WeightCache = Union{LRU{Int, <:Array{Float32}}, Nothing}
-# so we only need to transmit delta genotypes
-_GenotypeCache = Union{LRU{Int, Network}, Nothing}
+# Should be LRU{Int, <:AbstractLayer}, but abstract types slow down the code
+_GenotypeCache = Union{LRU, Nothing}
+
+# TODO refactor to allow custom position embeds
+# this is non trivial and may require us to pass anonymous functions
+struct TextModel{TE, M} <: AbstractPhenotype where {TE <: Transformers.TextEncoders.AbstractTransformerTextEncoder,
+                                                    M <: AbstractLayer}
+    textenc::TE
+    posembed::Transformers.Layers.AbstractEmbedding
+    embed::Transformers.Layers.Embed
+    model::M
+    embeddecoder::Transformers.Layers.EmbedDecoder
+end
 
 struct TransformerPhenotype <: AbstractPhenotype
     textenc::Transformers.TextEncoders.TransformerTextEncoder

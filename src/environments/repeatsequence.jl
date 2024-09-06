@@ -45,26 +45,26 @@ function loss(input, trf)
 end
 
 
-function infer(trf::TransformerPhenotype, str::String; max_len::Int=10, n_logits::Int=3, print_output::Bool=false)
-    decoder_onehot = encode(trf.textenc, str).token
-    decoder_tokens = decode(trf.textenc, decoder_onehot)
+function infer(tm::TextModel, str::String; max_len::Int=10, n_logits::Int=3, print_output::Bool=false)
+    decoder_onehot = encode(tm.textenc, str).token
+    decoder_tokens = decode(tm.textenc, decoder_onehot)
     seq = decoder_tokens[1:end-1]
     logits = []
 
     start_len = length(seq)
     for i in 1:max_len-start_len
-        decoder_input = (token = gpu(lookup(trf.textenc, seq)),)
-        logit = trf(decoder_input)
-        ntok = decode(trf.textenc, argmax(logit[:, end]))
+        decoder_input = (token = gpu(lookup(tm.textenc, seq)),)
+        logit = tm(decoder_input)
+        ntok = decode(tm.textenc, argmax(logit[:, end]))
         push!(seq, ntok)
         i <= n_logits && push!(logits, round.(softmax(Array(logit)[:,end]), digits=2))
-        ntok == trf.textenc.endsym && break
+        ntok == tm.textenc.endsym && break
     end
     seq_str = join(seq, " ")
     !print_output && return (seq_str, logits)
     println(seq_str)
     # print vocab
-    for l in trf.textenc.vocab.list
+    for l in tm.textenc.vocab.list
         print(l, "\t")
     end
     println()
@@ -79,10 +79,10 @@ function infer(trf::TransformerPhenotype, str::String; max_len::Int=10, n_logits
 end
 
 
-function get_preprocessed_batch(env::RepeatSequence, tfr)
+function get_preprocessed_batch(env::RepeatSequence, tm::TextModel)
     if !isdefined(Main, :preprocessed_batch)
         @warn "Creating variable Main.preprocessed_batch"
-        Main.preprocessed_batch = preprocess(tfr, sample_batch(env))
+        Main.preprocessed_batch = encode(tm.textenc, sample_batch(env))
     end
     # There appears to be some memory management issue, where GPU OOMs.
     # Allocating a large amount of memory on the CPU appears to alleviate this 
@@ -92,7 +92,7 @@ function get_preprocessed_batch(env::RepeatSequence, tfr)
     Main.preprocessed_batch |> deepcopy |> gpu
 end
 
-function step!(env::RepeatSequence, ids::Vector{Int}, models::Vector{TransformerPhenotype})
+function step!(env::RepeatSequence, ids::Vector{Int}, models::Vector{TextModel{TE,M}}) where {TE, M}
     @assert length(models) == 1 "Only one model is supported for now"
     @assert env.seq_len > 1
     tfr = models[1]
@@ -105,12 +105,12 @@ abstract type NegativeLoss <: AbstractMetric end
 
 function evaluate(env_creator::Creator{RepeatSequence}, individual::Individual)
   wid = workers()[1]
-  percent_correct = fetch(@spawnat(wid, begin
-    function percentage_evaluation_npeat(trf::TransformerPhenotype; n::Int, kwargs...)
+  #= percent_correct = fetch(@spawnat(wid, begin =#
+    function percentage_evaluation_npeat(tm::TextModel; n::Int, kwargs...)
         n_perfect = 0
         for i in 0:n-1, j in 0:n-1, k in 0:n-1
             prompt = "$i $j $k $i $j $k"
-            full_str = infer(trf, prompt; kwargs...)[1]
+            full_str = infer(tm, prompt; kwargs...)[1]
             if length(full_str) >= 27
               n_perfect += full_str[5:15] == full_str[17:27]
               @info full_str
@@ -120,8 +120,8 @@ function evaluate(env_creator::Creator{RepeatSequence}, individual::Individual)
         n_perfect / n^3
     end
     model = develop(individual.developer, individual)
-    percentage_evaluation_npeat(model, n=env_creator.kwargs.n_labels, max_len=15)
-  end))
+  percent_correct =  percentage_evaluation_npeat(model, n=env_creator.kwargs.n_labels, max_len=15)
+  #= end)) =#
   @info "Percentage perfect: $(round(percent_correct, digits=3))"
   fetch(@spawnat(wid, begin
       device!(Main.jevo_device_id)
