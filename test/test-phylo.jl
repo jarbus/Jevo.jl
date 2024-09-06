@@ -49,8 +49,4 @@ comp_pop_creator = Creator(CompositePopulation, ("species", [("p$i", n_inds, ng_
         end
     end
 end
-
-
-@testset "DeltaCache+Genepool+Mutator" begin
-end
 end

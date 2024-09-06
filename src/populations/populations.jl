@@ -59,9 +59,8 @@ function find_population(id::String, composite::CompositePopulation)
 end
 
 function find_population(id::String, state::AbstractState)
-    pops =[find_population(id, p) for p in state.populations] |>
-        filter(!isnothing)
-    @assert length(pops) == 1 "Failed to retrieve a single population with id $id"
+    pops = [find_population(id, p) for p in state.populations] |> filter(!isnothing)
+    @assert length(pops) == 1 "Failed to retrieve a single population with id $id, found $(length(pops))"
     pops[1]
 end
 
