@@ -195,6 +195,8 @@ nul_pop = Population("", Individual[])
         @test lora_std ≈ f_std atol=0.01
     
     end
+    @testset "RNN" begin
+    end
     @testset "Transformer" begin
         state = State()
         gene_counter = Jevo.get_counter(AbstractGene, state)
@@ -221,9 +223,9 @@ nul_pop = Population("", Individual[])
         sa = Jevo.SelfAttention(rng, gene_counter; attn_args...) 
         pnr_sa = Jevo.PostNormResidual(rng, gene_counter, sa; hidden_dim=hidden_dim)
         db = Jevo.TransformerDecoderBlock(rng, gene_counter; block_args...)
-        trf = Jevo.Transformer(rng, gene_counter, tfr_args)
+        trf = Jevo.TextTransformer(rng, gene_counter, tfr_args)
         visualize(trf) # make sure it doesn't error
-        net = Jevo.Transformer(rng, gene_counter, tfr_args)
+        net = Jevo.TextTransformer(rng, gene_counter, tfr_args)
         weights = Jevo.get_weights(net)
         dims = [w.dims for w in weights]
         @test (hidden_dim,vocab_size) in dims # embed
@@ -276,13 +278,13 @@ nul_pop = Population("", Individual[])
             @test d.bias |> size == (10,)
             @test d.bias |> typeof == Array{Float32,1}
             lora_tfr_args = (tfr_args..., qkv_rank=2, o_rank=2, ff_rank=2, embed_rank=2)
-            net = Jevo.Transformer(rng, gene_counter, lora_tfr_args)
+            net = Jevo.TextTransformer(rng, gene_counter, lora_tfr_args)
             visualize(net) |> println
             lora_tfr_p = develop(Creator(TextModel, (;textenc=textenc)), net)
         end
 
         @testset "HierarchicalTransformerTraverse" begin
-            net = Jevo.Transformer(rng, gene_counter, tfr_args)
+            net = Jevo.TextTransformer(rng, gene_counter, tfr_args)
             # Check that we can use map to get all the weights of a network, should probably confirm
             # that ALL weights are retrieved, but that's probably another 20+ mins
             function get_n_muts(net)
@@ -319,7 +321,7 @@ nul_pop = Population("", Individual[])
                 ede_params = tm.embeddecoder.embed |> cpu |> Flux.params |> Iterators.flatten |> collect
                 e_params == ede_params
             end
-            net = Jevo.Transformer(rng, gene_counter, tfr_args)
+            net = Jevo.TextTransformer(rng, gene_counter, tfr_args)
             developer = Creator(TextModel, (;textenc=textenc))
             model1 = develop(developer, net)
             model2 = develop(developer, net)
@@ -332,7 +334,7 @@ nul_pop = Population("", Individual[])
             model1 = develop(developer, mutated_net)
             @test check_same_geno_embeds(mutated_net)  # 3.
 
-            delta = Delta(Jevo.Transformer(rng, gene_counter, tfr_args))
+            delta = Delta(Jevo.TextTransformer(rng, gene_counter, tfr_args))
             @test check_same_geno_embeds(net + delta)  # 4.
 
             @test check_same_geno_embeds(Jevo.add_delta_to_genome(net, delta))  # 5.

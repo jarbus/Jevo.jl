@@ -327,7 +327,7 @@ function TransformerDecoderBlock(rng::AbstractRNG, counter::AbstractCounter;
     TransformerDecoderBlock(pnr_sa, pnr_ff)
 end
 
-function Transformer(rng::AbstractRNG, counter::AbstractCounter;
+function TextTransformer(rng::AbstractRNG, counter::AbstractCounter;
         n_blocks::Int,
         hidden_dim::Int, 
         n_heads::Int,
@@ -351,4 +351,4 @@ function Transformer(rng::AbstractRNG, counter::AbstractCounter;
                                             ) for _ in 1:n_blocks])
     TextNetwork(embed, tfr, embeddecoder)
 end
-Transformer(rng::AbstractRNG, counter::AbstractCounter, nt::NamedTuple) = Transformer(rng, counter; nt...)
+TextTransformer(rng::AbstractRNG, counter::AbstractCounter, nt::NamedTuple) = TextTransformer(rng, counter; nt...)
