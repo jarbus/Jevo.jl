@@ -153,6 +153,7 @@ function insert_new_attention_heads!(genome::AbstractLayer, delta::Delta)
     # go over each attention layer
     for (g_attn, d_attn) in zip(genome_attn_layers, delta_attn_layers)
         g_wcs, d_wcs = map_get(g_attn, WeightsCollection), map_get(d_attn, WeightsCollection)
+        isempty(d_wcs) && isempty(g_wcs) && continue  # we cant insert new heads for this layer
         @assert length(d_wcs) == 3 "Delta must have 3 weight collections for qkv and o, got $(length(d_wcs))"
         # enumerate qkv weight collection,, qkv bias collection,, out weight collection
         for (idx, (g_wc, d_wc)) in enumerate(zip(g_wcs, d_wcs))

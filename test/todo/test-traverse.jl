@@ -31,26 +31,6 @@ parent_geno = tfr_gc()
 parent_weights = Jevo.get_weights(parent_geno, no_layer_norm=true)
 n_mutation_targets = length(Jevo.get_weights(parent_geno, no_layer_norm=true))
 
-@testset "HierarchicalTransformerTraverse" begin
-    net = Network(rng, gene_counter, [(Jevo.Transformer, tfr_args)])
-    # Check that we can use map to get all the weights of a network, should probably confirm
-    # that ALL weights are retrieved, but that's probably another 20+ mins
-    function get_n_muts(net)
-        map(net, weights_only=true) do layers
-            length(layers[end].muts)
-        end
-    end
-    n_muts = get_n_muts(net)
-    @test length(n_muts) > 0 && all(n_muts .== 1)
-    # Check that we can modify all the weights using map!
-    map!(net, weights_only=true) do layers
-        push!(layers[end].muts, NetworkGene(0,0,0,zero))
-    end
-    n_muts = get_n_muts(net)
-    @test length(n_muts) > 0 && all(n_muts .== 2)
-    mutated_net = mutate(rng, state, nul_pop, net, mr=0.1f0)
-    n_muts = get_n_muts(mutated_net)
-end
 
 #@testset "Transformer Delta+Reproduce+Mutate" begin
 #

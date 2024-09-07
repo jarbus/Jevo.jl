@@ -266,7 +266,6 @@ nul_pop = Population("", Individual[])
         @test length(Jevo.step!(env, [1], [trf_p])) == 1
         @test length(Jevo.play(env,[1], [trf_p])) == 1
         seq, logits = infer(trf_p, "1 2 1")
-        # TODO TEST EXTENSIVELY
         @testset "LowRank" begin
             # LowRank
             net = Jevo.Chain(rng, gene_counter, [(Jevo.Dense, (dims=(784,10), σ=relu, rank=2))])
@@ -280,6 +279,64 @@ nul_pop = Population("", Individual[])
             net = Jevo.Transformer(rng, gene_counter, lora_tfr_args)
             visualize(net) |> println
             lora_tfr_p = develop(Creator(TextModel, (;textenc=textenc)), net)
+        end
+
+        @testset "HierarchicalTransformerTraverse" begin
+            net = Jevo.Transformer(rng, gene_counter, tfr_args)
+            # Check that we can use map to get all the weights of a network, should probably confirm
+            # that ALL weights are retrieved, but that's probably another 20+ mins
+            function get_n_muts(net)
+                map(net, weights_only=true) do layers
+                    length(layers[end].muts)
+                end
+            end
+            n_muts = get_n_muts(net)
+            @test length(n_muts) > 0 && all(n_muts .== 1)
+            # Check that we can modify all the weights using map!
+            map!(net, weights_only=true) do layers
+                push!(layers[end].muts, NetworkGene(0,0,1f0,zero))
+            end
+            n_muts = get_n_muts(net)
+            @test length(n_muts) > 0 && all(n_muts .== 2)
+            # Confirm that mutation adds genes
+            nul_pop = Population("", Individual[])
+            mutated_net = mutate(rng, state, nul_pop, net, mr=0.1f0)
+
+            #= visualize(mutated_net) |> println =#
+        end
+        @testset "Embed and Embed Decoder use same params" begin
+            # confirm embed and embed decoder are the same after
+            # 1. developing the network twice
+            # 2. mutating the network
+            # 3. developing the mutated network
+            # 4. add delta to genome
+            # 5. Base.+
+            function check_same_geno_embeds(net::Jevo.TextNetwork)
+                hash(net.embed) == hash(net.embeddecoder.embed)
+            end
+            function check_same_pheno_embeds(tm::TextModel)
+                e_params = tm.embed |> cpu |> Flux.params |> Iterators.flatten |> collect
+                ede_params = tm.embeddecoder.embed |> cpu |> Flux.params |> Iterators.flatten |> collect
+                e_params == ede_params
+            end
+            net = Jevo.Transformer(rng, gene_counter, tfr_args)
+            developer = Creator(TextModel, (;textenc=textenc))
+            model1 = develop(developer, net)
+            model2 = develop(developer, net)
+            @test check_same_pheno_embeds(model2)  # 1.
+
+            nul_pop = Population("", Individual[])
+            mutated_net = mutate(rng, state, nul_pop, net, mr=0.1f0)
+            @test check_same_geno_embeds(mutated_net)  # 2.
+
+            model1 = develop(developer, mutated_net)
+            @test check_same_geno_embeds(mutated_net)  # 3.
+
+            delta = Delta(Jevo.Transformer(rng, gene_counter, tfr_args))
+            @test check_same_geno_embeds(net + delta)  # 4.
+
+            @test check_same_geno_embeds(Jevo.add_delta_to_genome(net, delta))  # 5.
+
         end
     end
 end
