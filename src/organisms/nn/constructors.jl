@@ -5,6 +5,17 @@ NetworkGene(rng::AbstractRNG, counter::Counter, mr::Float32, init::Function=Jevo
 NetworkGene(counter::Counter, seed::UInt64, mr::Float32, init::Function=Jevo.apply_kaiming_normal_noise!) = 
     NetworkGene(inc!(counter), seed, mr, init)
 
+function FreshWeights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{Int}}; init::Function=Jevo.apply_kaiming_normal_noise!, rank=-1)
+    (length(dims) < 2 || rank < 0) && return Weights(dims, [NetworkGene(-inc!(counter), rand(rng, UInt64), 0.1f0, init)])
+    CompositeWeight(dims, AbstractWeights[
+        FactorWeight(
+            dims,
+            Weights((dims[1], rank), [NetworkGene(-inc!(counter), rand(rng, UInt64), 0.1f0, apply_kaiming_normal_noise_factored!)]),
+            Weights((rank, dims[2]), [NetworkGene(-inc!(counter), rand(rng, UInt64), 0.1f0, apply_kaiming_normal_noise_factored!)]),
+        ),
+        Weights(dims, [NetworkGene(-inc!(counter), rand(rng, UInt64), 0.1f0, apply_zero!)])
+    ])
+end
 function Weights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{Int}}; init::Function=Jevo.apply_kaiming_normal_noise!, rank=-1)
     rank == -1 && return Weights(dims, [NetworkGene(rng, counter, 1f0, init)])
     @assert length(dims) == 2 "Factorized weights must have 2 dimensions, got $(length(dims))"
@@ -118,8 +129,6 @@ function add_delta_to_genome(full_genome::Network, delta::Delta{Network}; n_back
         full_idx += 1
         delta_idx += 1
     end 
-    l1 = compact_genome.layers[1]
-    @assert pointer(l1.embed.weights.muts) == pointer(l1.embeddecoder.embed.weights.muts) "Embed and embed decoder weights must the same"
     compact_genome
 end
 
@@ -127,7 +136,7 @@ end
 update_dimensions!(x::Delta) = update_dimensions!(x.change)
 update_dimensions!(x) = nothing
 update_dimensions!(x::Weights) = nothing
-update_dimensions!(x::FactorWeight) = x.dims = (x.A.dims[1], x.B[2].dims[2])
+update_dimensions!(x::FactorWeight) = x.dims = (x.A.dims[1], x.B.dims[2])
 function update_dimensions!(x::CompositeWeight) 
     @assert 1 == length(unique(w.dims for w in x.weights)) "All weights should have the same dimension for a composite weight"
     x.dims = x.weights[1].dims
@@ -168,11 +177,7 @@ function insert_new_attention_heads!(genome::Network, delta::Delta)
                 if is_fresh(d_wc.weights[d_idx])
                     # If a weight is fresh, it might be part of a new layer,
                     # so we skip if it's already in the genome.
-                    if g_idx <= length(g_wc.weights) && 
-                        !isempty(g_wc.weights[g_idx].muts) && 
-                        d_wc.weights[d_idx].muts[1].id == g_wc.weights[g_idx].muts[1].id
-                        continue
-                    end
+                    g_idx <= length(g_wc.weights) && d_wc.weights[d_idx] == g_wc.weights[g_idx] &&  continue
                     if g_idx <= length(g_wc.weights)
                         g_wc.weights = concatenate(g_wc.weights[1:g_idx-1], deepcopy(d_wc.weights[d_idx]), g_wc.weights[g_idx:end])
                     else
