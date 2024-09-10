@@ -196,20 +196,29 @@ nul_pop = Population("", Individual[])
     
     end
     @testset "RNN" begin
+        state = State()
+        gene_counter = Jevo.get_counter(AbstractGene, state)
+        Main.weight_cache = WeightCache(maxsize=1_000_000)
+        n_blocks, n_heads, head_dim, hidden_dim, ff_dim, startsym, endsym, unksym, labels = 2, 2, 5, 10, 20, "<s>", "</s>", "<unk>", string.(1:5)
+        vocab = [unksym, startsym, endsym, labels...]
+        vocab_size = length(vocab)
+
+        textenc = TransformerTextEncoder(split, vocab; startsym, endsym, unksym, padsym=unksym)
+        rnn_args = (hidden_dim = 256, vocab_size=vocab_size, σ=relu)
+        rnn = TextRNN(rng, gene_counter, rnn_args)
+        developer = Creator(TextModel, (;textenc=textenc))
+        textrnn = develop(developer, rnn)
+        env = RepeatSequence(n_labels=length(labels),
+                             seq_len=8,
+                             batch_size=7,
+                             n_repeat=3)
+        step!(env, [1], [textrnn])
     end
     @testset "Transformer" begin
         state = State()
         gene_counter = Jevo.get_counter(AbstractGene, state)
         Main.weight_cache = WeightCache(maxsize=1_000_000)
-        n_blocks = 2
-        n_heads = 2
-        head_dim = 5
-        hidden_dim = 10
-        ff_dim = 20
-        startsym = "<s>"
-        endsym = "</s>"
-        unksym = "<unk>"
-        labels = string.(1:5)
+        n_blocks, n_heads, head_dim, hidden_dim, ff_dim, startsym, endsym, unksym, labels = 2, 2, 5, 10, 20, "<s>", "</s>", "<unk>", string.(1:5)
         vocab = [unksym, startsym, endsym, labels...]
         vocab_size = length(vocab)
     
@@ -336,8 +345,10 @@ nul_pop = Population("", Individual[])
 
             delta = Delta(Jevo.TextTransformer(rng, gene_counter, tfr_args))
             @test check_same_geno_embeds(net + delta)  # 4.
+            @test check_same_pheno_embeds(develop(developer, net + delta))  # 4.
 
             @test check_same_geno_embeds(Jevo.add_delta_to_genome(net, delta))  # 5.
+            @test check_same_pheno_embeds(develop(developer, Jevo.add_delta_to_genome(net, delta)))  # 5.
 
         end
     end

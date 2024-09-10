@@ -153,11 +153,12 @@ function develop(c::Creator{TextModel}, textnet::TextNetwork)
         c.kwargs.textenc,
         Transformers.Layers.SinCosPositionEmbed(textnet.embed.weights.dims[1]),
         create_layer(textnet.embed, weight_cache=weight_cache),
-        create_layer(textnet.network, weight_cache=weight_cache),
+        create_layer(textnet.network, weight_cache=weight_cache) |> gpu,
         create_layer(textnet.embeddecoder, weight_cache=weight_cache),
     )
 end
 
+(recur::Flux.Recur)(x::AbstractArray, _) = (hidden_state=recur(x),)
 
 function (tm::TextModel)(input)
     mask = get(input, :attention_mask, nothing)

@@ -1,4 +1,4 @@
-export RegularLanguage, evaluate, AcceptRejectStrings, preprocess
+export RegularLanguage, evaluate, AcceptRejectStrings
 # TODO figure out what is the max string length in dynarec
 #   i think he trains on smaller sequences and then observes behavior in the limit
 #   i think he also trains on the same set of sequences
@@ -49,19 +49,17 @@ function get_strings(env::AcceptRejectStrings)
     strings
 end
 
-preprocess(trf::TransformerPhenotype, batch) = encode(trf.textenc, batch)
-function get_preprocessed_batch(env::Union{RegularLanguage, AcceptRejectStrings}, tfr)
+function get_preprocessed_batch(env::Union{RegularLanguage, AcceptRejectStrings}, m)
     # There appears to be some memory management issue, where GPU OOMs.
     # Allocating a large amount of memory on the CPU appears to alleviate this 
     # issue. Garbage collection does not help. Unable to justify spending
     # more time on this, if it's resolved. On my laptop, this takes ~179μs per call
-    size(zeros(1_000_000)) # TODO see if we can change this to fill(undef, 1_000_000)
+    size(zeros(1_000_000))
     if !isdefined(Main, :preprocessed_batch)
         @warn "Creating variable Main.preprocessed_batch"
         strings = [(s,) for s in get_strings(env)]
         batch = batched(strings)[1]
-        @info "Batch: $batch"
-        Main.preprocessed_batch = preprocess(tfr, batch)
+        Main.preprocessed_batch = encode(get_text_encoder(m), batch)
     end
     Main.preprocessed_batch |> deepcopy |> gpu
 end

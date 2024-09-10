@@ -1,4 +1,4 @@
-export TransformerPhenotype, Transformer, FactorWeight, CompositeWeight, WeightsCollection, Weights, Dense, SelfAttention, Chain, PostNormResidual, Embed, EmbedDecoder, LayerNorm, TransformerDecoderBlock, RNN, TextModel
+export TransformerPhenotype, Transformer, FactorWeight, CompositeWeight, WeightsCollection, Weights, Dense, SelfAttention, Chain, PostNormResidual, Embed, EmbedDecoder, LayerNorm, TransformerDecoderBlock, RNN, TextModel, TextTransformer, TextRNN
 """
     struct NetworkGene <: AbstractMutation
         id::Int
