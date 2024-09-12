@@ -179,6 +179,7 @@ _WeightCache = Union{LRU{Int, <:Array{Float32}}, Nothing}
 # Should be LRU{Int, <:AbstractLayer}, but abstract types slow down the code
 _GenotypeCache = Union{LRU, Nothing}
 
+struct TextRNN end
 # TODO refactor to allow custom position embeds
 # this is non trivial and may require us to pass anonymous functions
 struct TextModel{TE, M} <: AbstractPhenotype where {TE <: Transformers.TextEncoders.AbstractTransformerTextEncoder,
