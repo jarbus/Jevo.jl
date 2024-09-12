@@ -360,9 +360,9 @@ function TextTransformer(rng::AbstractRNG, counter::AbstractCounter;
 end
 TextTransformer(rng::AbstractRNG, counter::AbstractCounter, nt::NamedTuple) = TextTransformer(rng, counter; nt...)
 
-function TextRNN(rng::AbstractRNG, counter::AbstractCounter; hidden_dim::Int, vocab_size::Int, σ::Function)
+function TextRNN(rng::AbstractRNG, counter::AbstractCounter; hidden_dim::Int, vocab_size::Int, σ::Function, embed_rank::Int=-1)
     """Create a text RNN with hidden_dim and vocab_size"""
-    embed, embeddecoder = create_embeds(rng, counter, (hidden_dim, vocab_size))
+    embed, embeddecoder = create_embeds(rng, counter, (hidden_dim, vocab_size), rank=embed_rank)
     rnn = RNN(rng, counter, dims=(hidden_dim, hidden_dim), σ=σ)
     TextNetwork(embed, rnn, embeddecoder)
 end
