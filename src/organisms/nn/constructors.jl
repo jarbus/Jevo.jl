@@ -280,7 +280,7 @@ function Dense(rng::AbstractRNG, counter::AbstractCounter; dims::Tuple{Vararg{In
     Dense(weights, bias, σ)
 end
 
-function RNN(rng::AbstractRNG, counter::AbstractCounter; dims::Tuple{Int, Int}, σ::Function)
+function RNN(rng::AbstractRNG, counter::AbstractCounter; dims::Tuple{Int, Int}, σ::Function, input_rank::Int=-1, hidden_rank::Int=-1)
     input = Weights(rng, counter, (dims[2], dims[1]))
     hidden = Weights(rng, counter, (dims[2], dims[2]))
     bias = Weights(rng, counter, (dims[2],))
@@ -360,10 +360,10 @@ function TextTransformer(rng::AbstractRNG, counter::AbstractCounter;
 end
 TextTransformer(rng::AbstractRNG, counter::AbstractCounter, nt::NamedTuple) = TextTransformer(rng, counter; nt...)
 
-function TextRNN(rng::AbstractRNG, counter::AbstractCounter; hidden_dim::Int, vocab_size::Int, σ::Function, embed_rank::Int=-1)
+function TextRNN(rng::AbstractRNG, counter::AbstractCounter; hidden_dim::Int, vocab_size::Int, σ::Function, embed_rank::Int=-1, input_rank::Int=-1, hidden_rank::Int=-1)
     """Create a text RNN with hidden_dim and vocab_size"""
     embed, embeddecoder = create_embeds(rng, counter, (hidden_dim, vocab_size), rank=embed_rank)
-    rnn = RNN(rng, counter, dims=(hidden_dim, hidden_dim), σ=σ)
+    rnn = RNN(rng, counter, dims=(hidden_dim, hidden_dim), σ=σ, input_rank=input_rank, hidden_rank=hidden_rank)
     TextNetwork(embed, rnn, embeddecoder)
 end
 TextRNN(rng::AbstractRNG, counter::AbstractCounter, nt::NamedTuple) = TextRNN(rng, counter; nt...)
