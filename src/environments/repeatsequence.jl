@@ -43,8 +43,9 @@ function shift_decode_loss(logits, trg, trg_mask::M, decode_start_idx) where M <
     -logitcrossentropy(@view(logits[:, decode_start_idx:end-1, :]), label, trg_mask-1)
 end
 
-function loss(input, trf, decode_start_idx)
-    logits = trf(input)
+function loss(input, textmodel, decode_start_idx)
+    logits = textmodel(input)
+    clamp!(logits, -10_000f0, 10_000f0)
     ce_loss = shift_decode_loss(logits, input.token, input.attention_mask, decode_start_idx)
     ce_loss
 end
@@ -100,10 +101,10 @@ end
 function step!(env::RepeatSequence, ids::Vector{Int}, models::Vector{TextModel{TE,M}}) where {TE, M}
     @assert length(models) == 1 "Only one model is supported for now"
     @assert env.seq_len > 1
-    tfr = models[1]
-    input_batch = get_preprocessed_batch(env, tfr)
+    model = models[1]
+    input_batch = get_preprocessed_batch(env, model)
     decode_start_idx = get_decode_start_idx(env)
-    ce_loss = loss(input_batch, tfr, decode_start_idx)
+    ce_loss = loss(input_batch, model, decode_start_idx)
     [Interaction(ids[1], [], ce_loss)]
 end
 

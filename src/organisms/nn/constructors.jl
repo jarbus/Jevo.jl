@@ -73,9 +73,7 @@ function Base.:+(a::AbstractLayer, b::Delta)
     # NOTE Likely a performance bottleneck, because we keep copying the network
     # for each delta application
     a = deepcopy(a)
-    insert_new_decoder_blocks!(a, b)
-    insert_new_attention_heads!(a, b)
-    update_dimensions!(a)
+    apply_transformer_architecture_changes!(a, b)
     ws_a, ws_b = get_weights(a), get_weights(b.change)
     @assert length(ws_a) == length(ws_b) "Different number of weights in network and delta"
     for (wa, wb) in zip(ws_a, ws_b)
@@ -102,9 +100,7 @@ function add_delta_to_genome(full_genome::AbstractLayer, delta::Delta; n_back=20
     # for each delta application
 
     compact_genome = copyarchitecture(full_genome)
-    insert_new_decoder_blocks!(compact_genome, delta)
-    insert_new_attention_heads!(compact_genome, delta)
-    update_dimensions!(compact_genome)
+    apply_transformer_architecture_changes!(compact_genome, delta)
     ws_compact, ws_delta, ws_full =
         get_weights(compact_genome), get_weights(delta.change), get_weights(full_genome)
     @assert length(ws_compact) == length(ws_delta) "Different number of weights in compact genome and delta"
@@ -130,6 +126,12 @@ function add_delta_to_genome(full_genome::AbstractLayer, delta::Delta; n_back=20
     compact_genome
 end
 
+function apply_transformer_architecture_changes!(a, b)
+    isempty(map_get(a, Jevo.Transformer)) && return
+    insert_new_decoder_blocks!(a, b)
+    insert_new_attention_heads!(a, b)
+    update_dimensions!(a)
+end
 
 update_dimensions!(x::Delta) = update_dimensions!(x.change)
 update_dimensions!(x) = nothing

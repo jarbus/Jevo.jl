@@ -129,6 +129,7 @@ get_weight_symbols(e::EmbedDecoder) =
     get_weight_symbols(e.embed) * get_weight_symbols(e.bias)
 get_weight_symbols(network::Chain) = join([get_weight_symbols(l) for l in network.layers])
 get_weight_symbols(tfr::Transformer) = join([get_weight_symbols(l) for l in tfr.blocks])
+    get_weight_symbols(rnn::Jevo.RNN) = get_weight_symbols(rnn.input)* get_weight_symbols(rnn.hidden) * get_weight_symbols(rnn.bias)
 get_weight_symbols(tdb::TransformerDecoderBlock) =
     get_weight_symbols(tdb.attention) * get_weight_symbols(tdb.ff)
 
