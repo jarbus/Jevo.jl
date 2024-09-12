@@ -37,6 +37,8 @@ end
 
 # Empty creator
 Creator(type::Type) = Creator(type, NamedTuple())
+# So we don't need to pass a tuple for a single sub-creator
+Creator(type::Type, c::AbstractCreator) = Creator(type, (Creator(c.type, c.kwargs),))
 
 """
     create(x)

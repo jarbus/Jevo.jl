@@ -1,7 +1,7 @@
 @testset "checkpoint" begin
 
     checkpointname = "test-checkpoint.jls"
-    state = State("", rng, AbstractCreator[], [Checkpointer(checkpointname, interval=5)])
+    state = State("", rng, AbstractCreator[], [Checkpointer(checkpointname, interval=5)], counters=default_counters())
     run!(state, 10)
     @test generation(state) == 11
     state = restore_from_checkpoint(checkpointname)
