@@ -176,8 +176,7 @@ mutate(rng::AbstractRNG, state::State, population::AbstractPopulation, genotype:
     Delta(mutate(rng, state, population, genotype.change, args...; kwargs...))
 
 # Adds attention head to random self-attention layer
-function add_attention_head(rng::AbstractRNG, state::State, ::AbstractPopulation, genotype::Network, args...; prob::Float64, inits::Tuple{Vararg{Function}}, qkv_rank::Int, o_rank::Int, kwargs...)
-    @assert genotype.layers[1] isa Transformer "Must be a Transformer"
+function add_attention_head(rng::AbstractRNG, state::State, ::AbstractPopulation, genotype::AbstractLayer, args...; prob::Float64, inits::Tuple{Vararg{Function}}, qkv_rank::Int, o_rank::Int, kwargs...)
     rand(rng) > prob && return genotype
     genotype = deepcopy(genotype)
     gene_counter = get_counter(AbstractGene, state)

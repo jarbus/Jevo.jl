@@ -33,14 +33,19 @@ function sample_batch(env::RepeatSequence)
     batch[1] # get decoder batch
 end
 
-function shift_decode_loss(logits, trg, trg_mask::M) where M <: Transformers.NeuralAttentionlib.LengthMask
-    label = trg[:, 2:end, :]
-    -logitcrossentropy(@view(logits[:, 1:end-1, :]), label, trg_mask-1)
+# logit idx where evaluation inference begins
+get_decode_start_idx(env::RepeatSequence) = (2*env.seq_len) + 1
+
+function shift_decode_loss(logits, trg, trg_mask::M, decode_start_idx) where M <: Transformers.NeuralAttentionlib.LengthMask
+    # ignore start
+    label = trg[:, (decode_start_idx+1):end, :]
+    # ignore end sequence, idx doesn't correspond to <s>
+    -logitcrossentropy(@view(logits[:, decode_start_idx:end-1, :]), label, trg_mask-1)
 end
 
-function loss(input, trf)
+function loss(input, trf, decode_start_idx)
     logits = trf(input)
-    ce_loss = shift_decode_loss(logits, input.token, input.attention_mask)
+    ce_loss = shift_decode_loss(logits, input.token, input.attention_mask, decode_start_idx)
     ce_loss
 end
 
@@ -97,7 +102,8 @@ function step!(env::RepeatSequence, ids::Vector{Int}, models::Vector{TextModel{T
     @assert env.seq_len > 1
     tfr = models[1]
     input_batch = get_preprocessed_batch(env, tfr)
-    ce_loss = loss(input_batch, tfr)
+    decode_start_idx = get_decode_start_idx(env)
+    ce_loss = loss(input_batch, tfr, decode_start_idx)
     [Interaction(ids[1], [], ce_loss)]
 end
 
