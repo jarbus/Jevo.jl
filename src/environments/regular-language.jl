@@ -102,7 +102,7 @@ function get_final_logits_kernel!(logits, indices, matrix)
     nothing
 end
 
-function infer(env::Union{RegularLanguage, AcceptRejectStrings}, model::TransformerPhenotype)
+function infer(env::Union{RegularLanguage, AcceptRejectStrings}, model::TextModel)
     batch = get_preprocessed_batch(env, model)
     logits = model(batch)
     # Compute end index per sequence on gpu using custom kernel
@@ -116,7 +116,7 @@ function infer(env::Union{RegularLanguage, AcceptRejectStrings}, model::Transfor
     loss = -logitcrossentropy(logits_final, accept_or_reject_final)
     loss, logits_final, accept_or_reject_final
 end
-function step!(env::Union{RegularLanguage, AcceptRejectStrings}, ids::Vector{Int}, models::Vector{TransformerPhenotype})
+function step!(env::Union{RegularLanguage, AcceptRejectStrings}, ids::Vector{Int}, models::Vector{TextModel})
     # One shot classification of accept / reject
     @assert length(models) == length(ids) == 1
     loss, _, _ = infer(env, models[1])
