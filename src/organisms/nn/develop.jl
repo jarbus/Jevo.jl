@@ -164,10 +164,7 @@ function process_text_embeds(recur::Flux.Recur, embeds::AbstractArray, _)
         embeds = reshape(embeds, (size(embeds)..., 1))
     end
     @assert ndims(embeds) == 3 "Expected 3D tensor, got $(ndims(embeds))"
-    logits = [recur(x) for x in eachslice(embeds, dims=2)]
-    logits = cat(logits..., dims=3)
-    # convert from (feats, samples, seq_len) to (feats, seq_len, samples)
-    logits = reshape(logits, size(logits, 1), size(logits, 3), size(logits, 2))
+    logits = stack([recur(x) for x in eachslice(embeds, dims=2)], dims=2)
     logits
 end
 

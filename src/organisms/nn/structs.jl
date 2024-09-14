@@ -190,11 +190,3 @@ struct TextModel{TE, M} <: AbstractPhenotype where {TE <: Transformers.TextEncod
     model::M
     embeddecoder::Transformers.Layers.EmbedDecoder
 end
-
-struct TransformerPhenotype <: AbstractPhenotype
-    textenc::Transformers.TextEncoders.TransformerTextEncoder
-    posembed::Transformers.Layers.AbstractEmbedding
-    embed::Transformers.Layers.Embed
-    trf::Transformers.Layers.Transformer
-    embeddecoder::Transformers.Layers.EmbedDecoder
-end
