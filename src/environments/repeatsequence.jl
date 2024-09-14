@@ -1,6 +1,10 @@
 using Transformers.Datasets: batched
 using Flux.Losses
-export RepeatSequence, preprocess, infer, NegativeLoss
+export RepeatSequence, infer, NegativeLoss
+
+struct NegativeLoss <: AbstractMetric end
+struct PercentCorrect <: AbstractMetric end
+
 Base.@kwdef struct RepeatSequence <: AbstractEnvironment
     n_labels::Int
     batch_size::Int
@@ -108,30 +112,33 @@ function step!(env::RepeatSequence, ids::Vector{Int}, models::Vector{TextModel{T
     [Interaction(ids[1], [], ce_loss)]
 end
 
-abstract type NegativeLoss <: AbstractMetric end
-
-function evaluate(env_creator::Creator{RepeatSequence}, individual::Individual)
-  wid = workers()[1]
-  percent_correct = fetch(@spawnat(wid, begin
-    function percentage_evaluation_npeat(tm::TextModel; n::Int, kwargs...)
-        n_perfect = 0
-        for i in 0:n-1, j in 0:n-1, k in 0:n-1
-            prompt = "$i $j $k $i $j $k"
-            full_str = infer(tm, prompt; kwargs...)[1]
-            if length(full_str) >= 27
-              n_perfect += full_str[5:15] == full_str[17:27]
-              @info full_str
-            else
-            end
+function percentage_correct(env_creator::Creator{RepeatSequence},
+                                     individual::Individual;)
+    device!(Main.jevo_device_id)
+    env, textmodel = env_creator(), develop(individual.developer, individual)
+    n_perfect = 0
+    for i in 0:env.n_labels-1, j in 0:env.n_labels-1, k in 0:env.n_labels-1
+        prompt = "$i $j $k $i $j $k"
+        full_str = infer(textmodel, prompt; max_len=env.seq_len * env.n_repeat + 2)[1]
+        if length(full_str) >= 27
+          n_perfect += full_str[5:15] == full_str[17:27]
+          @info full_str
+        else
         end
-        n_perfect / n^3
     end
-    model = develop(individual.developer, individual)
-  percent_correct =  percentage_evaluation_npeat(model, n=env_creator.kwargs.n_labels, max_len=15)
-  end))
-  @info "Percentage perfect: $(round(percent_correct, digits=3))"
-  fetch(@spawnat(wid, begin
-      device!(Main.jevo_device_id)
-      mean(interaction.score for interaction in Jevo.play(env_creator, [individual]))
-    end))
+    n_perfect / env.n_labels^env.seq_len
+end
+
+function evaluate(env_creator::Creator{RepeatSequence}, individual::Individual, generation::Int)
+  wid = workers()[1]
+  percent_correct = remotecall_fetch(percentage_correct, wid, env_creator, individual)
+  interactions = remotecall_fetch(Jevo.play, wid, env_creator, [individual])
+  @assert length(interactions) == 1
+  negativeloss = interactions[1].score
+  percent_correct_measurement = Measurement(PercentCorrect, percent_correct, generation)
+  negativeloss_measurement = Measurement(NegativeLoss, negativeloss, generation)
+  @info percent_correct_measurement
+  @info negativeloss_measurement
+  @h5 percent_correct_measurement
+  @h5 negativeloss_measurement
 end
