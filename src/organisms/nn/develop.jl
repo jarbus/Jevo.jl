@@ -160,6 +160,7 @@ end
 
 process_text_embeds(tfr::Transformers.Transformer, embeds::AbstractArray, mask) = tfr(embeds, mask).hidden_state
 function process_text_embeds(recur::Flux.Recur, embeds::AbstractArray, _) 
+    Flux.reset!(recur)
     if ndims(embeds) == 2  # If we do inference on a single sample, then embeds are 2D
         embeds = reshape(embeds, (size(embeds)..., 1))
     end
