@@ -158,7 +158,18 @@ function develop(c::Creator{TextModel}, textnet::TextNetwork)
     )
 end
 
-(recur::Flux.Recur)(x::AbstractArray, _) = (hidden_state=recur(x),)
+process_text_embeds(tfr::Transformers.Transformer, embeds::AbstractArray, mask) = tfr(embeds, mask).hidden_state
+function process_text_embeds(recur::Flux.Recur, embeds::AbstractArray, _) 
+    if ndims(embeds) == 2  # If we do inference on a single sample, then embeds are 2D
+        embeds = reshape(embeds, (size(embeds)..., 1))
+    end
+    @assert ndims(embeds) == 3 "Expected 3D tensor, got $(ndims(embeds))"
+    logits = [recur(x) for x in eachslice(embeds, dims=2)]
+    logits = cat(logits..., dims=3)
+    # convert from (feats, samples, seq_len) to (feats, seq_len, samples)
+    logits = reshape(logits, size(logits, 1), size(logits, 3), size(logits, 2))
+    logits
+end
 
 function (tm::TextModel)(input)
     mask = get(input, :attention_mask, nothing)
@@ -166,7 +177,7 @@ function (tm::TextModel)(input)
     pos_embed = tm.posembed(embeds) |> gpu
     embeds = embeds .+ pos_embed
     logits = Transformers.ChainRulesCore.ignore_derivatives() do
-        tm.model(embeds, mask).hidden_state
+        process_text_embeds(tm.model, embeds, mask)
     end
     tm.embeddecoder(logits)
 end
