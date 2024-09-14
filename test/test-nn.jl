@@ -199,12 +199,12 @@ nul_pop = Population("", Individual[])
         state = State()
         gene_counter = Jevo.get_counter(AbstractGene, state)
         Main.weight_cache = WeightCache(maxsize=1_000_000)
-        n_blocks, n_heads, head_dim, hidden_dim, ff_dim, startsym, endsym, unksym, labels = 2, 2, 5, 10, 20, "<s>", "</s>", "<unk>", string.(1:5)
+        n_blocks, n_heads, head_dim, hidden_dim, ff_dim, startsym, endsym, unksym, labels, seq_len = 2, 2, 5, 10, 20, "<s>", "</s>", "<unk>", string.(1:5), 8
         vocab = [unksym, startsym, endsym, labels...]
         vocab_size = length(vocab)
 
         textenc = TransformerTextEncoder(split, vocab; startsym, endsym, unksym, padsym=unksym)
-        rnn_args = (hidden_dim = 256, vocab_size=vocab_size, σ=relu)
+        rnn_args = (hidden_dim = hidden_dim, vocab_size=vocab_size, σ=relu)
         rnn = TextRNN(rng, gene_counter, rnn_args)
         developer = Creator(TextModel, (;textenc=textenc))
         textrnn = develop(developer, rnn)
@@ -213,6 +213,22 @@ nul_pop = Population("", Individual[])
                              batch_size=7,
                              n_repeat=3)
         step!(env, [1], [textrnn])
+        dummy_batch = rand(Float32, hidden_dim, seq_len, 7) |> Flux.gpu
+
+        textrnn_jevo = develop(developer, rnn)
+        textrnn_manual = develop(developer, rnn)
+        # check params are same but objs are different
+        @test textrnn_jevo != textrnn_manual
+        @test Flux.params(textrnn_jevo) |> collect |> Iterators.flatten |> collect ==
+                Flux.params(textrnn_manual) |> collect |> Iterators.flatten |> collect
+        logits_jevo = Jevo.process_text_embeds(textrnn_jevo.model, dummy_batch, nothing)
+        logits_manual = [textrnn_manual.model(dummy_batch[:,i,:]) for i in 1:seq_len]
+        for i in 1:seq_len
+            @test size(logits_jevo[:, i, :]) == size(logits_manual[i])
+            @test logits_jevo[:, i, :] == logits_manual[i]
+        end
+
+
     end
     @testset "Transformer" begin
         state = State()
