@@ -40,20 +40,7 @@ function get_strings(env::AcceptRejectStrings)
     strings
 end
 
-function get_preprocessed_batch(env::Union{RegularLanguage, AcceptRejectStrings}, m)
-    # There appears to be some memory management issue, where GPU OOMs.
-    # Allocating a large amount of memory on the CPU appears to alleviate this 
-    # issue. Garbage collection does not help. Unable to justify spending
-    # more time on this, if it's resolved. On my laptop, this takes ~179μs per call
-    size(zeros(1_000_000))
-    if !isdefined(Main, :preprocessed_batch)
-        @warn "Creating variable Main.preprocessed_batch"
-        strings = [(s,) for s in get_strings(env)]
-        batch = batched(strings)[1]
-        Main.preprocessed_batch = encode(get_text_encoder(m), batch)
-    end
-    Main.preprocessed_batch |> deepcopy |> gpu
-end
+sample_batch(env::Union{RegularLanguage,AcceptRejectStrings}) = batched([(s,) for s in get_strings(env)])[1]
 
 # Use a custom kernel to find the index on each row
 # dims are (vocab_size, seq_len, batch_size)
@@ -107,7 +94,7 @@ function infer(env::Union{RegularLanguage, AcceptRejectStrings}, model::TextMode
     loss = -logitcrossentropy(logits_final, accept_or_reject_final)
     loss, logits_final, accept_or_reject_final
 end
-function step!(env::Union{RegularLanguage, AcceptRejectStrings}, ids::Vector{Int}, models::Vector{TextModel})
+function step!(env::Union{RegularLanguage, AcceptRejectStrings}, ids::Vector{Int}, models::Vector{TextModel{TE,M}}) where {TE, M}
     # One shot classification of accept / reject
     @assert length(models) == length(ids) == 1
     loss, _, _ = infer(env, models[1])
@@ -126,10 +113,14 @@ function percent_correct(logits, accept_or_reject)
     same = preds .== targets
     sum(same) / length(same)
 end
-function evaluate(env_creator::Union{Creator{AcceptRejectStrings}, Creator{RegularLanguage}}, individual::Individual)
+function evaluate(env_creator::Union{Creator{AcceptRejectStrings}, Creator{RegularLanguage}}, individual::Individual, generation::Int)
     model = develop(individual.developer, individual)
     loss, logits, accept_or_reject = infer(env_creator(), model)
-    p_correct = percent_correct(logits, accept_or_reject)
-    @info "Percent Correct: $p_correct"
+    p_correct_measurement =  Measurement(PercentCorrect, percent_correct(logits, accept_or_reject), generation)
+    loss_measurement = Measurement(NegativeLoss, loss, generation)
+    @info p_correct_measurement
+    @info loss_measurement
+    @h5 p_correct_measurement
+    @h5 loss_measurement
     loss
 end

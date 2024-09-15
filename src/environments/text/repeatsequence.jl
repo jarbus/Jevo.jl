@@ -30,8 +30,7 @@ function sample_batch(env::RepeatSequence)
     # Each string is enclosed in a tuple for the batch
     # If we were using encoder-decoder, we would have a tuple of two strings
     seqs = [(sample_sequence(env.n_labels, env.seq_len, env.n_repeat, i),) for i in 1:env.batch_size]
-    batch = batched(seqs)
-    batch[1] # get decoder batch
+    batched(seqs)[1]
 end
 
 # logit idx where evaluation inference begins
@@ -85,20 +84,6 @@ function infer(tm::TextModel, str::String; max_len::Int=10, n_logits::Int=3, pri
 
 end
 
-
-function get_preprocessed_batch(env::RepeatSequence, tm::TextModel)
-    if !isdefined(Main, :preprocessed_batch)
-        @warn "Creating variable Main.preprocessed_batch"
-        Main.preprocessed_batch = encode(tm.textenc, sample_batch(env))
-    end
-    # There appears to be some memory management issue, where GPU OOMs.
-    # Allocating a large amount of memory on the CPU appears to alleviate this 
-    # issue. Garbage collection does not help. Unable to justify spending
-    # more time on this, if it's resolved. On my laptop, this takes ~179μs per call
-    size(zeros(100_000))
-    Main.preprocessed_batch |> deepcopy |> gpu
-end
-
 function step!(env::RepeatSequence, ids::Vector{Int}, models::Vector{TextModel{TE,M}}) where {TE, M}
     @assert length(models) == 1 "Only one model is supported for now"
     @assert env.seq_len > 1
@@ -138,4 +123,5 @@ function evaluate(env_creator::Creator{RepeatSequence}, individual::Individual, 
   @info negativeloss_measurement
   @h5 percent_correct_measurement
   @h5 negativeloss_measurement
+  negativeloss
 end
