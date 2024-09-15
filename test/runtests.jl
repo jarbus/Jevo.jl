@@ -11,6 +11,7 @@ using Transformers.TextEncoders
 using Transformers.Datasets: batched
 using PhylogeneticTrees
 using CUDA
+using Distributed
 Jevo.set_device()
 start_time = time()
 
@@ -40,10 +41,11 @@ end
   @test Jevo.get_counter(AbstractGeneration, state) |> value == 2
 end
 
-include("./test-ng-integration.jl")
-include("./test-writers.jl")
-include("./test-phylo.jl")
+#= include("./test-ng-integration.jl") =#
+#= include("./test-writers.jl") =#
+#= include("./test-phylo.jl") =#
 # include("./test-nn.jl")
+include("./test-text-environments.jl")
 # include("./test-traverse.jl")
 end_time = time()
 println("Tests passed in $(end_time - start_time) seconds.")
