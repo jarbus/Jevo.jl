@@ -107,9 +107,6 @@ function percent_correct(logits, accept_or_reject)
     target_logits = accept_or_reject[:,:] |> Transformers.tocpudevice
     preds = argmax(pred_logits, dims=1) 
     targets = argmax(target_logits, dims=1)
-    for i in 1:size(preds,2)
-        @info "Pred: $(round.(softmax(pred_logits[:,i]), digits=2)) Target: $(targets[i].I[1])"
-    end
     same = preds .== targets
     sum(same) / length(same)
 end

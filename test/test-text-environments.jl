@@ -3,6 +3,8 @@ n_inds = 10
 startsym, endsym, unksym = "<s>", "</s>", "<unk>"
 mrs = (0.1f0, 0.01f0, 0.001f0)
 
+is_increasing(x) = all(x[i] <= x[i+1] for i in 1:length(x)-1)
+
 function get_fsa_components(seq_idx::Int)
     seq_len = 8
     n_strings = 8
@@ -31,9 +33,17 @@ function get_fsa_components(seq_idx::Int)
     pop_creator, env_creator, tfr_args, counters
 end
 
+
 @testset "test-fsa" begin
     for seq_idx in (1,2,3,5,7)
         pop_creator, env_creator, tfr_args, counters = get_fsa_components(seq_idx)
+
+        fitnesses = []
+        performance_logger = create_op("Reporter",
+                retriever=Jevo.get_individuals,
+                operator=(s,is)-> push!(fitnesses, evaluate(env_creator, is[1], generation(s))))
+
+
         state = State("", rng, [pop_creator, env_creator], 
                       [InitializeAllPopulations(),
                         CreateMissingWorkers(1, slurm=false, c=2),
@@ -47,7 +57,7 @@ end
                         UpdatePhylogeny(),
                         UpdateParentsAcrossAllWorkers(time=true),
                         #= Visualizer(condition=s->generation(s) % 10 == 0), =#
-                        RecordPerformance(env_creator, condition=s->generation(s) % 1 == 0), 
+                        performance_logger,
                         ClearCurrentGenWeights(),
                         NBackMutator(n_back=3, mrs=mrs, max_n_muts=2, no_layer_norm=true),
                         #= AddAttentionHeads(prob=0.05, inits=(Jevo.apply_kaiming_normal_noise!,)), =#
@@ -57,5 +67,7 @@ end
                     ], counters=counters)
         rmprocs(workers())
         run!(state, 5)
+        @test is_increasing(fitnesses)
+
     end
 end
