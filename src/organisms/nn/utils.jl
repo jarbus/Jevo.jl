@@ -50,7 +50,7 @@ end
 function get_weight_cache()
     # get global variable Main.weight_cache for weight cache
     # check if weight_cache is defined
-    if !isdefined(Main, :weight_cache)
+    if !isdefined(Main, :weight_cache) || isnothing(Main.weight_cache)
         @warn "No weight cache found. Creating weight cache on proc $(myid())"
         Main.weight_cache = WeightCache(maxsize=1000)
     end
@@ -60,7 +60,7 @@ end
 function get_genotype_cache()
     # get global variable Main.weight_cache for weight cache
     # check if weight_cache is defined
-    if !isdefined(Main, :genotype_cache)
+    if !isdefined(Main, :genotype_cache) || isnothing(Main.genotype_cache)
         @warn "No genotype cache found. Creating genotype cache on proc $(myid())"
         Main.genotype_cache = GenotypeCache(maxsize=10)
     end
