@@ -113,7 +113,7 @@ function create_layer(layer::Jevo.LayerNorm; weight_cache::_WeightCache)
 end
 
 # SelfAttention
-function create_layer(layer::Jevo.SelfAttention; weight_cache::_WeightCache)
+function create_layer(layer::Union{SelfAttention,JevoSelfAttention}; weight_cache::_WeightCache)
     Transformers.Layers.SelfAttention(
         Transformers.NeuralAttentionlib.CausalMultiheadQKVAttenOp(layer.n_heads),
         Transformers.Layers.NSplit(3, create_layer(layer.qkv, weight_cache=weight_cache)),

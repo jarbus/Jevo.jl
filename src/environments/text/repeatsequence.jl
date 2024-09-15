@@ -1,9 +1,6 @@
 using Transformers.Datasets: batched
 using Flux.Losses
-export RepeatSequence, infer, NegativeLoss
-
-struct NegativeLoss <: AbstractMetric end
-struct PercentCorrect <: AbstractMetric end
+export RepeatSequence, infer
 
 Base.@kwdef struct RepeatSequence <: AbstractEnvironment
     n_labels::Int

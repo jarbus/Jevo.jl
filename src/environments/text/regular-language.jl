@@ -1,13 +1,4 @@
 export RegularLanguage, evaluate, AcceptRejectStrings
-# TODO figure out what is the max string length in dynarec
-#   i think he trains on smaller sequences and then observes behavior in the limit
-#   i think he also trains on the same set of sequences
-#   he doesn't converge to passing on every single sequence
-#   he said to make infinite strings
-#   for this, maybe i need to have an output that is not a softmax?
-#   i need to do something to separate classification from generation
-#   maybe something like 0101:C where C is the classification
-#   doesn't backprop over the other logits, so it's not a problem
 struct RegularLanguage <: AbstractEnvironment
     regex::Regex
     seq_len::Int

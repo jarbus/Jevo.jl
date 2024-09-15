@@ -130,7 +130,7 @@ end
         out::Dense
     end
 
-A self-attention layer. Cross-attention is not supported. This struct is mutable to allow for a dynamic number of heads.
+A self-attention layer. Cross-attention is not supported.
 """
 mutable struct SelfAttention <: AbstractLayer
     n_heads::Int
@@ -138,8 +138,23 @@ mutable struct SelfAttention <: AbstractLayer
     out::Dense
 end
 
+"""
+    mutable struct JevoSelfAttention <: AbstractLayer
+        n_heads::Int
+        qkv::Dense
+        out::Dense
+    end
+
+A self-attention layer. Cross-attention is not supported. This struct is mutable to allow for a dynamic number of heads.
+"""
+mutable struct JevoSelfAttention <: AbstractLayer
+    n_heads::Int
+    qkv::Dense
+    out::Dense
+end
+
 struct PostNormResidual <: AbstractLayer
-    layer::Union{SelfAttention,Dense} # ff or attention
+    layer::Union{JevoSelfAttention,SelfAttention,Dense} # ff or attention
     norm::LayerNorm # layer norm
 end
 
@@ -179,6 +194,7 @@ _WeightCache = Union{LRU{Int, <:Array{Float32}}, Nothing}
 # Should be LRU{Int, <:AbstractLayer}, but abstract types slow down the code
 _GenotypeCache = Union{LRU, Nothing}
 
+struct TextTransformer end # for creators
 struct TextRNN end
 # TODO refactor to allow custom position embeds
 # this is non trivial and may require us to pass anonymous functions

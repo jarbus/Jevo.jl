@@ -1,3 +1,4 @@
+export TextRNN, TextTransformer
 import Base: +, ==, hash
 
 NetworkGene(rng::AbstractRNG, counter::Counter, mr::Float32, init::Function=Jevo.apply_kaiming_normal_noise!) = 
@@ -8,8 +9,7 @@ NetworkGene(counter::Counter, seed::UInt64, mr::Float32, init::Function=Jevo.app
 function FreshWeights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{Int}}; init::Function=Jevo.apply_kaiming_normal_noise!, rank=-1)
     (length(dims) < 2 || rank < 0) && return Weights(dims, [NetworkGene(-inc!(counter), rand(rng, UInt64), 0.1f0, init)])
     CompositeWeight(dims, AbstractWeights[
-        FactorWeight(
-            dims,
+        FactorWeight(dims,
             Weights((dims[1], rank), [NetworkGene(-inc!(counter), rand(rng, UInt64), 0.1f0, apply_kaiming_normal_noise_factored!)]),
             Weights((rank, dims[2]), [NetworkGene(-inc!(counter), rand(rng, UInt64), 0.1f0, apply_kaiming_normal_noise_factored!)]),
         ),
@@ -161,7 +161,7 @@ end
 Goes through all weight collections in each self attention layer, and makes copies of fresh heads from the delta where appropriate. Only valid for a parent and a child network with at most one extra head.
 """
 function insert_new_attention_heads!(genome::AbstractLayer, delta::Delta)
-    genome_attn_layers, delta_attn_layers = map_get(genome, SelfAttention), map_get(delta, SelfAttention)
+    genome_attn_layers, delta_attn_layers = map_get(genome, JevoSelfAttention), map_get(delta, JevoSelfAttention)
     @assert length(genome_attn_layers) == length(delta_attn_layers) "Different number of attention layers in genome and delta"
     # go over each attention layer
     for (g_attn, d_attn) in zip(genome_attn_layers, delta_attn_layers)
@@ -309,6 +309,35 @@ function SelfAttention(rng::AbstractRNG, counter::AbstractCounter;
     out = Dense(rng, counter, dims=(n_heads*head_dim, hidden_dim), σ=identity, rank=o_rank)
     SelfAttention(n_heads, qkv, out)
 end
+
+function JevoSelfAttention(rng::Jevo.AbstractRNG, counter::Jevo.AbstractCounter; n_heads::Int, head_dim::Int, hidden_dim::Int, qkv_rank::Int=-1, o_rank::Int=-1, init!::Function=Jevo.apply_kaiming_normal_noise!,)
+    # NOTE: QKV weights are transposed, because we aren't going through our custom Dense constructor
+    #       which automatically transposes for us.
+    head_init! = qkv_rank < 1 ? init! : Jevo.apply_kaiming_normal_noise_factored!
+    qkv_weights = Jevo.WeightsCollection(
+        (head_dim*n_heads*3, hidden_dim),
+        vcat([Jevo.Weights(rng, counter, (head_dim, hidden_dim), init=head_init!, rank=qkv_rank) for i in 1:n_heads*3]))
+
+    qkv_bias = Jevo.WeightsCollection(
+        (head_dim*n_heads*3,),
+        [Jevo.Weights(rng, counter, (head_dim,), init=init!) for i in 1:n_heads*3]
+    )
+
+    out_weights = Jevo.WeightsCollection(
+        (hidden_dim, head_dim*n_heads),
+        [Jevo.Weights(rng, counter, (hidden_dim, head_dim), init=head_init!, rank=o_rank) for _ in 1:1, h in 1:n_heads])
+
+    out_bias = Jevo.Weights(rng, counter, (hidden_dim,), init=init!)
+    
+    qkv = Jevo.Dense(qkv_weights, qkv_bias, identity)
+    out = Jevo.Dense(out_weights, out_bias, identity)
+
+    JevoSelfAttention(n_heads, qkv, out)
+end
+
+
+
+
 function LayerNorm(rng::AbstractRNG, counter::AbstractCounter; hidden_dim::Int)
     """Create a layer norm with scale and bias"""
     scale = Weights(rng, counter, (hidden_dim,), init=apply_one!)
@@ -324,7 +353,7 @@ end
 
 function TransformerDecoderBlock(rng::AbstractRNG, counter::AbstractCounter;
         n_heads::Int, head_dim::Int, ff_dim::Int, hidden_dim::Int, qkv_rank::Int=-1, o_rank::Int=-1, ff_rank::Int=-1)
-    sa = SelfAttention(rng, counter, n_heads=n_heads, head_dim=head_dim, hidden_dim=hidden_dim, qkv_rank=qkv_rank, o_rank=o_rank)
+    sa = JevoSelfAttention(rng, counter, n_heads=n_heads, head_dim=head_dim, hidden_dim=hidden_dim, qkv_rank=qkv_rank, o_rank=o_rank)
     ff = Jevo.Chain([
             Dense(rng, counter, dims=(hidden_dim, ff_dim), σ=gelu, rank=ff_rank),
             Dense(rng, counter, dims=(ff_dim, hidden_dim), σ=identity, rank=ff_rank)
