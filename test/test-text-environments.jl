@@ -36,6 +36,10 @@ end
 
 @testset "test-fsa" begin
     for seq_idx in (1,2,3,5,7)
+        @everywhere begin
+            Main.weight_cache = nothing
+            Main.genotype_cache = nothing
+        end
         pop_creator, env_creator, tfr_args, counters = get_fsa_components(seq_idx)
 
         fitnesses = []
