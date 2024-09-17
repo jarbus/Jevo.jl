@@ -181,7 +181,7 @@ function add_attention_head(rng::AbstractRNG, state::State, ::AbstractPopulation
     genotype = deepcopy(genotype)
     gene_counter = get_counter(AbstractGene, state)
     # Get random weight collection within a random attention layer
-    attention_layers = map_get(genotype, SelfAttention)
+    attention_layers = map_get(genotype, Jevo.JevoSelfAttention)
     @assert length(attention_layers) > 0 "No attention layers found"
     attn_layer = rand(rng, attention_layers) 
     weight_collections = map_get(attn_layer, WeightsCollection)
