@@ -239,7 +239,8 @@ function add_decoder_block(rng::AbstractRNG, state::State, pop::AbstractPopulati
     rand(rng) > prob && return genotype
     genotype = deepcopy(genotype)
     gene_counter = get_counter(AbstractGene, state)
-    @assert genotype.layers[1] isa Transformer "Must be a Transformer"
+    trfs = map_get(genotype, Transformer)
+    @assert length(trfs) == 1 "There must be only one transformer in the genotype"
     head_dim = rand(rng, head_dims)
     # Create new block with one head
     block = TransformerDecoderBlock(rng, gene_counter, n_heads=1, head_dim=head_dim, hidden_dim=hidden_dim, ff_dim=ff_dim, qkv_rank=qkv_rank, o_rank=o_rank, ff_rank=ff_rank)
@@ -252,7 +253,7 @@ function add_decoder_block(rng::AbstractRNG, state::State, pop::AbstractPopulati
         muts[1] = NetworkGene(-gene.id, gene.seed, mr, gene.init!)
     end
     # randomly insert the block
-    blocks = genotype.layers[1].blocks
+    blocks = trfs[1].blocks
     insert!(blocks, rand(rng, 1:length(blocks)+1), block)
     genotype
 end
