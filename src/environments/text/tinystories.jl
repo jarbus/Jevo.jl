@@ -6,6 +6,7 @@ Base.@kwdef struct TinyStoriesDataSet <: AbstractEnvironment
     n_tokens::Int
     n_sequences::Int
     max_seq_len::Int
+    batch_size::Int
 end
 
 # ==== PERFORMANCE CRITICAL END
@@ -32,11 +33,22 @@ function loss(input, textmodel)
     ce_loss
 end
 
+function compute_loss_over_batches(env, input, textmodel)
+    ce_loss = 0f0
+    for start_idx in 1:env.batch_size:env.n_sequences
+        end_idx = min(start_idx+env.batch_size-1, env.n_sequences)
+        split_input = (token = input.token[:,:,start_idx:end_idx],
+                    attention_mask = Transformers.NeuralAttentionlib.LengthMask(input.attention_mask.len[start_idx:end_idx]))
+        ce_loss += loss(split_input, textmodel)
+    end
+    ce_loss
+end
+
 function step!(env::TinyStoriesDataSet, ids::Vector{Int}, models::Vector{TextModel{TE,M}}) where {TE, M}
     @assert length(models) == 1 "Only one model is supported for now"
     model = models[1]
     input_batch = get_preprocessed_batch(env, model)
-    ce_loss = loss(input_batch, model)
+    ce_loss = compute_loss_over_batches(env, input_batch, model)
     [Interaction(ids[1], [], ce_loss)]
 end
 
