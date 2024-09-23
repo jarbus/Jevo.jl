@@ -71,32 +71,18 @@ function compute_mutation_probabilities(weights)
     last_gene_ids
 end
 
-function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind::Individual; n_back::Int, min_mutation_prob::Float64=0.05, mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool=true, max_n_muts::Int)
+function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind::Individual; n_back::Int,mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool=true, min_mutation_prob::Float64=0.05)
     genome = deepcopy(ind.genotype)
     weights = get_weights(genome, no_layer_norm=no_layer_norm)
     historical_genome = ind.generation == 0 ? deepcopy(genome) : get_genotype_cache()[ind.parents[1]]
     gene_counter = @inline get_counter(AbstractGene, state)
     historical_weights = get_weights(historical_genome, no_layer_norm=no_layer_norm)
-    probabilities = @inline compute_mutation_probabilities(historical_weights)
     @assert samearchitecture(historical_genome, genome) "Parent and Child do not have the same architecture. Make sure to run this mutator before you add new heads or layers."
     @assert length(weights) == length(historical_weights) == length(probabilities)
-    tries, n_added_mutations = 0, 0
-    while tries < 50 && n_added_mutations == 0
-        random_order = zip(weights, historical_weights, probabilities) |> collect |> shuffle
-        for (weight, hist_weight, prob) in random_order
-            rand(rng) > prob + min_mutation_prob && continue
-            added_mut = if length(hist_weight.muts) < n_back
-                @inline non_ancestral_mutate!(rng, gene_counter, hist_weight, weight, mrs=mrs)
-            else
-                @inline ancestral_mutate!(rng, gene_counter, hist_weight, weight, mrs=mrs, n_back=n_back)
-            end
-            n_added_mutations += added_mut
-            n_added_mutations == max_n_muts && break
-        end
-        n_added_mutations > 0 && break
-        tries += 1
+    random_order = zip(weights, historical_weights) |> collect |> shuffle
+    for (weight, hist_weight) in random_order
+        apply_nback_mutation!(rng, gene_counter, hist_weight, weight, n_back, mrs)
     end
-    @assert n_added_mutations > 0 "No mutations added given probabilities $probabilities"
     genome
 end
 
