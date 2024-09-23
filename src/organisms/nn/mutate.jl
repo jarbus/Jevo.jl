@@ -56,10 +56,13 @@ function ancestral_mutate!(rng, gene_counter, hist_weight::CoupledWeights, weigh
         ancestral_mutate!(rng, gene_counter, hist.weights, w.weights; kwargs...)
     end
 end
+
+get_last_id(weight::Weights) = weight.muts[end].id
+get_last_id(weight::CoupledWeights) = get_last_id(weight.weights[1])
 # TODO FIX this is a non-deterministic hack, because gene ids are assigned in threads
 # We need to figure out a fix for this, for reproducibility
 function compute_mutation_probabilities(weights)
-    last_gene_ids = Float64.([abs(weight.muts[end].id) for weight in weights])
+    last_gene_ids = weights .|> get_last_id .|> Float64
     last_gene_ids .= round.(last_gene_ids ./ 10000 ) # TODO hack to mitigate non-determinism, get rid of this
     last_gene_ids .-= minimum(last_gene_ids)
     _max = maximum(last_gene_ids)
@@ -101,17 +104,26 @@ function apply_nback_mutation!(rng::AbstractRNG, gene_counter, hist_weight::Coup
 end
 
 
-function coupled_nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind::Individual; n_back::Int, mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool=true, max_n_muts::Int)
+function coupled_nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind::Individual; n_back::Int, mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool=true, max_n_muts::Int, min_mutation_prob::Float64=0.05)
     genome = deepcopy(ind.genotype)
     weights = get_coupled_weights(genome, no_layer_norm=no_layer_norm)
     historical_genome = ind.generation == 0 ? deepcopy(genome) : get_genotype_cache()[ind.parents[1]]
     gene_counter = @inline get_counter(AbstractGene, state)
     historical_weights = get_coupled_weights(historical_genome, no_layer_norm=no_layer_norm)
+    probabilities = @inline compute_mutation_probabilities(historical_weights)
     @assert samearchitecture(historical_genome, genome) "Parent and Child do not have the same architecture. Make sure to run this mutator before you add new heads or layers."
     @assert length(weights) == length(historical_weights)
-    random_order = zip(weights, historical_weights) |> collect |> shuffle
-    for (weight, hist_weight) in random_order[1:max_n_muts]
-        apply_nback_mutation!(rng, gene_counter, hist_weight, weight, n_back, mrs)
+    tries, n_added_mutations = 0, 0
+    while tries < 50 && n_added_mutations == 0
+        random_order = zip(weights, historical_weights, probabilities) |> collect |> shuffle
+        for (weight, hist_weight, prob) in random_order[1:max_n_muts]
+            rand(rng) > prob + min_mutation_prob && continue
+            apply_nback_mutation!(rng, gene_counter, hist_weight, weight, n_back, mrs)
+            n_added_mutations += 1
+            n_added_mutations == max_n_muts && break
+        end
+        n_added_mutations > 0 && break
+        tries += 1
     end
     genome
 end
