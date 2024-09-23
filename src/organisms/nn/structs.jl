@@ -1,4 +1,4 @@
-export TransformerPhenotype, Transformer, FactorWeight, CompositeWeight, WeightsCollection, Weights, Dense, SelfAttention, Chain, PostNormResidual, Embed, EmbedDecoder, LayerNorm, TransformerDecoderBlock, RNN, TextModel, TextTransformer, TextRNN
+export Transformer, FactorWeight, CompositeWeight, WeightsCollection, Weights, Dense, SelfAttention, Chain, PostNormResidual, Embed, EmbedDecoder, LayerNorm, TransformerDecoderBlock, RNN, TextModel, TextTransformer, TextRNN, CoupledWeights
 """
     struct NetworkGene <: AbstractMutation
         id::Int
@@ -66,6 +66,10 @@ A collection of weights which are added together. Each element must develop to t
 mutable struct CompositeWeight{T<:AbstractWeights} <: AbstractWeights
     dims::Tuple{Vararg{Int}}
     weights::Vector{T}
+end
+
+struct CoupledWeights
+    weights::Vector{Weights}
 end
 
 """

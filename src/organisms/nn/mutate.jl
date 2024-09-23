@@ -1,9 +1,10 @@
-export ClearCurrentGenWeights, AddAttentionHeads, AddDecoderBlock, NBackMutator
+export ClearCurrentGenWeights, AddAttentionHeads, AddDecoderBlock, NBackMutator, CoupledNBackMutator
 
 @define_op "ClearCurrentGenWeights" "AbstractMutator"
 @define_op "AddAttentionHeads" "AbstractMutator"
 @define_op "AddDecoderBlock" "AbstractMutator"
 @define_op "NBackMutator" "AbstractMutator"
+@define_op "CoupledNBackMutator" "AbstractMutator"
 
 """
     non_ancestral_mutate!(rng, gene_counter, hist_weight::Weights, weight::Weights; mrs::Tuple{Vararg{Float32}})
@@ -45,6 +46,16 @@ function ancestral_mutate!(rng, gene_counter, historical_weight, weight::Weights
     return true
 end
 
+function non_ancestral_mutate!(rng, gene_counter, hist_weight::CoupledWeights, weight::CoupledWeights; kwargs...)
+    for (hist, w) in zip(hist_weight.weights, weight.weights)
+        non_ancestral_mutate!(rng, gene_counter, hist.weights, w.weights; kwargs...)
+    end
+end
+function ancestral_mutate!(rng, gene_counter, hist_weight::CoupledWeights, weight::CoupledWeights; kwargs...)
+    for (hist, w) in zip(hist_weight.weights, weight.weights)
+        ancestral_mutate!(rng, gene_counter, hist.weights, w.weights; kwargs...)
+    end
+end
 # TODO FIX this is a non-deterministic hack, because gene ids are assigned in threads
 # We need to figure out a fix for this, for reproducibility
 function compute_mutation_probabilities(weights)
@@ -67,7 +78,7 @@ function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind:
     gene_counter = @inline get_counter(AbstractGene, state)
     historical_weights = get_weights(historical_genome, no_layer_norm=no_layer_norm)
     probabilities = @inline compute_mutation_probabilities(historical_weights)
-    @assert samearchitecture(historical_genome, genome)
+    @assert samearchitecture(historical_genome, genome) "Parent and Child do not have the same architecture. Make sure to run this mutator before you add new heads or layers."
     @assert length(weights) == length(historical_weights) == length(probabilities)
     tries, n_added_mutations = 0, 0
     while tries < 50 && n_added_mutations == 0
@@ -89,9 +100,48 @@ function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind:
     genome
 end
 
+function apply_nback_mutation!(rng::AbstractRNG, gene_counter, hist_weight::Weights, weight::Weights, n_back, mrs)
+    if length(hist_weight.muts) < n_back
+        @inline non_ancestral_mutate!(rng, gene_counter, hist_weight, weight, mrs=mrs)
+    else
+        @inline ancestral_mutate!(rng, gene_counter, hist_weight, weight, mrs=mrs, n_back=n_back)
+    end
+end
+
+function apply_nback_mutation!(rng::AbstractRNG, gene_counter, hist_weight::CoupledWeights, weight::CoupledWeights, n_back, mrs) 
+    for (hist, w) in zip(hist_weight.weights, weight.weights)
+        apply_nback_mutation!(rng, gene_counter, hist, w, n_back, mrs)
+    end
+end
+
+
+function coupled_nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind::Individual; n_back::Int, mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool=true, max_n_muts::Int)
+    genome = deepcopy(ind.genotype)
+    weights = get_coupled_weights(genome, no_layer_norm=no_layer_norm)
+    historical_genome = ind.generation == 0 ? deepcopy(genome) : get_genotype_cache()[ind.parents[1]]
+    gene_counter = @inline get_counter(AbstractGene, state)
+    historical_weights = get_coupled_weights(historical_genome, no_layer_norm=no_layer_norm)
+    @assert samearchitecture(historical_genome, genome) "Parent and Child do not have the same architecture. Make sure to run this mutator before you add new heads or layers."
+    @assert length(weights) == length(historical_weights)
+    random_order = zip(weights, historical_weights) |> collect |> shuffle
+    for (weight, hist_weight) in random_order[1:max_n_muts]
+        apply_nback_mutation!(rng, gene_counter, hist_weight, weight, n_back, mrs)
+    end
+    genome
+end
+
+
+CoupledNBackMutator(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
+    create_op("CoupledNBackMutator",
+              condition=condition,
+              retriever=PopulationRetriever(ids),
+              updater=map(map((s,p)->mutate!(s, p; fn=coupled_nback_mutate, kwargs...))),
+              time=time;)
+
+
 function mutate!(rng::AbstractRNG, state::AbstractState, population::AbstractPopulation, ind::Individual{G, D, I}, args...; fn, kwargs...) where {G <: Delta, D, I}
     # I really, really don't like this, but this is simpler less confusing than the alternative
-    if fn != nback_mutate
+    if fn ∉ (nback_mutate, coupled_nback_mutate)
         ind.genotype = fn(rng, state, population, ind.genotype, args...; kwargs...)
         return
     end

@@ -156,7 +156,37 @@ function get_weights(x::Union{AbstractLayer, AbstractGenotype, AbstractWeights};
     map(x, weights_only=true) do hierarchy
         no_layer_norm && is_layer_norm(hierarchy) && return nothing
         return hierarchy[end]
-    end |> x->filter(!isnothing, x)
+    end |> filter(!isnothing)
+end
+
+
+function get_coupled_weights(x::Union{AbstractLayer, AbstractGenotype, AbstractWeights}; no_layer_norm::Bool=false)
+    map(x, weights_only=false) do hierarchy
+        no_layer_norm && is_layer_norm(hierarchy) && return nothing
+        # treat as normal get_weights if we aren't in an attention block
+        if !any(l->l isa JevoSelfAttention, hierarchy)
+            return hierarchy[end] isa Weights ? hierarchy[end] : nothing
+        end
+        # If we are looking at sublayers of the attention block, skip, since we are coupling those
+        !isa(hierarchy[end], JevoSelfAttention) && return nothing
+        jsa = hierarchy[end]
+        coupled_weights = []
+        for i in 1:jsa.n_heads
+            # *.weights and *.bias are WeightsCollections, so we need to get the weights 
+            # of the collection
+            
+            # Group QK weights and biases
+            qk = CoupledWeights([jsa.qkv.weights.weights[i], jsa.qkv.weights.weights[i+jsa.n_heads],
+                                 jsa.qkv.bias.weights[i], jsa.qkv.bias.weights[i+jsa.n_heads]])
+            # Group VO weights and biases
+            vo = CoupledWeights([jsa.qkv.weights.weights[i+2jsa.n_heads], jsa.qkv.bias.weights[i+2jsa.n_heads],
+                                 jsa.out.weights.weights[i]])
+            # the out bias is (hidden_dim,) and there is only one per layer
+            # so it is not coupled with the heads
+            push!(coupled_weights, qk, vo, jsa.out.bias)
+        end
+        coupled_weights
+    end |> filter(!isnothing) |> x->vcat(x...) # flatten the vectors of coupled weights
 end
 
 function set_device()
