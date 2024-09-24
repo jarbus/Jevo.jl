@@ -74,14 +74,14 @@ function compute_mutation_probabilities(weights)
     last_gene_ids
 end
 
-function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind::Individual; n_back::Int,mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool=true, min_mutation_prob::Float64=0.05)
+function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind::Individual; n_back::Int,mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool=true)
     genome = deepcopy(ind.genotype)
     weights = get_weights(genome, no_layer_norm=no_layer_norm)
     historical_genome = ind.generation == 0 ? deepcopy(genome) : get_genotype_cache()[ind.parents[1]]
     gene_counter = @inline get_counter(AbstractGene, state)
     historical_weights = get_weights(historical_genome, no_layer_norm=no_layer_norm)
     @assert samearchitecture(historical_genome, genome) "Parent and Child do not have the same architecture. Make sure to run this mutator before you add new heads or layers."
-    @assert length(weights) == length(historical_weights) == length(probabilities)
+    @assert length(weights) == length(historical_weights)
     random_order = zip(weights, historical_weights) |> collect |> shuffle
     for (weight, hist_weight) in random_order
         apply_nback_mutation!(rng, gene_counter, hist_weight, weight, n_back, mrs)

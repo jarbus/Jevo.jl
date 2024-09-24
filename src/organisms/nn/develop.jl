@@ -151,7 +151,8 @@ function develop(c::Creator{TextModel}, textnet::TextNetwork)
     weight_cache = get_weight_cache()
     TextModel(
         c.kwargs.textenc,
-        Transformers.Layers.SinCosPositionEmbed(textnet.embed.weights.dims[1]),
+        #Transformers.Layers.SinCosPositionEmbed(textnet.embed.weights.dims[1]),
+        Transformers.Layers.RotaryPositionEmbed(),
         create_layer(textnet.embed, weight_cache=weight_cache),
         create_layer(textnet.network, weight_cache=weight_cache) |> gpu,
         create_layer(textnet.embeddecoder, weight_cache=weight_cache),
@@ -173,9 +174,10 @@ function (tm::TextModel)(input)
     mask = get(input, :attention_mask, nothing)
     embeds = tm.embed(input.token)
     pos_embed = tm.posembed(embeds) |> gpu
-    embeds = embeds .+ pos_embed
+    #embeds = embeds .+ pos_embed
     logits = Transformers.ChainRulesCore.ignore_derivatives() do
-        process_text_embeds(tm.model, embeds, mask)
+        #process_text_embeds(tm.model, embeds, mask)
+        process_text_embeds(tm.model, pos_embed, mask)
     end
     tm.embeddecoder(logits)
 end
