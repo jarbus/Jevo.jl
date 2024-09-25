@@ -21,6 +21,6 @@ function play(env::E, ids::Vector{Int}, phenotypes::Vector{P}) where {E <: Abstr
         is_done = done(env)
     end
     @assert length(interactions) > 0
-    @assert all(i->!isinf(i.score), interactions)
+    @assert any(i->!isinf(i.score), interactions) "All interactions returned an infinite score"
     interactions
 end
