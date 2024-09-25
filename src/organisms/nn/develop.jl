@@ -90,8 +90,8 @@ end
 
 function create_layer(layer::Jevo.TransformerDecoderBlock; weight_cache::_WeightCache)
     attn_layer = create_layer(layer.attention, weight_cache=weight_cache)
-    #ff_layer = create_layer(layer.ff, weight_cache=weight_cache)
-    ff_layer = identity
+    ff_layer = create_layer(layer.ff, weight_cache=weight_cache)
+    #ff_layer = identity
     Transformers.Layers.TransformerDecoderBlock(
         attn_layer,
         ff_layer
@@ -128,7 +128,7 @@ end
 create_layer(layers::Vector; weight_cache::_WeightCache) =
     Flux.Chain((create_layer(l, weight_cache=weight_cache) for l in layers)...)
 create_layer(layer::Jevo.Transformer; weight_cache::_WeightCache) = create_layer(layer.blocks, weight_cache=weight_cache)
-create_layer(layer::Jevo.Chain; weight_cache::_WeightCache) = create_layer(layer.layers, weight_cache=weight_cache)
+create_layer(layer::JevoChain; weight_cache::_WeightCache) = create_layer(layer.layers, weight_cache=weight_cache)
 
 function create_layer(layer::Jevo.Dense; weight_cache::_WeightCache)
     weights = @inline tensor(layer.weights, weight_cache=weight_cache)
@@ -142,7 +142,7 @@ Creates a phenotype layer from a genotype, calls [tensor](@ref) on contained wei
 """
 create_layer(f::Function; kwargs...) = f
 
-function develop(::Creator{Flux.Chain}, chain::Chain)
+function develop(::Creator{Flux.Chain}, chain::JevoChain)
     weight_cache = get_weight_cache()
     Flux.Chain((create_layer(l, weight_cache=weight_cache) for l in chain.layers)...)
 end
@@ -173,11 +173,11 @@ end
 function (tm::TextModel)(input)
     mask = get(input, :attention_mask, nothing)
     embeds = tm.embed(input.token)
-    pos_embed = tm.posembed(embeds) |> gpu
+    #pos_embed = tm.posembed(embeds) |> gpu
     #embeds = embeds .+ pos_embed
     logits = Transformers.ChainRulesCore.ignore_derivatives() do
-        #process_text_embeds(tm.model, embeds, mask)
-        process_text_embeds(tm.model, pos_embed, mask)
+        process_text_embeds(tm.model, embeds, mask)
+        #process_text_embeds(tm.model, pos_embed, mask)
     end
     tm.embeddecoder(logits)
 end

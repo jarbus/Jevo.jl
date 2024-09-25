@@ -1,4 +1,4 @@
-export Transformer, FactorWeight, CompositeWeight, WeightsCollection, Weights, Dense, SelfAttention, Chain, PostNormResidual, Embed, EmbedDecoder, LayerNorm, TransformerDecoderBlock, RNN, TextModel, TextTransformer, TextRNN, CoupledWeights
+export Transformer, FactorWeight, CompositeWeight, WeightsCollection, Weights, Dense, SelfAttention, JevoChain, PostNormResidual, Embed, EmbedDecoder, LayerNorm, TransformerDecoderBlock, RNN, TextModel, TextTransformer, TextRNN, CoupledWeights
 """
     struct NetworkGene <: AbstractMutation
         id::Int
@@ -157,29 +157,30 @@ mutable struct JevoSelfAttention <: AbstractLayer
     out::Dense
 end
 
-struct PostNormResidual <: AbstractLayer
-    layer::Union{JevoSelfAttention,SelfAttention,Dense} # ff or attention
-    norm::LayerNorm # layer norm
-end
-
-struct TransformerDecoderBlock <: AbstractLayer
-    attention::PostNormResidual # postnorm residual
-    ff::Nothing # postnorm residual Chain Dense Dense
-end
-
-struct Transformer <: AbstractLayer
-    blocks::Vector{TransformerDecoderBlock}
-end
-
 """
-    struct Chain <: AbstractLayer
+    struct JevoChain <: AbstractLayer
         layers::Vector
     end
 
 A collection of sequential layers.
 """
-struct Chain <: AbstractLayer
+struct JevoChain <: AbstractLayer
     layers::Vector
+end
+
+
+struct PostNormResidual <: AbstractLayer
+    layer::Union{JevoSelfAttention,SelfAttention,Dense,JevoChain} # ff or attention
+    norm::LayerNorm # layer norm
+end
+
+struct TransformerDecoderBlock <: AbstractLayer
+    attention::PostNormResidual # postnorm residual
+    ff::PostNormResidual # postnorm residual Chain Dense Dense
+end
+
+struct Transformer <: AbstractLayer
+    blocks::Vector{TransformerDecoderBlock}
 end
 
 

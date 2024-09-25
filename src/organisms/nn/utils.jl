@@ -52,7 +52,7 @@ function get_weight_cache()
     # check if weight_cache is defined
     if !isdefined(Main, :weight_cache) || isnothing(Main.weight_cache)
         @warn "No weight cache found. Creating weight cache on proc $(myid())"
-        Main.weight_cache = WeightCache(maxsize=1000)
+        Main.weight_cache = WeightCache(maxsize=300)
     end
     Main.weight_cache
 end
@@ -127,7 +127,7 @@ get_weight_symbols(d::Dense) =
 get_weight_symbols(e::Embed) = get_weight_symbols(e.weights)
 get_weight_symbols(e::EmbedDecoder) =
     get_weight_symbols(e.embed) * get_weight_symbols(e.bias)
-get_weight_symbols(network::Chain) = join([get_weight_symbols(l) for l in network.layers])
+get_weight_symbols(network::JevoChain) = "chain\n"*join([get_weight_symbols(l) for l in network.layers])
 get_weight_symbols(tfr::Transformer) = join([get_weight_symbols(l) for l in tfr.blocks])
     get_weight_symbols(rnn::Jevo.RNN) = get_weight_symbols(rnn.input)* get_weight_symbols(rnn.hidden) * get_weight_symbols(rnn.bias)
 get_weight_symbols(tdb::TransformerDecoderBlock) =

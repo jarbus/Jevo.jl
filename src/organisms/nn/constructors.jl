@@ -266,12 +266,12 @@ copyarchitecture(d::Delta) = Delta(copyarchitecture(d.change))
 copyarchitecture(net::T) where {T <: Union{Jevo.AbstractLayer, Jevo.AbstractWeights}} =
     T((copyarchitecture(getfield(net, p)) for p in propertynames(net))...)
 
-function Chain(rng::AbstractRNG, counter::AbstractCounter, layers::Vector)
+function JevoChain(rng::AbstractRNG, counter::AbstractCounter, layers::Vector)
     """Create a network with a collection of layers"""
     for l in layers
         @assert l[1] <: AbstractLayer "Layer must be a subtype of AbstractLayer, got $(l[1])"
     end
-    Chain([l[1](rng, counter; l[2]...) for l in layers])
+    JevoChain([l[1](rng, counter; l[2]...) for l in layers])
 end
 
 function Dense(rng::AbstractRNG, counter::AbstractCounter; dims::Tuple{Vararg{Int}}, σ::Function, rank::Int=-1)
@@ -354,14 +354,14 @@ end
 function TransformerDecoderBlock(rng::AbstractRNG, counter::AbstractCounter;
         n_heads::Int, head_dim::Int, ff_dim::Int, hidden_dim::Int, qkv_rank::Int=-1, o_rank::Int=-1, ff_rank::Int=-1)
     sa = JevoSelfAttention(rng, counter, n_heads=n_heads, head_dim=head_dim, hidden_dim=hidden_dim, qkv_rank=qkv_rank, o_rank=o_rank)
-    ff = Jevo.Chain([
+    ff = JevoChain([
             Dense(rng, counter, dims=(hidden_dim, ff_dim), σ=gelu, rank=ff_rank),
             Dense(rng, counter, dims=(ff_dim, hidden_dim), σ=identity, rank=ff_rank)
     ])
     # postnorm
     pnr_sa = Jevo.PostNormResidual(rng, counter, sa, hidden_dim=hidden_dim)
-    pnr_ff = nothing
-    #pnr_ff = Jevo.PostNormResidual(rng, counter, ff, hidden_dim=hidden_dim)
+    #pnr_ff = nothing
+    pnr_ff = Jevo.PostNormResidual(rng, counter, ff, hidden_dim=hidden_dim)
     TransformerDecoderBlock(pnr_sa, pnr_ff)
 end
 
