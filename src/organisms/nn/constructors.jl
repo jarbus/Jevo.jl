@@ -293,7 +293,7 @@ function create_embeds(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{V
     """Create an embed layer with a (hidden_dim, vocab_dim) weight matrix"""
     @assert length(dims) == 2 "Embed layer must have 2 dimensions, got $(length(dims))"
     embeds = Weights(rng, counter, dims, init=apply_gaussian_normal_noise!, rank=rank)
-    bias = Weights(rng, counter, (dims[2],), init=apply_zero!)
+    bias = Weights(rng, counter, (dims[2],))
     embed = Embed(embeds)
     embed, EmbedDecoder(embed, bias)
 end
@@ -314,6 +314,7 @@ function JevoSelfAttention(rng::Jevo.AbstractRNG, counter::Jevo.AbstractCounter;
     # NOTE: QKV weights are transposed, because we aren't going through our custom Dense constructor
     #       which automatically transposes for us.
     head_init! = qkv_rank < 1 ? init! : Jevo.apply_kaiming_normal_noise_factored!
+    o_init! = o_rank < 1 ? init! : Jevo.apply_kaiming_normal_noise!
     qkv_weights = Jevo.WeightsCollection(
         (head_dim*n_heads*3, hidden_dim),
         [Jevo.Weights(rng, counter, (head_dim, hidden_dim), init=head_init!, rank=qkv_rank) for i in 1:n_heads*3])
@@ -325,9 +326,9 @@ function JevoSelfAttention(rng::Jevo.AbstractRNG, counter::Jevo.AbstractCounter;
 
     out_weights = Jevo.WeightsCollection(
         (hidden_dim, head_dim*n_heads),
-        [Jevo.Weights(rng, counter, (hidden_dim, head_dim), init=head_init!, rank=o_rank) for _ in 1:1, h in 1:n_heads])
+        [Jevo.Weights(rng, counter, (hidden_dim, head_dim), init=o_init!, rank=o_rank) for _ in 1:1, h in 1:n_heads])
 
-    out_bias = Jevo.Weights(rng, counter, (hidden_dim,), init=init!)
+    out_bias = Jevo.Weights(rng, counter, (hidden_dim,))
     
     qkv = Jevo.Dense(qkv_weights, qkv_bias, identity)
     out = Jevo.Dense(out_weights, out_bias, identity)

@@ -76,6 +76,7 @@ function mr_symbol(mr::Float32)
     mr >= 0.00001f0 && return "o"
     mr >= 0.000001f0 && return "."
     mr >= 0.0000001f0 && return "_"
+    mr == 0.0f0 && return " "
     @error "mr too small to visualize"
 end
 

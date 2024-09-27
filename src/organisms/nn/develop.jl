@@ -30,6 +30,7 @@ function tensor(w::Weights; weight_cache::_WeightCache=nothing)::Array{Float32}
     # iteratively apply remaining mutations
     @inbounds for i in ancestor_idx+1:n_genes
         gene = genes[i]
+        gene.mr == 0f0 && continue
         gid = gene.id
         rng = StableRNG(gene.seed)
         @fastmath gene.init!(rng, Float32, arr, gene.mr)
@@ -115,7 +116,7 @@ end
 # SelfAttention
 function create_layer(layer::Union{SelfAttention,JevoSelfAttention}; weight_cache::_WeightCache)
     Transformers.Layers.SelfAttention(
-        Transformers.NeuralAttentionlib.CausalMultiheadQKVAttenOp(layer.n_heads),
+        Transformers.Layers.CausalMultiheadQKVAttenOp(layer.n_heads),
         Transformers.Layers.NSplit(3, create_layer(layer.qkv, weight_cache=weight_cache)),
         create_layer(layer.out, weight_cache=weight_cache)
     )
@@ -173,11 +174,13 @@ end
 function (tm::TextModel)(input)
     mask = get(input, :attention_mask, nothing)
     embeds = tm.embed(input.token)
-    #pos_embed = tm.posembed(embeds) |> gpu
+    pos_embed = tm.posembed(embeds) |> gpu
     #embeds = embeds .+ pos_embed
     logits = Transformers.ChainRulesCore.ignore_derivatives() do
-        process_text_embeds(tm.model, embeds, mask)
-        #process_text_embeds(tm.model, pos_embed, mask)
+        #process_text_embeds(tm.model, embeds, mask)
+        last_hidden = process_text_embeds(tm.model, pos_embed, mask)
+        tm.embeddecoder(last_hidden)
     end
-    tm.embeddecoder(logits)
+    logits
+
 end

@@ -15,6 +15,7 @@ Returns true, because a mutation is added.
 """
 function non_ancestral_mutate!(rng, gene_counter, hist_weight::Weights, weight::Weights; mrs::Tuple{Vararg{Float32}})
     init! = hist_weight.muts[end].init!
+    init! = init! == apply_zero! ? apply_kaiming_normal_noise! : init!
     push!(weight.muts, NetworkGene(rng, gene_counter, rand(rng, mrs), init!))
     true
 end
@@ -28,11 +29,13 @@ Returns true if a mutation is added, false otherwise.
 """
 function ancestral_mutate!(rng, gene_counter, historical_weight, weight::Weights; n_back::Int, mrs::Tuple{Vararg{Float32}})
     # choose whether to use existing or sparse init
-    init! = if rand(rng) < 0.01  # sample random init with small chance
-        rand(rng, (apply_kaiming_normal_noise!, apply_sparse_noise!))
-    else  # otherwise, sample init based on previously selected inits
-        rand(rng, historical_weight.muts[end-n_back+1:end]).init!
-    end
+    #= init! = if rand(rng) < 0.01  # sample random init with small chance =#
+    #=     rand(rng, (apply_kaiming_normal_noise!, apply_sparse_noise!)) =#
+    #= else  # otherwise, sample init based on previously selected inits =#
+    #=     rand(rng, historical_weight.muts[end-n_back+1:end]).init! =#
+    #= end =#
+    init! = historical_weight.muts[end].init!
+    init! = init! == apply_zero! ? apply_kaiming_normal_noise! : init!
     # choose a mutation rate. if it's higher than the max selected mutation rate, skip
     # with 0.01 chance, we can sample a higher mutation rate
     mr = if rand(rng) < 0.01 
