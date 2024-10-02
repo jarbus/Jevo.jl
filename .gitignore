@@ -25,7 +25,6 @@ docs/site/
 *Session.vim
 *.jld
 *.jld2
-*.txt
 *.log
 *.h5
 scratch/
