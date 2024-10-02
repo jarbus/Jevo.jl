@@ -321,7 +321,7 @@ function JevoSelfAttention(rng::Jevo.AbstractRNG, counter::Jevo.AbstractCounter;
 
     qkv_bias = Jevo.WeightsCollection(
         (head_dim*n_heads*3,),
-        [Jevo.Weights(rng, counter, (head_dim,), init=init!) for i in 1:n_heads*3]
+        [Jevo.Weights(rng, counter, (head_dim,)) for i in 1:n_heads*3]
     )
 
     out_weights = Jevo.WeightsCollection(

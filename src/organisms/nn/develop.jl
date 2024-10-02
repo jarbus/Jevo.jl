@@ -182,5 +182,4 @@ function (tm::TextModel)(input)
         tm.embeddecoder(last_hidden)
     end
     logits
-
 end
