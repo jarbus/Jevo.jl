@@ -10,7 +10,7 @@ function get_preprocessed_batch(env::Union{RepeatSequence, RegularLanguage, Acce
     # Allocating a large amount of memory on the CPU appears to alleviate this 
     # issue. Garbage collection does not help. Unable to justify spending
     # more time on this, if it's resolved. On my laptop, this takes ~179μs per call
-    size(zeros(1_000_000))
+    size(zeros(10_000_000))
     if !isdefined(Main, :preprocessed_batch) || isnothing(Main.preprocessed_batch)
         @warn "Creating variable Main.preprocessed_batch"
         Main.preprocessed_batch = encode(tm.textenc, sample_batch(env))
