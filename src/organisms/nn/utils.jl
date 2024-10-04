@@ -217,3 +217,11 @@ function samearchitecture(a, b)
     end
     true
 end
+
+function align_weight_vectors!(genome::Vector, delta::Vector)
+    @assert length(genome) <= length(delta) 
+    for i in eachindex(delta)
+        !is_fresh(delta[i]) && continue
+        insert!(genome, i, nothing)
+    end
+end

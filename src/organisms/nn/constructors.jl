@@ -71,18 +71,23 @@ See also: [add_delta_to_genome(genome::Layer delta::Delta)](@ref)
 """
 function Base.:+(a::AbstractLayer, b::Delta)
     # NOTE Likely a performance bottleneck, because we keep copying the network
-    # for each delta application
-    a = deepcopy(a)
-    apply_transformer_architecture_changes!(a, b)
-    ws_a, ws_b = get_weights(a), get_weights(b.change)
-    @assert length(ws_a) == length(ws_b) "Different number of weights in network and delta"
-    for (wa, wb) in zip(ws_a, ws_b)
+    # for each delta application. To make up for this, we copy data in parallel.
+    # To copy data in parallel, we need to align weights of full genome and delta,
+    # then copy full genome weights
+    a_copy = copyarchitecture(a)
+    apply_transformer_architecture_changes!(a_copy, b)
+    ws_a_copy, ws_a, ws_b = get_weights(a_copy), get_weights(a), get_weights(b.change)
+    align_weight_vectors!(ws_a, ws_b)
+    @assert length(ws_a_copy) == length(ws_a) == length(ws_b) "Different number of weights in network and delta"
+    Threads.@threads for i in eachindex(ws_a_copy)
+        wa_c, wa, wb = ws_a_copy[i], ws_a[i], ws_b[i]
+        isnothing(wa) && continue # align_weight_vectors! fills ws_a with nothing for fresh weights
+        @assert !is_fresh(wb)     # we should already have skipped aligned fresh weights above
         wa.dims != wb.dims && @assert false "Different dimensions in network and delta"
-        is_fresh(wb) && continue  # fresh weights have already been added above
-        append!(wa.muts, wb.muts)
+        append!(wa_c.muts, wa.muts, wb.muts)
     end
 
-    a
+    a_copy
 end
 
 """
