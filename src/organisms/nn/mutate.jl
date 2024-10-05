@@ -142,20 +142,20 @@ function get_parents(state::AbstractState, pop::Population)
     filter(ind -> ind.generation < gen, get_individuals(state, pop)) |> collect
 end
 
-function crossover_parents(rng::AbstractRNG, state::State, ::Population, ind::Individual, prob::Float64, parents=[] ) 
+function crossover_parents(rng::AbstractRNG, state::State, ::Population, ind::Individual; prob::Float64, parents=[] ) 
     isempty(parents) && return ind.genotype
     gene_counter = get_counter(AbstractGene, state)
     # iterate over all parents. if architecture is the same
     for parent in parents
         !samearchitecture(ind.genotype, parent.genotype) && continue
-        for (child_ws, parent_ws) in zip(get_weights(ind.genotype), get_weights(parent.genotype))
-            for (child_w, parent_w) in zip(child_ws, parent_ws)
-                rand(rng) > prob && continue
-                latest_mut = parent_w.muts[end]
-                push!(child_w.muts, NetworkGene(gene_counter, latest_mut.seed, latest_mut.mr, latest_mut.init!))
-            end
+        for (child_w, parent_w) in zip(get_weights(ind.genotype), get_weights(parent.genotype))
+            isempty(parent_w.muts) && continue
+            rand(rng) > prob && continue
+            latest_mut = parent_w.muts[end]
+            push!(child_w.muts, NetworkGene(gene_counter, latest_mut.seed, latest_mut.mr, latest_mut.init!))
         end
     end
+    ind.genotype
 end
 
 CrossoverParents(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
