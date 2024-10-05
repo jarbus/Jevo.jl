@@ -1,16 +1,16 @@
 ############################
 # PERFORMANCE CRITICAL START  (suspected)
-function get_earliest_cached_weight(dims::NTuple{N, Int}, genes::Vector{NetworkGene}, weight_cache::_WeightCache)::Tuple{Array{Float32}, Int} where {N}
+function get_earliest_cached_weight(dims::NTuple{N, Int}, genes::Vector{NetworkGene}, weight_cache::_WeightCache)::Tuple{CuArray{Float32}, Int} where {N}
     """Return the earliest cached weight in the gene list. If none are cached, return a zero tensor of the given dimensions. Allocates memory. Also returns the idx of the earliest cached gene."""
     isnothing(weight_cache) && return zeros(Float32, dims), 0
     @inbounds for i in length(genes):-1:1
         weights = get(weight_cache, genes[i].id, nothing)
         if !isnothing(weights)
             @assert size(weights) == dims "Cached weight for $(genes[i].id) has different dimensions than requested"
-            return (copy(weights), i)
+            return (gpu(weights), i)
         end
     end
-    zeros(Float32, dims), 0
+    CUDA.zeros(Float32, dims), 0
 end
 """
     tensor(w::Weights; weight_cache::_WeightCache=nothing)::Array{Float32}
@@ -20,7 +20,7 @@ end
 
 Create a tensor from a Weights object. If `weight_cache` is provided, it will used cached weights during development, and update the cache accordingly. If the cache is not provided, it will not be used.
 """
-function tensor(w::Weights; weight_cache::_WeightCache=nothing)::Array{Float32}
+function tensor(w::Weights; weight_cache::_WeightCache=nothing)::CuArray{Float32}
     # ADD MUTS that have have not been cached
     dims, genes = w.dims, w.muts
     n_genes = length(genes)
@@ -30,37 +30,35 @@ function tensor(w::Weights; weight_cache::_WeightCache=nothing)::Array{Float32}
     # iteratively apply remaining mutations
     @inbounds for i in ancestor_idx+1:n_genes
         gene = genes[i]
-        gene.mr == 0f0 && continue
         gid = gene.id
         rng = StableRNG(gene.seed)
         @fastmath gene.init!(rng, Float32, arr, gene.mr)
         # update cache if we are using one
         if yes_weight_cache && i != n_genes && gid ∉ keys(weight_cache)
             gene_id = genes[i].id
-            weight_cache[gene_id] = copy(arr)
+            weight_cache[gene_id] = Flux.cpu(arr)
         end
     end
     arr
 end
-function tensor(fw::FactorWeight; weight_cache::_WeightCache=nothing)::Array{Float32}
+function tensor(fw::FactorWeight; weight_cache::_WeightCache=nothing)::CuArray{Float32}
     A = @inline tensor(fw.A, weight_cache=weight_cache)
     B = @inline tensor(fw.B, weight_cache=weight_cache)
-    Transformers.tocpudevice(gpu(A) * gpu(B))
+    A * B
 end
-function tensor(cw::CompositeWeight; weight_cache::_WeightCache=nothing)::Array{Float32}
-    gpu_weights = [gpu(tensor(w, weight_cache=weight_cache)) for w in cw.weights]
-    reduce(+, gpu_weights) |> Transformers.tocpudevice
+function tensor(cw::CompositeWeight; weight_cache::_WeightCache=nothing)::CuArray{Float32}
+    reduce(+, [tensor(w, weight_cache=weight_cache) for w in cw.weights])
 end
 function tensor(wc::WeightsCollection; weight_cache::_WeightCache=nothing)
     @assert ndims(wc.weights) <= 2 "WeightsCollection only supports 2 or fewer dimensions, got $(ndims(wc.weights))"
     developed_weights = map(w->tensor(w, weight_cache=weight_cache), wc.weights)
-    mat = zeros(Float32, wc.dims...)
+    mat = CUDA.zeros(Float32, wc.dims...)
     row_idx, col_idx = 1, 1
     for row in eachrow(developed_weights)
         nrows = size(row[1], 1)
         for developed_weight in row
             ncols = size(developed_weight, 2)
-            mat[row_idx:row_idx+nrows-1, col_idx:col_idx+ncols-1] = developed_weight
+            mat[row_idx:row_idx+nrows-1, col_idx:col_idx+ncols-1] .= developed_weight
             col_idx += ncols
         end
         row_idx += nrows

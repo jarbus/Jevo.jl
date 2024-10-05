@@ -1,51 +1,42 @@
 export visualize, get_weights
 
 
+function cuda_randn(rng::AbstractRNG, dims::Integer...; std::Real=1.0f0)
+    rng = CUDA.RNG(rand(rng, UInt32), UInt32(0))
+    Random.randn!(rng, CuArray{Float32}(undef, dims...)) .* std
+end
 # We need to overwrite this Flux method to generate Float32 weights and maintain compatibility with the (rng, type, dims...) signature
 function kaiming_normal(rng::AbstractRNG,::Type, dims::Integer...; gain::Real = √2f0)
   std = Float32(gain / sqrt(first(Flux.nfan(dims...)))) # fan_in
-  return randn(rng, Float32, dims...) .* std
+  cuda_randn(rng, dims...; std=std)
 end
 
 # initialize factors with 2^(1/4) gain so when multiplied together,
 # the resulting matrix has 2^(1/2) gain
-apply_kaiming_normal_noise_factored!(rng::AbstractRNG, ::Type, arr::Array{Float32}, mr::Float32) =
+apply_kaiming_normal_noise_factored!(rng::AbstractRNG, ::Type, arr::CuArray{Float32}, mr::Float32) =
     apply_kaiming_normal_noise!(rng, Float32, arr, mr, gain=2^(1/4))
     
-function apply_kaiming_normal_noise!(rng::AbstractRNG, ::Type, arr::Array{Float32}, mr::Float32; gain::Real = √2f0)
+function apply_kaiming_normal_noise!(rng::AbstractRNG, ::Type, arr::CuArray{Float32}, mr::Float32; gain::Real = √2f0)
     dims = size(arr)
     std = Float32(gain / sqrt(first(Flux.nfan(dims...))))
     scalar = std * mr
-    @fastmath @inbounds @simd for i in 1:length(arr)
-        arr[i] += randn(rng, Float32) * scalar
-    end
+    arr .+= cuda_randn(rng, dims...) .* scalar
 end
 
-function apply_gaussian_normal_noise!(rng::AbstractRNG, ::Type, arr::Array{Float32}, mr::Float32)
-    @fastmath @inbounds @simd for i in 1:length(arr)
-        arr[i] += randn(rng, Float32) * mr
-    end
+function apply_gaussian_normal_noise!(rng::AbstractRNG, ::Type, arr::CuArray{Float32}, mr::Float32)
+    arr .+= cuda_randn(rng, size(arr)...) .* mr
 end
 
-function apply_sparse_noise!(rng::AbstractRNG, ::Type, arr::Array{Float32}, mr::Float32)
+function apply_sparse_noise!(rng::AbstractRNG, ::Type, arr::CuArray{Float32}, mr::Float32)
     # choose a random number of elements to mutate
     n_elements = rand(rng, 1:length(arr))
-    @inbounds for _ in 1:n_elements
-        arr[rand(rng, 1:length(arr))] += randn(rng, Float32) * mr
-    end
+    elements = rand(rng, 1:length(arr), n_elements)
+    arr[elements] .+= cuda_randn(rng, n_elements) .* mr
 end
 
-apply_zero!(rng::AbstractRNG, t::Type, arr::Array{Float32}, ::Float32) =
-    apply_constant!(rng, t, arr, 0f0)
-
-    apply_one!(rng::AbstractRNG, t::Type, arr::Array{Float32}, ::Float32) =
-    apply_constant!(rng, t, arr, 1f0)
-
-function apply_constant!(rng::AbstractRNG, ::Type, arr::Array{Float32}, v::Float32)
-    @fastmath @inbounds @simd for i in 1:length(arr)
-        arr[i] += v
-    end
-end
+apply_zero!(rng::AbstractRNG, t::Type, arr::CuArray{Float32}, ::Float32) = apply_constant!(rng, t, arr, 0f0)
+apply_one!(rng::AbstractRNG, t::Type, arr::CuArray{Float32}, ::Float32) = apply_constant!(rng, t, arr, 1f0)
+apply_constant!(::AbstractRNG, ::Type, arr::CuArray{Float32}, v::Float32) = (arr .+= v;)
 
 function get_weight_cache()
     # get global variable Main.weight_cache for weight cache
