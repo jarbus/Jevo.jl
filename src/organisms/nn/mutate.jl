@@ -57,7 +57,7 @@ function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind:
     historical_weights = get_weights(historical_genome, no_layer_norm=no_layer_norm)
     @assert samearchitecture(historical_genome, genome) "Parent and Child do not have the same architecture. Make sure to run this mutator before you add new heads or layers."
     @assert length(weights) == length(historical_weights)
-    random_order = zip(weights, historical_weights) |> collect |> shuffle
+    random_order = shuffle(rng, zip(weights, historical_weights) |> collect)
     for (weight, hist_weight) in random_order
         apply_nback_mutation!(rng, gene_counter, hist_weight, weight, n_back, mrs)
     end
