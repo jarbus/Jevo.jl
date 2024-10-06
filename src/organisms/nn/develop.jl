@@ -91,8 +91,8 @@ end
 
 function create_layer(layer::Jevo.TransformerDecoderBlock; weight_cache::_WeightCache)
     attn_layer = create_layer(layer.attention, weight_cache=weight_cache)
-    ff_layer = create_layer(layer.ff, weight_cache=weight_cache)
-    #ff_layer = identity
+    #ff_layer = create_layer(layer.ff, weight_cache=weight_cache)
+    ff_layer = identity
     Transformers.Layers.TransformerDecoderBlock(
         attn_layer,
         ff_layer
@@ -160,7 +160,7 @@ function develop(c::Creator{TextModel}, textnet::TextNetwork)
     )
 end
 
-process_text_embeds(tfr::Transformers.Transformer, embeds::AbstractArray, mask) = tfr(embeds, mask).hidden_state
+process_text_embeds(tfr::Transformers.Transformer, embeds::AbstractArray, mask) = isempty(tfr.blocks) ? embeds : tfr(embeds, mask).hidden_state
 function process_text_embeds(recur::Flux.Recur, embeds::AbstractArray, _) 
     Flux.reset!(recur)
     if ndims(embeds) == 2  # If we do inference on a single sample, then embeds are 2D

@@ -195,6 +195,7 @@ function add_attention_head(rng::AbstractRNG, state::State, ::AbstractPopulation
     gene_counter = get_counter(AbstractGene, state)
     # Get random weight collection within a random attention layer
     attention_layers = map_get(genotype, Jevo.JevoSelfAttention)
+    length(attention_layers) == 0 && return genotype
     @assert length(attention_layers) > 0 "No attention layers found"
     attn_layer = rand(rng, attention_layers) 
     weight_collections = map_get(attn_layer, WeightsCollection)
@@ -259,11 +260,10 @@ function add_decoder_block(rng::AbstractRNG, state::State, pop::AbstractPopulati
     block = TransformerDecoderBlock(rng, gene_counter, n_heads=1, head_dim=head_dim, hidden_dim=hidden_dim, ff_dim=ff_dim, qkv_rank=qkv_rank, o_rank=o_rank, ff_rank=ff_rank)
     # Invert ids of all weights in block to indicate new genes
     map!(block, weights_only=true) do hierarchy
-        mr =is_layer_norm(hierarchy) ? 1f0 : 0.1f0
         muts = hierarchy[end].muts
         @assert length(muts) == 1 "Expected one NetworkGene for $(hierarchy)"
         gene = muts[1]
-        muts[1] = NetworkGene(-gene.id, gene.seed, mr, gene.init!)
+        muts[1] = NetworkGene(-gene.id, gene.seed, 0f0, gene.init!)
     end
     # randomly insert the block
     blocks = trfs[1].blocks

@@ -176,7 +176,7 @@ end
 
 struct TransformerDecoderBlock <: AbstractLayer
     attention::PostNormResidual # postnorm residual
-    ff::PostNormResidual # postnorm residual Chain Dense Dense
+    ff::Union{Nothing,PostNormResidual} # postnorm residual Chain Dense Dense
 end
 
 struct Transformer <: AbstractLayer
