@@ -1,10 +1,10 @@
-export ClearCurrentGenWeights, AddAttentionHeads, AddDecoderBlock, NBackMutator, CoupledNBackMutator
+export ClearCurrentGenWeights, AddAttentionHeads, AddDecoderBlock, NBackMutator, CrossoverParents
 
 @define_op "ClearCurrentGenWeights" "AbstractMutator"
 @define_op "AddAttentionHeads" "AbstractMutator"
 @define_op "AddDecoderBlock" "AbstractMutator"
 @define_op "NBackMutator" "AbstractMutator"
-@define_op "CoupledNBackMutator" "AbstractMutator"
+@define_op "CrossoverParents" "AbstractMutator"
 
 """
     non_ancestral_mutate!(rng, gene_counter, hist_weight::Weights, weight::Weights; mrs::Tuple{Vararg{Float32}})
@@ -49,34 +49,6 @@ function ancestral_mutate!(rng, gene_counter, historical_weight, weight::Weights
     return true
 end
 
-function non_ancestral_mutate!(rng, gene_counter, hist_weight::CoupledWeights, weight::CoupledWeights; kwargs...)
-    for (hist, w) in zip(hist_weight.weights, weight.weights)
-        non_ancestral_mutate!(rng, gene_counter, hist.weights, w.weights; kwargs...)
-    end
-end
-function ancestral_mutate!(rng, gene_counter, hist_weight::CoupledWeights, weight::CoupledWeights; kwargs...)
-    for (hist, w) in zip(hist_weight.weights, weight.weights)
-        ancestral_mutate!(rng, gene_counter, hist.weights, w.weights; kwargs...)
-    end
-end
-
-get_last_id(weight::Weights) = weight.muts[end].id
-get_last_id(weight::CoupledWeights) = get_last_id(weight.weights[1])
-# TODO FIX this is a non-deterministic hack, because gene ids are assigned in threads
-# We need to figure out a fix for this, for reproducibility
-function compute_mutation_probabilities(weights)
-    last_gene_ids = weights .|> get_last_id .|> Float64
-    last_gene_ids .= round.(last_gene_ids ./ 10000 ) # TODO hack to mitigate non-determinism, get rid of this
-    last_gene_ids .-= minimum(last_gene_ids)
-    _max = maximum(last_gene_ids)
-    if _max != 0
-        last_gene_ids ./= _max
-    else
-        last_gene_ids .= 1.0
-    end
-    last_gene_ids
-end
-
 function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind::Individual; n_back::Int,mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool=true)
     genome = deepcopy(ind.genotype)
     weights = get_weights(genome, no_layer_norm=no_layer_norm)
@@ -100,49 +72,9 @@ function apply_nback_mutation!(rng::AbstractRNG, gene_counter, hist_weight::Weig
     end
 end
 
-function apply_nback_mutation!(rng::AbstractRNG, gene_counter, hist_weight::CoupledWeights, weight::CoupledWeights, n_back, mrs) 
-    for (hist, w) in zip(hist_weight.weights, weight.weights)
-        apply_nback_mutation!(rng, gene_counter, hist, w, n_back, mrs)
-    end
-end
-
-
-function coupled_nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind::Individual; n_back::Int, mrs::Tuple{Vararg{Float32}}, no_layer_norm::Bool=true, max_n_muts::Int, min_mutation_prob::Float64=0.05)
-    genome = deepcopy(ind.genotype)
-    weights = get_coupled_weights(genome, no_layer_norm=no_layer_norm)
-    historical_genome = ind.generation == 0 ? deepcopy(genome) : get_genotype_cache()[ind.parents[1]]
-    gene_counter = @inline get_counter(AbstractGene, state)
-    historical_weights = get_coupled_weights(historical_genome, no_layer_norm=no_layer_norm)
-    probabilities = @inline compute_mutation_probabilities(historical_weights)
-    @assert samearchitecture(historical_genome, genome) "Parent and Child do not have the same architecture. Make sure to run this mutator before you add new heads or layers."
-    @assert length(weights) == length(historical_weights)
-    tries, n_added_mutations = 0, 0
-    while tries < 50 && n_added_mutations == 0
-        random_order = zip(weights, historical_weights, probabilities) |> collect |> shuffle
-        for (weight, hist_weight, prob) in random_order[1:max_n_muts]
-            rand(rng) > prob + min_mutation_prob && continue
-            apply_nback_mutation!(rng, gene_counter, hist_weight, weight, n_back, mrs)
-            n_added_mutations += 1
-            n_added_mutations == max_n_muts && break
-        end
-        n_added_mutations > 0 && break
-        tries += 1
-    end
-    genome
-end
-
-
-CoupledNBackMutator(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
-    create_op("CoupledNBackMutator",
-              condition=condition,
-              retriever=PopulationRetriever(ids),
-              updater=map(map((s,p)->mutate!(s, p; fn=coupled_nback_mutate, kwargs...))),
-              time=time;)
-
-
 function mutate!(rng::AbstractRNG, state::AbstractState, population::AbstractPopulation, ind::Individual{G, D, I}, args...; fn, kwargs...) where {G <: Delta, D, I}
     # I really, really don't like this, but this is simpler less confusing than the alternative
-    if fn ∉ (nback_mutate, coupled_nback_mutate)
+    if fn ∉ (nback_mutate, crossover_parents)
         ind.genotype = fn(rng, state, population, ind.genotype, args...; kwargs...)
         return
     end
@@ -204,6 +136,36 @@ ClearCurrentGenWeights(ids::Vector{String}=String[]; condition::Function=always,
 clear_weights(::AbstractRNG, ::State, ::Population, genotype) = copyarchitecture(genotype)
 
 
+function get_parents(state::AbstractState, pop::Population)
+    gen = generation(state)
+    gen == 1 && return []
+    filter(ind -> ind.generation < gen, get_individuals(state, pop)) |> collect
+end
+
+function crossover_parents(rng::AbstractRNG, state::State, ::Population, ind::Individual; prob::Float64, parents=[] ) 
+    isempty(parents) && return ind.genotype
+    gene_counter = get_counter(AbstractGene, state)
+    # iterate over all parents. if architecture is the same
+    for parent in parents
+        !samearchitecture(ind.genotype, parent.genotype) && continue
+        for (child_w, parent_w) in zip(get_weights(ind.genotype), get_weights(parent.genotype))
+            isempty(parent_w.muts) && continue
+            rand(rng) > prob && continue
+            latest_mut = parent_w.muts[end]
+            push!(child_w.muts, NetworkGene(gene_counter, latest_mut.seed, latest_mut.mr, latest_mut.init!))
+        end
+    end
+    ind.genotype
+end
+
+CrossoverParents(ids::Vector{String}=String[]; condition::Function=always, time::Bool=false, kwargs...) = 
+    create_op("ClearCurrentGenWeights", 
+              condition=condition,
+              retriever=PopulationRetriever(ids),
+              updater=map(map((s,pop)->mutate!(s, pop; fn=crossover_parents, parents=get_parents(s, pop),kwargs...))),
+              time=time;)
+
+
 # Underpowered mutation op
 function mutate(rng::AbstractRNG, state::State, pop::AbstractPopulation, genotype::AbstractLayer; mr::Union{Float32,Tuple{Vararg{Float32}}}, n::Int=-1, no_layer_norm::Bool=true, kwargs...)
     genotype = deepcopy(genotype)
@@ -233,6 +195,7 @@ function add_attention_head(rng::AbstractRNG, state::State, ::AbstractPopulation
     gene_counter = get_counter(AbstractGene, state)
     # Get random weight collection within a random attention layer
     attention_layers = map_get(genotype, Jevo.JevoSelfAttention)
+    length(attention_layers) == 0 && return genotype
     @assert length(attention_layers) > 0 "No attention layers found"
     attn_layer = rand(rng, attention_layers) 
     weight_collections = map_get(attn_layer, WeightsCollection)
@@ -297,11 +260,10 @@ function add_decoder_block(rng::AbstractRNG, state::State, pop::AbstractPopulati
     block = TransformerDecoderBlock(rng, gene_counter, n_heads=1, head_dim=head_dim, hidden_dim=hidden_dim, ff_dim=ff_dim, qkv_rank=qkv_rank, o_rank=o_rank, ff_rank=ff_rank)
     # Invert ids of all weights in block to indicate new genes
     map!(block, weights_only=true) do hierarchy
-        mr =is_layer_norm(hierarchy) ? 1f0 : 0.1f0
         muts = hierarchy[end].muts
         @assert length(muts) == 1 "Expected one NetworkGene for $(hierarchy)"
         gene = muts[1]
-        muts[1] = NetworkGene(-gene.id, gene.seed, mr, gene.init!)
+        muts[1] = NetworkGene(-gene.id, gene.seed, 0f0, gene.init!)
     end
     # randomly insert the block
     blocks = trfs[1].blocks
