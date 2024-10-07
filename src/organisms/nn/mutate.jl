@@ -15,7 +15,7 @@ Returns true, because a mutation is added.
 """
 function non_ancestral_mutate!(rng, gene_counter, hist_weight::Weights, weight::Weights; mrs::Tuple{Vararg{Float32}})
     init! = hist_weight.muts[end].init!
-    init! = init! == apply_zero! ? apply_kaiming_normal_noise! : init!
+    init! = (init! == apply_zero! || init! == apply_one!) ? apply_kaiming_normal_noise! : init!
     push!(weight.muts, NetworkGene(rng, gene_counter, rand(rng, mrs), init!))
     true
 end
@@ -36,6 +36,7 @@ function ancestral_mutate!(rng, gene_counter, historical_weight, weight::Weights
     #= end =#
     init! = historical_weight.muts[end].init!
     init! = init! == apply_zero! ? apply_kaiming_normal_noise! : init!
+    init! = (init! == apply_zero! || init! == apply_one!) ? apply_kaiming_normal_noise! : init!
     # choose a mutation rate. if it's higher than the max selected mutation rate, skip
     # with 0.01 chance, we can sample a higher mutation rate
     mr = if rand(rng) < 0.01 
@@ -260,10 +261,11 @@ function add_decoder_block(rng::AbstractRNG, state::State, pop::AbstractPopulati
     block = TransformerDecoderBlock(rng, gene_counter, n_heads=1, head_dim=head_dim, hidden_dim=hidden_dim, ff_dim=ff_dim, qkv_rank=qkv_rank, o_rank=o_rank, ff_rank=ff_rank)
     # Invert ids of all weights in block to indicate new genes
     map!(block, weights_only=true) do hierarchy
+        mr = 0f0
         muts = hierarchy[end].muts
         @assert length(muts) == 1 "Expected one NetworkGene for $(hierarchy)"
         gene = muts[1]
-        muts[1] = NetworkGene(-gene.id, gene.seed, 0f0, gene.init!)
+        muts[1] = NetworkGene(-gene.id, gene.seed, mr, gene.init!)
     end
     # randomly insert the block
     blocks = trfs[1].blocks
