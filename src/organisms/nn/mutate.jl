@@ -261,10 +261,10 @@ function add_decoder_block(rng::AbstractRNG, state::State, pop::AbstractPopulati
     block = TransformerDecoderBlock(rng, gene_counter, n_heads=1, head_dim=head_dim, hidden_dim=hidden_dim, ff_dim=ff_dim, qkv_rank=qkv_rank, o_rank=o_rank, ff_rank=ff_rank)
     # Invert ids of all weights in block to indicate new genes
     map!(block, weights_only=true) do hierarchy
-        mr = 0f0
         muts = hierarchy[end].muts
         @assert length(muts) == 1 "Expected one NetworkGene for $(hierarchy)"
         gene = muts[1]
+        mr = gene.init! == apply_one! ? 1f0 : 0.0f0
         muts[1] = NetworkGene(-gene.id, gene.seed, mr, gene.init!)
     end
     # randomly insert the block
