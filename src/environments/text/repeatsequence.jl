@@ -96,7 +96,7 @@ end
 
 function percentage_correct(env_creator::Creator{RepeatSequence},
                                      individual::Individual;)
-    device!(Main.jevo_device_id)
+    device!(Jevo.jevo_device_id)
     env, textmodel = env_creator(), develop(individual.developer, individual)
     n_perfect = 0
     for i in 0:env.n_labels-1, j in 0:env.n_labels-1, k in 0:env.n_labels-1

@@ -52,11 +52,13 @@ function get_creators(type::Type, state::AbstractState)
 end
 
 
+global env_lock = ReentrantLock()
+
 function get_env_lock()
-    if !isdefined(Main, :env_lock)
-        Main.env_lock = ReentrantLock()
+    if !isdefined(Jevo, :env_lock)
+        Jevo.env_lock = ReentrantLock()
     end
-    Main.env_lock
+    Jevo.env_lock
 end
 
 # Returns a mapping function that applies the given op/fn to each element

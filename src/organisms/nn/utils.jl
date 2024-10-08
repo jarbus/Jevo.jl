@@ -38,24 +38,28 @@ apply_zero!(rng::AbstractRNG, t::Type, arr::CuArray{Float32}, ::Float32) = apply
 apply_one!(rng::AbstractRNG, t::Type, arr::CuArray{Float32}, ::Float32) = apply_constant!(rng, t, arr, 1f0)
 apply_constant!(::AbstractRNG, ::Type, arr::CuArray{Float32}, v::Float32) = (arr .+= v;)
 
+global weight_cache = nothing
+global genotype_cache = nothing
+
+
 function get_weight_cache()
-    # get global variable Main.weight_cache for weight cache
+    # get global variable Jevo.weight_cache for weight cache
     # check if weight_cache is defined
-    if !isdefined(Main, :weight_cache) || isnothing(Main.weight_cache)
+    if !isdefined(Jevo, :weight_cache) || isnothing(Jevo.weight_cache)
         @warn "No weight cache found. Creating weight cache on proc $(myid())"
-        Main.weight_cache = WeightCache(maxsize=300)
+        Jevo.weight_cache = WeightCache(maxsize=300)
     end
-    Main.weight_cache
+    Jevo.weight_cache
 end
 
 function get_genotype_cache()
-    # get global variable Main.weight_cache for weight cache
+    # get global variable Jevo.weight_cache for weight cache
     # check if weight_cache is defined
-    if !isdefined(Main, :genotype_cache) || isnothing(Main.genotype_cache)
+    if !isdefined(Jevo, :genotype_cache) || isnothing(Jevo.genotype_cache)
         @warn "No genotype cache found. Creating genotype cache on proc $(myid())"
-        Main.genotype_cache = GenotypeCache(maxsize=10)
+        Jevo.genotype_cache = GenotypeCache(maxsize=500)
     end
-    Main.genotype_cache
+    Jevo.genotype_cache
 end
 
 function mr_symbol(mr::Float32)
@@ -181,12 +185,13 @@ function get_coupled_weights(x::Union{AbstractLayer, AbstractGenotype, AbstractW
     end |> filter(!isnothing) |> x->vcat(x...) # flatten the vectors of coupled weights
 end
 
+global jevo_device_id = nothing
 function set_device()
     worker_idx = myid() in workers() ? findfirst(x->x==myid(), sort(workers())) : 1
     println(" worker_idx=$worker_idx myid=$(myid()) workers=$(workers())")
     device_id = collect(devices())[worker_idx].handle |> Int64
     println("$(myid()) has devices $(collect(devices())), setting to $device_id")
-    Main.jevo_device_id = device_id
+    Jevo.jevo_device_id = device_id
     nothing
 end
 

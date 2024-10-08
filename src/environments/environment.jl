@@ -5,7 +5,7 @@ play(match::Match) = play(match.environment_creator, match.individuals)
 
 function play(c::Creator{E}, inds::Vector{I}) where {E<:AbstractEnvironment, I<:AbstractIndividual}
     lock(get_env_lock()) do
-        isdefined(Main, :jevo_device_id) &&  device!(Main.jevo_device_id)
+        isdefined(Jevo, :jevo_device_id) &&  device!(Jevo.jevo_device_id)
         phenotypes = develop.(inds)
         ids = [ind.id for ind in inds]
         play(c(), ids, phenotypes)
