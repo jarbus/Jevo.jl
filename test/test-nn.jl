@@ -162,7 +162,7 @@ nul_pop = Population("", Individual[])
     @testset "low rank develop + fwd" begin
         state = State()
         gene_counter = Jevo.get_counter(AbstractGene, state)
-        Main.weight_cache = WeightCache(maxsize=1_000_000)
+        Jevo.weight_cache = WeightCache(maxsize=1_000_000)
         creator = Creator(Flux.Chain)
         full_net = Jevo.Chain(rng, gene_counter, [(Jevo.Dense, (dims=(784,100), σ=relu))])
         full_model = develop(creator, full_net)
@@ -170,7 +170,7 @@ nul_pop = Population("", Individual[])
         recon_full_model = develop(creator, recon_full_net)
         lora_net = Jevo.Chain(rng, gene_counter, [(Jevo.Dense, (dims=(784,100), σ=relu, rank=32))])
         println(lora_net.layers[1])
-        Main.weight_cache = WeightCache(maxsize=1_000_000)
+        Jevo.weight_cache = WeightCache(maxsize=1_000_000)
         lora_model = develop(creator, lora_net)
         lora_model2 = develop(creator, lora_net)
         @test length(weight_cache) == 0 # don't add parent
@@ -198,7 +198,7 @@ nul_pop = Population("", Individual[])
     @testset "RNN" begin
         state = State()
         gene_counter = Jevo.get_counter(AbstractGene, state)
-        Main.weight_cache = WeightCache(maxsize=1_000_000)
+        Jevo.weight_cache = WeightCache(maxsize=1_000_000)
         n_blocks, n_heads, head_dim, hidden_dim, ff_dim, startsym, endsym, unksym, labels, seq_len = 2, 2, 5, 10, 20, "<s>", "</s>", "<unk>", string.(1:5), 8
         vocab = [unksym, startsym, endsym, labels...]
         vocab_size = length(vocab)
@@ -233,7 +233,7 @@ nul_pop = Population("", Individual[])
     @testset "Transformer" begin
         state = State()
         gene_counter = Jevo.get_counter(AbstractGene, state)
-        Main.weight_cache = WeightCache(maxsize=1_000_000)
+        Jevo.weight_cache = WeightCache(maxsize=1_000_000)
         n_blocks, n_heads, head_dim, hidden_dim, ff_dim, startsym, endsym, unksym, labels = 2, 2, 5, 10, 20, "<s>", "</s>", "<unk>", string.(1:5)
         vocab = [unksym, startsym, endsym, labels...]
         vocab_size = length(vocab)
