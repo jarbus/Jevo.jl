@@ -114,8 +114,8 @@ end
 # SelfAttention
 function create_layer(layer::Union{SelfAttention,JevoSelfAttention}; weight_cache::_WeightCache)
     Transformers.Layers.SelfAttention(
-        #= Transformers.Layers.CausalMultiheadQKVAttenOp(layer.n_heads), =#
-        Transformers.Layers.CausalFlashMultiheadQKVAttenOp(layer.n_heads),
+        Transformers.Layers.CausalMultiheadQKVAttenOp(layer.n_heads),
+        #= Transformers.Layers.CausalFlashMultiheadQKVAttenOp(layer.n_heads), =#
         Transformers.Layers.NSplit(3, create_layer(layer.qkv, weight_cache=weight_cache)),
         create_layer(layer.out, weight_cache=weight_cache)
     )
