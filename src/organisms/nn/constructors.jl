@@ -57,8 +57,8 @@ function verify_weights_collection(dims::Tuple{Vararg{Int}}, breakdown::BD) wher
     @assert dims[1] == sum(w_dims[1] for w_dims in breakdown) "WeightsCollection dimensions do not match breakdown, got $(dims) and $(sum(w_dims[1] for w_dims in breakdown))"
 end
 
-WeightCache(;maxsize::Int) = LRU{Int, Array{Float32}}(maxsize=maxsize)
-GenotypeCache(;maxsize::Int) = LRU{Int, Any}(maxsize=maxsize)
+WeightCache(;maxsize::Int, kwargs...) = LRU{Int, Array{Float32}}(maxsize=maxsize)
+GenotypeCache(;maxsize::Int, kwargs...) = LRU{Int, Any}(maxsize=maxsize)
 
 """
     Base.:+(a::Layer b::Delta) -> Layer
