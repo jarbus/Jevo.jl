@@ -114,7 +114,7 @@ end
 # SelfAttention
 function create_layer(layer::Union{SelfAttention,JevoSelfAttention}; weight_cache::_WeightCache)
     Transformers.Layers.SelfAttention(
-        Transformers.Layers.CausalMultiheadQKVAttenOp(layer.n_heads),
+        Transformers.Layers.LocalCausalMultiheadQKVAttenOp(4, layer.n_heads),
         #= Transformers.Layers.CausalFlashMultiheadQKVAttenOp(layer.n_heads), =#
         Transformers.Layers.NSplit(3, create_layer(layer.qkv, weight_cache=weight_cache)),
         create_layer(layer.out, weight_cache=weight_cache)
@@ -152,7 +152,7 @@ function develop(c::Creator{TextModel}, textnet::TextNetwork)
     TextModel(
         c.kwargs.textenc,
         #Transformers.Layers.SinCosPositionEmbed(textnet.embed.weights.dims[1]),
-        Transformers.Layers.RotaryPositionEmbed(),
+        Transformers.Layers.RotaryPositionEmbed(8),
         create_layer(textnet.embed, weight_cache=weight_cache),
         create_layer(textnet.network, weight_cache=weight_cache) |> gpu,
         create_layer(textnet.embeddecoder, weight_cache=weight_cache),
@@ -173,11 +173,11 @@ end
 function (tm::TextModel)(input)
     mask = get(input, :attention_mask, nothing)
     embeds = tm.embed(input.token)
-    pos_embed = tm.posembed(embeds) |> gpu
+    #pos_embed = tm.posembed(embeds) |> gpu
     #embeds = embeds .+ pos_embed
     logits = Transformers.ChainRulesCore.ignore_derivatives() do
-        #process_text_embeds(tm.model, embeds, mask)
-        last_hidden = process_text_embeds(tm.model, pos_embed, mask)
+        last_hidden = process_text_embeds(tm.model, embeds, mask)
+        #last_hidden = process_text_embeds(tm.model, pos_embed, mask)
         tm.embeddecoder(last_hidden)
     end
     logits

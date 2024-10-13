@@ -7,11 +7,11 @@ NetworkGene(counter::Counter, seed::UInt64, mr::Float32, init::Function=Jevo.app
     NetworkGene(inc!(counter), seed, mr, init)
 
 function FreshWeights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{Int}}; init::Function=Jevo.apply_kaiming_normal_noise!, rank=-1)
-    (length(dims) < 2 || rank < 0) && return Weights(dims, [NetworkGene(-inc!(counter), rand(rng, UInt64), 0f0, init)])
+    (length(dims) < 2 || rank < 0) && return Weights(dims, [NetworkGene(-inc!(counter), rand(rng, UInt64), 1f0, init)])
     CompositeWeight(dims, AbstractWeights[
         FactorWeight(dims,
-            Weights((dims[1], rank), [NetworkGene(-inc!(counter), rand(rng, UInt64), 0.0f0, apply_kaiming_normal_noise_factored!)]),
-            Weights((rank, dims[2]), [NetworkGene(-inc!(counter), rand(rng, UInt64), 0.0f0, apply_kaiming_normal_noise_factored!)]),
+            Weights((dims[1], rank), [NetworkGene(-inc!(counter), rand(rng, UInt64), 1.0f0, apply_kaiming_normal_noise_factored!)]),
+            Weights((rank, dims[2]), [NetworkGene(-inc!(counter), rand(rng, UInt64), 1.0f0, apply_kaiming_normal_noise_factored!)]),
         ),
         Weights(dims, [NetworkGene(-inc!(counter), rand(rng, UInt64), 0.0f0, apply_kaiming_normal_noise!)])
     ])

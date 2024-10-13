@@ -2,8 +2,9 @@ export visualize, get_weights
 
 
 function cuda_randn(rng::AbstractRNG, dims::Integer...; std::Real=1.0f0)
-    rng = CUDA.RNG(rand(rng, UInt32), UInt32(0))
-    Random.randn!(rng, CuArray{Float32}(undef, dims...)) .* std
+    arr = randn(rng, Float32, dims...) |> cu
+    arr .*= std
+    arr
 end
 # We need to overwrite this Flux method to generate Float32 weights and maintain compatibility with the (rng, type, dims...) signature
 function kaiming_normal(rng::AbstractRNG,::Type, dims::Integer...; gain::Real = √2f0)
@@ -47,7 +48,7 @@ function get_weight_cache()
     # check if weight_cache is defined
     if !isdefined(Jevo, :weight_cache) || isnothing(Jevo.weight_cache)
         @warn "No weight cache found. Creating weight cache on proc $(myid())"
-        Jevo.weight_cache = WeightCache(maxsize=Int(1e10), by=Base.summarysize)
+        Jevo.weight_cache = WeightCache(maxsize=Int(2^32), by=Base.summarysize)
     end
     Jevo.weight_cache
 end
@@ -57,7 +58,7 @@ function get_genotype_cache()
     # check if weight_cache is defined
     if !isdefined(Jevo, :genotype_cache) || isnothing(Jevo.genotype_cache)
         @warn "No genotype cache found. Creating genotype cache on proc $(myid())"
-        Jevo.genotype_cache = GenotypeCache(maxsize=500)
+        Jevo.genotype_cache = GenotypeCache(maxsize=20)
     end
     Jevo.genotype_cache
 end
@@ -184,14 +185,34 @@ function get_coupled_weights(x::Union{AbstractLayer, AbstractGenotype, AbstractW
         coupled_weights
     end |> filter(!isnothing) |> x->vcat(x...) # flatten the vectors of coupled weights
 end
+function get_gpu_ids()
+    gpu_ids = get(ENV, "SLURM_JOB_GPUS", "")
+    if gpu_ids == ""
+        println("No GPUs assigned to this job.")
+        return []
+    end
+    gpu_ids_array = split(gpu_ids, ",")
+    return parse.(Int, gpu_ids_array)
+end
+
+
+function get_local_gpu_id()
+    local_process_idx = parse(Int, get(ENV, "SLURM_LOCALID", "0"))
+    gpu_ids = get_gpu_ids()
+    # Ensure there are GPUs assigned
+    if length(gpu_ids) == 0
+        println("No GPUs assigned to this node.")
+        return nothing
+    end
+    # Get the GPU ID assigned to the current process (wrap if more processes than GPUs)
+    gpu_id = gpu_ids[mod(local_process_idx, length(gpu_ids)) + 1]
+    println("local_process_idx $local_process_idx gpu_id=$gpu_id")
+    return gpu_id
+end
 
 global jevo_device_id = nothing
 function set_device()
-    worker_idx = myid() in workers() ? findfirst(x->x==myid(), sort(workers())) : 1
-    println(" worker_idx=$worker_idx myid=$(myid()) workers=$(workers())")
-    device_id = collect(devices())[worker_idx].handle |> Int64
-    println("$(myid()) has devices $(collect(devices())), setting to $device_id")
-    Jevo.jevo_device_id = device_id
+    Jevo.jevo_device_id = get_local_gpu_id()
     nothing
 end
 
