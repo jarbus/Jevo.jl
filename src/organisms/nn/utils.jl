@@ -48,7 +48,7 @@ function get_weight_cache()
     # check if weight_cache is defined
     if !isdefined(Jevo, :weight_cache) || isnothing(Jevo.weight_cache)
         @warn "No weight cache found. Creating weight cache on proc $(myid())"
-        Jevo.weight_cache = WeightCache(maxsize=Int(2^32), by=Base.summarysize)
+        Jevo.weight_cache = WeightCache(maxsize=Int(2^24), by=Base.summarysize)
     end
     Jevo.weight_cache
 end
@@ -58,7 +58,7 @@ function get_genotype_cache()
     # check if weight_cache is defined
     if !isdefined(Jevo, :genotype_cache) || isnothing(Jevo.genotype_cache)
         @warn "No genotype cache found. Creating genotype cache on proc $(myid())"
-        Jevo.genotype_cache = GenotypeCache(maxsize=20)
+        Jevo.genotype_cache = GenotypeCache(maxsize=8)
     end
     Jevo.genotype_cache
 end
@@ -213,6 +213,7 @@ end
 global jevo_device_id = nothing
 function set_device()
     Jevo.jevo_device_id = get_local_gpu_id()
+    @info "Set device to $(Jevo.jevo_device_id)"
     nothing
 end
 
