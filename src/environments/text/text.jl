@@ -16,7 +16,7 @@ function get_preprocessed_batch(env::Union{RepeatSequence, RegularLanguage, Acce
         @warn "Creating variable Jevo.preprocessed_batch"
         Jevo.preprocessed_batch = encode(tm.textenc, sample_batch(env))
     end
-    Jevo.preprocessed_batch |> deepcopy |> gpu
+    Jevo.preprocessed_batch |> gpu
 end
 
 RecordPerformance(env_creator;kwargs...) = create_op("Reporter",

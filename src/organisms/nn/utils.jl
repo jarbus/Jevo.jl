@@ -188,8 +188,8 @@ end
 function get_gpu_ids()
     gpu_ids = get(ENV, "SLURM_JOB_GPUS", "")
     if gpu_ids == ""
-        println("No GPUs assigned to this job.")
-        return []
+        println("No GPUs assigned to this job, defaulting to 0")
+        return [0]
     end
     gpu_ids_array = split(gpu_ids, ",")
     return parse.(Int, gpu_ids_array)
