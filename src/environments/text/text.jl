@@ -14,9 +14,9 @@ function get_preprocessed_batch(env::Union{RepeatSequence, RegularLanguage, Acce
     size(zeros(10_000_000))
     if !isdefined(Jevo, :preprocessed_batch) || isnothing(Jevo.preprocessed_batch)
         @warn "Creating variable Jevo.preprocessed_batch"
-        Jevo.preprocessed_batch = encode(tm.textenc, sample_batch(env))
+        Jevo.preprocessed_batch = encode(tm.textenc, sample_batch(env)) |> gpu
     end
-    Jevo.preprocessed_batch |> gpu
+    Jevo.preprocessed_batch
 end
 
 RecordPerformance(env_creator;kwargs...) = create_op("Reporter",
