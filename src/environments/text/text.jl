@@ -5,18 +5,19 @@ export NegativeLoss, PercentCorrect, RecordPerformance
 struct NegativeLoss <: AbstractMetric end
 struct PercentCorrect <: AbstractMetric end
 
-global preprocessed_batch = nothing
+#global preprocessed_batch = nothing
 function get_preprocessed_batch(env::Union{RepeatSequence, RegularLanguage, AcceptRejectStrings, TinyStoriesDataSet}, tm::TextModel)
     # There appears to be some memory management issue, where GPU OOMs.
     # Allocating a large amount of memory on the CPU appears to alleviate this 
     # issue. Garbage collection does not help. Unable to justify spending
     # more time on this, if it's resolved. On my laptop, this takes ~179μs per call
-    size(zeros(10_000_000))
-    if !isdefined(Jevo, :preprocessed_batch) || isnothing(Jevo.preprocessed_batch)
-        @warn "Creating variable Jevo.preprocessed_batch"
-        Jevo.preprocessed_batch = encode(tm.textenc, sample_batch(env)) |> gpu
-    end
-    Jevo.preprocessed_batch
+    #rand() < 0.1 && GC.gc()
+    #= if !isdefined(Jevo, :preprocessed_batch) || isnothing(Jevo.preprocessed_batch) =#
+    #=     @warn "Creating variable Jevo.preprocessed_batch" =#
+    #=     const Jevo.preprocessed_batch = encode(tm.textenc, sample_batch(env)) |> gpu =#
+    #= end =#
+    #= Jevo.preprocessed_batch =#
+    encode(tm.textenc, sample_batch(env)) |> gpu
 end
 
 RecordPerformance(env_creator;kwargs...) = create_op("Reporter",

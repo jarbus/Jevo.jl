@@ -9,13 +9,14 @@ Base.@kwdef struct TinyStoriesDataSet <: AbstractEnvironment
     batch_size::Int
 end
 
+global TINYSTORIES_DATASET = readlines(joinpath(@__DIR__, "datasets/tinystories/first10kstories.txt"))
+
 # ==== PERFORMANCE CRITICAL END
 function sample_batch(env::TinyStoriesDataSet)
     # Each string is enclosed in a tuple for the batch
     # If we were using encoder-decoder, we would have a tuple of two strings
     # read in ./datasets/tinystories/first10kstories.txt
-    stories = readlines(joinpath(@__DIR__, "datasets/tinystories/first10kstories.txt"))
-    seqs = [(stories[i],) for i in 1:env.n_sequences]
+    seqs = [(TINYSTORIES_DATASET[i],) for i in 1:env.n_sequences]
     batched(seqs)[1]
 end
 

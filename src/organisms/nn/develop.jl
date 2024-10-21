@@ -7,7 +7,7 @@ function get_earliest_cached_weight(dims::NTuple{N, Int}, genes::Vector{NetworkG
         weights = get(weight_cache, genes[i].id, nothing)
         if !isnothing(weights)
             @assert size(weights) == dims "Cached weight for $(genes[i].id) has different dimensions than requested"
-            return (gpu(weights), i)
+            return (copy(weights), i)
         end
     end
     CUDA.zeros(Float32, dims), 0
@@ -36,7 +36,7 @@ function tensor(w::Weights; weight_cache::_WeightCache=nothing)::CuArray{Float32
         # update cache if we are using one
         if yes_weight_cache && i != n_genes && gid ∉ keys(weight_cache)
             gene_id = genes[i].id
-            weight_cache[gene_id] = Flux.cpu(arr)
+            weight_cache[gene_id] = copy(arr)
         end
     end
     arr
@@ -90,7 +90,6 @@ end
 function create_layer(layer::Jevo.TransformerDecoderBlock; weight_cache::_WeightCache)
     attn_layer = create_layer(layer.attention, weight_cache=weight_cache)
     ff_layer = create_layer(layer.ff, weight_cache=weight_cache)
-    #= ff_layer = identity =#
     Transformers.Layers.TransformerDecoderBlock(
         attn_layer,
         ff_layer
@@ -115,7 +114,7 @@ end
 function create_layer(layer::Union{SelfAttention,JevoSelfAttention}; weight_cache::_WeightCache)
     Transformers.Layers.SelfAttention(
         Transformers.Layers.LocalCausalMultiheadQKVAttenOp(4, layer.n_heads),
-        #= Transformers.Layers.CausalFlashMultiheadQKVAttenOp(layer.n_heads), =#
+        #Transformers.Layers.CausalFlashMultiheadQKVAttenOp(layer.n_heads),
         Transformers.Layers.NSplit(3, create_layer(layer.qkv, weight_cache=weight_cache)),
         create_layer(layer.out, weight_cache=weight_cache)
     )
@@ -152,7 +151,7 @@ function develop(c::Creator{TextModel}, textnet::TextNetwork)
     TextModel(
         c.kwargs.textenc,
         #Transformers.Layers.SinCosPositionEmbed(textnet.embed.weights.dims[1]),
-        Transformers.Layers.RotaryPositionEmbed(8),
+        Transformers.Layers.RotaryPositionEmbed(4),
         create_layer(textnet.embed, weight_cache=weight_cache),
         create_layer(textnet.network, weight_cache=weight_cache) |> gpu,
         create_layer(textnet.embeddecoder, weight_cache=weight_cache),
@@ -171,14 +170,10 @@ function process_text_embeds(recur::Flux.Recur, embeds::AbstractArray, _)
 end
 
 function (tm::TextModel)(input)
-    mask = get(input, :attention_mask, nothing)
-    embeds = tm.embed(input.token)
-    #pos_embed = tm.posembed(embeds) |> gpu
-    #embeds = embeds .+ pos_embed
-    logits = Transformers.ChainRulesCore.ignore_derivatives() do
+    Transformers.ChainRulesCore.ignore_derivatives() do
+        mask = get(input, :attention_mask, nothing)
+        embeds = tm.embed(input.token) |> tm.posembed
         last_hidden = process_text_embeds(tm.model, embeds, mask)
-        #last_hidden = process_text_embeds(tm.model, pos_embed, mask)
         tm.embeddecoder(last_hidden)
     end
-    logits
 end
