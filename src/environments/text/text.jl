@@ -11,12 +11,6 @@ function get_preprocessed_batch(env::Union{RepeatSequence, RegularLanguage, Acce
     # Allocating a large amount of memory on the CPU appears to alleviate this 
     # issue. Garbage collection does not help. Unable to justify spending
     # more time on this, if it's resolved. On my laptop, this takes ~179μs per call
-    #rand() < 0.1 && GC.gc()
-    #= if !isdefined(Jevo, :preprocessed_batch) || isnothing(Jevo.preprocessed_batch) =#
-    #=     @warn "Creating variable Jevo.preprocessed_batch" =#
-    #=     const Jevo.preprocessed_batch = encode(tm.textenc, sample_batch(env)) |> gpu =#
-    #= end =#
-    #= Jevo.preprocessed_batch =#
     encode(tm.textenc, sample_batch(env)) |> gpu
 end
 

@@ -13,6 +13,7 @@ function update_parents_across_all_workers!(s::State, pops::Vector{Vector{Popula
     workers_missing_parents = master_send_pids_and_gpids(pops)
     # construct all missing parents on master 
     worker_pid_genomes = master_construct_parents_genomes(pops, workers_missing_parents)
+    # TODO for any worker that's missing a genome, we also want to re-transmit the weight cache
     # send to workers and cache
     master_cache_parents!(worker_pid_genomes)
 end
