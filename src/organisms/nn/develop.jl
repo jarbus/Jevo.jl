@@ -170,10 +170,23 @@ function process_text_embeds(recur::Flux.Recur, embeds::AbstractArray, _)
 end
 
 function (tm::TextModel)(input)
-    Transformers.ChainRulesCore.ignore_derivatives() do
-        mask = get(input, :attention_mask, nothing)
-        embeds = tm.embed(input.token) |> tm.posembed
-        last_hidden = process_text_embeds(tm.model, embeds, mask)
-        tm.embeddecoder(last_hidden)
+    retries = 0
+    while retries < 3
+        try
+            Transformers.ChainRulesCore.ignore_derivatives() do
+                mask = get(input, :attention_mask, nothing)
+                embeds = tm.embed(input.token) |> tm.posembed
+                last_hidden = process_text_embeds(tm.model, embeds, mask)
+                tm.embeddecoder(last_hidden)
+            end
+        catch e
+            retries += 1
+            @info "OOM, retrying"
+            GC.gc()
+            sleep(1)
+            if retries == 3
+                rethrow(e)
+            end
+        end
     end
 end
