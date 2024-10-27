@@ -2,7 +2,7 @@
 
 julia_version = "1.11.1"
 manifest_format = "2.0"
-project_hash = "ebd51d16be65c8f795879643ca55a33a06766cbb"
+project_hash = "f4bda320474212782e9d85ac9b0d6ed15ed2d484"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -42,9 +42,9 @@ version = "0.1.38"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra", "Requires"]
-git-tree-sha1 = "6a55b747d1812e699320963ffde36f1ebdda4099"
+git-tree-sha1 = "d80af0733c99ea80575f612813fa6aa71022d33a"
 uuid = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
-version = "4.0.4"
+version = "4.1.0"
 weakdeps = ["StaticArrays"]
 
     [deps.Adapt.extensions]
@@ -131,9 +131,9 @@ version = "0.5.2"
 
 [[deps.Bzip2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "9e2a6b69137e6969bab0152632dcb3bc108c8bdd"
+git-tree-sha1 = "8873e196c2eb87962a2048b3b8e08946535864a1"
 uuid = "6e34b625-4abd-537c-b88f-471c36dfa7a0"
-version = "1.0.8+1"
+version = "1.0.8+2"
 
 [[deps.CEnum]]
 git-tree-sha1 = "389ad5c84de1ae7cf0e28e381131c98ea87d54fc"
@@ -838,10 +838,10 @@ uuid = "88015f11-f218-50d7-93a8-a6af411a945d"
 version = "4.0.0+0"
 
 [[deps.LLVM]]
-deps = ["CEnum", "LLVMExtra_jll", "Libdl", "Preferences", "Printf", "Requires", "Unicode"]
-git-tree-sha1 = "4ad43cb0a4bb5e5b1506e1d1f48646d7e0c80363"
+deps = ["CEnum", "LLVMExtra_jll", "Libdl", "Preferences", "Printf", "Unicode"]
+git-tree-sha1 = "d422dfd9707bec6617335dc2ea3c5172a87d5908"
 uuid = "929cbde3-209d-540e-8aea-75f648917ca0"
-version = "9.1.2"
+version = "9.1.3"
 weakdeps = ["BFloat16s"]
 
     [deps.LLVM.extensions]
@@ -1020,10 +1020,10 @@ uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 version = "1.0.3"
 
 [[deps.MLDataDevices]]
-deps = ["Adapt", "Functors", "Preferences", "Random"]
-git-tree-sha1 = "5e5b7ae2664d4d88adf7c5ba194d2bcda4bbac1c"
+deps = ["Adapt", "Compat", "Functors", "LinearAlgebra", "Preferences", "Random"]
+git-tree-sha1 = "3207c2e66164e6366440ad3f0243a8d67abb4a47"
 uuid = "7e8f7934-dd98-4c1a-8fe8-92b47a384d40"
-version = "1.3.0"
+version = "1.4.1"
 
     [deps.MLDataDevices.extensions]
     MLDataDevicesAMDGPUExt = "AMDGPU"
@@ -1198,9 +1198,7 @@ version = "1.2.0"
 
 [[deps.NeuralAttentionlib]]
 deps = ["Adapt", "ChainRulesCore", "FuncTransforms", "GPUArraysCore", "LinearAlgebra", "NNlib", "Random", "Requires", "Static"]
-git-tree-sha1 = "e09985e5b93294c206ae7d3c0bb5f79459210264"
-repo-rev = "master"
-repo-url = "https://github.com/jarbus/NeuralAttentionlib.jl"
+path = "../NeuralAttentionlib"
 uuid = "12afc1b8-fad6-47e1-9132-84abc478905f"
 version = "0.3.1"
 
@@ -1331,9 +1329,7 @@ version = "1.2.0"
 
 [[deps.PhylogeneticTrees]]
 deps = ["DataStructures", "Serialization"]
-git-tree-sha1 = "e818a49f32cc88aa25a4471f1f3b3ebedee284fb"
-repo-rev = "master"
-repo-url = "https://github.com/jarbus/PhylogeneticTrees.jl"
+path = "../PhylogeneticTrees"
 uuid = "6d56a5a2-9523-4ac5-b898-386f43f22c4e"
 version = "1.0.3-DEV"
 
@@ -1693,9 +1689,9 @@ version = "0.8.10"
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "PrecompileTools", "Random", "StaticArraysCore"]
-git-tree-sha1 = "eeafab08ae20c62c44c8399ccb9354a04b80db50"
+git-tree-sha1 = "777657803913ffc7e8cc20f0fd04b634f871af8f"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.9.7"
+version = "1.9.8"
 weakdeps = ["ChainRulesCore", "Statistics"]
 
     [deps.StaticArrays.extensions]
@@ -1891,7 +1887,7 @@ version = "0.4.84"
 
 [[deps.Transformers]]
 deps = ["BangBang", "Base64", "BytePairEncoding", "CUDA", "ChainRulesCore", "DataDeps", "DataStructures", "Dates", "DelimitedFiles", "DoubleArrayTries", "Fetch", "FillArrays", "Flux", "FuncPipelines", "Functors", "HTTP", "HuggingFaceApi", "InteractiveUtils", "JSON3", "LRUCache", "LightXML", "LinearAlgebra", "Mmap", "NNlib", "NeuralAttentionlib", "Pickle", "Pkg", "PrimitiveOneHot", "Random", "SHA", "SafeTensors", "Static", "Statistics", "StringViews", "StructWalk", "TextEncodeBase", "Tricks", "Unicode", "ValSplit", "WordTokenizers", "Zygote", "cuDNN"]
-path = "/home/garbus/.julia/dev/Transformers"
+path = "../Transformers"
 uuid = "21ca0261-441d-5938-ace7-c90938fde4d4"
 version = "0.3.1"
 
@@ -1998,11 +1994,9 @@ version = "2.13.3+0"
 
 [[deps.XPlot]]
 deps = ["Bootstrap", "FileWatching", "HDF5", "HypothesisTests", "Plots", "StatsBase"]
-git-tree-sha1 = "d4bc8d4b3e4ce4595b50d28ca8f1286b36a7ef0f"
-repo-rev = "master"
-repo-url = "https://github.com/jarbus/XPlot.jl"
+path = "../XPlot"
 uuid = "05f8af49-9276-49ac-91ff-a5ea52b3fe06"
-version = "1.2.0"
+version = "1.1.0"
 
 [[deps.XSLT_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libgcrypt_jll", "Libgpg_error_jll", "Libiconv_jll", "XML2_jll", "Zlib_jll"]

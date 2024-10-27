@@ -48,7 +48,7 @@ function get_weight_cache()
     # check if weight_cache is defined
     if !isdefined(Jevo, :weight_cache) || isnothing(Jevo.weight_cache)
         @warn "No weight cache found. Creating weight cache on proc $(myid())"
-        Jevo.weight_cache = WeightCache(maxsize=Int(2^24), by=sizeof)
+        Jevo.weight_cache = WeightCache(maxsize=Int(2^26), by=sizeof)
     end
     Jevo.weight_cache
 end
@@ -58,7 +58,7 @@ function get_genotype_cache()
     # check if weight_cache is defined
     if !isdefined(Jevo, :genotype_cache) || isnothing(Jevo.genotype_cache)
         @warn "No genotype cache found. Creating genotype cache on proc $(myid())"
-        Jevo.genotype_cache = GenotypeCache(maxsize=8)
+        Jevo.genotype_cache = GenotypeCache(maxsize=16)
     end
     Jevo.genotype_cache
 end
@@ -205,7 +205,7 @@ function get_local_gpu_id()
         return nothing
     end
     # Get the GPU ID assigned to the current process (wrap if more processes than GPUs)
-    gpu_id = gpu_ids[mod(local_process_idx, length(gpu_ids)) + 1]
+    gpu_id = mod(local_process_idx, length(gpu_ids))
     println("local_process_idx $local_process_idx gpu_id=$gpu_id")
     return gpu_id
 end
@@ -213,7 +213,8 @@ end
 global jevo_device_id = nothing
 function set_device()
     Jevo.jevo_device_id = get_local_gpu_id()
-    @info "Set device to $(Jevo.jevo_device_id)"
+    @info "Setting device to $(Jevo.jevo_device_id)"
+    device!(Jevo.jevo_device_id)
     nothing
 end
 
