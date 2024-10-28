@@ -7,6 +7,7 @@ using Transformers
 using Flux
 enable_gpu(CUDA.functional()) 
 # 
+CUDA.device_reset!()
 Jevo.set_device()
 @assert isdefined(Jevo, :jevo_device_id)
 @assert Jevo.jevo_device_id isa Int64

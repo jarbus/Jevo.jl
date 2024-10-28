@@ -149,7 +149,7 @@ function crossover_parents(rng::AbstractRNG, state::State, ::Population, ind::In
     # iterate over all parents. if architecture is the same
     for parent in parents
         !samearchitecture(ind.genotype, parent.genotype) && continue
-        for (child_w, parent_w) in zip(get_weights(ind.genotype), get_weights(parent.genotype))
+        for (child_w, parent_w) in zip(get_weights(ind.genotype, no_layer_norn=true), get_weights(parent.genotype, no_layer_norm=true))
             isempty(parent_w.muts) && continue
             rand(rng) > prob && continue
             latest_mut = parent_w.muts[end]
