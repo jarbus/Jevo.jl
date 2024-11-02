@@ -273,10 +273,7 @@ copyarchitecture(net::T) where {T <: Union{Jevo.AbstractLayer, Jevo.AbstractWeig
 
 function JevoChain(rng::AbstractRNG, counter::AbstractCounter, layers::Vector)
     """Create a network with a collection of layers"""
-    for l in layers
-        @assert l[1] <: AbstractLayer "Layer must be a subtype of AbstractLayer, got $(l[1])"
-    end
-    JevoChain([l[1](rng, counter; l[2]...) for l in layers])
+    JevoChain([l isa Tuple ? l[1](rng, counter; l[2]...) : l for l in layers])
 end
 
 function Dense(rng::AbstractRNG, counter::AbstractCounter; dims::Tuple{Vararg{Int}}, σ::Function, rank::Int=-1)
@@ -285,6 +282,14 @@ function Dense(rng::AbstractRNG, counter::AbstractCounter; dims::Tuple{Vararg{In
     weights = Weights(rng, counter, (dims[2], dims[1]), rank=rank)
     bias = Weights(rng, counter, (dims[2],))
     Dense(weights, bias, σ)
+end
+
+function Conv(rng::AbstractRNG, counter::AbstractCounter; kernel::Tuple{Vararg{Int}}, channels::Pair{<:Integer, <:Integer}, σ=relu, stride=(1,1), padding=(0,0, 0, 0), dilation=(1,1), groups=1, rank=-1)
+    in_ch, out_ch = channels
+    dims = (kernel..., in_ch, out_ch)
+    weights = Weights(rng, counter, dims, rank=rank)
+    bias = Weights(rng, counter, (out_ch,))
+    Jevo.Conv(weights, bias, σ, kernel, stride, padding, dilation, groups)
 end
 
 function RNN(rng::AbstractRNG, counter::AbstractCounter; dims::Tuple{Int, Int}, σ::Function, input_rank::Int=-1, hidden_rank::Int=-1)

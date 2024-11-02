@@ -1,12 +1,36 @@
 export CarRacingV3
-using PyCall
+using Random
+using PythonCall
 global gymnasium
 
-
-Base.@kwdef mutable struct CarRacingV3 <: AbstractEnvironment
-    env = nothing
-    done::Bool = false
+mutable struct CarRacingV3 <: AbstractEnvironment
+    n_envs::Int
+    n_steps::Int
+    n_stack::Int
+    env
+    prev_obs
+    done::Bool
 end
+
+function CarRacingV3(n_envs::Int, n_steps::Int, skip::Int)
+    return CarRacingV3(n_envs, n_steps, skip, nothing, nothing, false)
+end
+
+using Random
+using Distributions
+
+#= function sample_once_per_column(rng, matrix::Matrix) =#
+#=     n_cols = size(matrix, 2) =#
+#=     samples = Vector{Int}(undef, n_cols) =#
+#==#
+#=     for j in 1:n_cols =#
+#=         # Create a categorical distribution for each column =#
+#=         dist = Categorical(matrix[:, j]) =#
+#=         samples[j] = rand(rng, dist) =#
+#=     end =#
+#==#
+#=     return samples =#
+#= end =#
 
 """
 Wrappers to use:
@@ -19,29 +43,43 @@ done(env::CarRacingV3) = env.done
 
 function step!(env::CarRacingV3, ids::Vector{Int}, phenotypes::Vector)
     if isnothing(env.env)
-        gymnasium = pyimport("gymnasium")
-        @info("Creating CarRacing-v3 environment")
-        _env = gymnasium.make("CarRacing-v3")
-        @info("Wrapping environment")
-        _env = gymnasium.wrappers.TimeLimit(_env, max_episode_steps=1000)
-        @info("Wrapping environment")
-        _env = gymnasium.wrappers.FrameStackObservation(_env, stack_size=4)
+        # This works, and isn't much of a slowdown, from what i can tell
+        @pyexec"""
+        def make_single_env(gym, np, n_steps, n_stack):
+            def anonymous_env_creator():
+                _env = gym.make("CarRacing-v3")
+                _env = gym.wrappers.TimeLimit(_env, max_episode_steps=n_steps)
+                _env = gym.wrappers.FrameStackObservation(_env, stack_size=n_stack)
+                _env = gym.wrappers.DtypeObservation(_env, np.float32)
+                _env = gym.wrappers.RescaleObservation(_env, min_obs=0.0, max_obs=1.0)
+                return _env
+            return anonymous_env_creator
+        """ => make_single_env
+        gym = pyimport("gymnasium")
+        np = pyimport("numpy")
+        _env = gym.vector.SyncVectorEnv([
+            make_single_env(gym, np, env.n_steps, env.n_stack) for _ in 1:env.n_envs])
         env.env = _env
+        obs, info = env.env.reset()
+        obs = pyconvert(Array{Float32}, obs) |> cu
+        obs = permutedims(reshape(obs, size(obs, 1), size(obs, 2)*size(obs, 5), size(obs, 3), size(obs, 4)), (3, 4, 2, 1))
+        env.prev_obs = obs
     end
-    obs = env.env.reset()
-    # step
-    env.done = true
+    actions = phenotypes[1](env.prev_obs) |> cpu
+    actions = pyimport("numpy").array(actions).T
+    # sample actions from the probabilities, batch is the last dimension
+    #rng = StableRNG(ids[1])
+    #actions = sample_once_per_column(rng, probs) .- 1 # subtract 1 to make it 0-indexed
+    #actions = pyimport("numpy").array(actions, dtype=pybuiltins.int)
+    #println(actions)
+    obs, reward, terminated, truncated, info = env.env.step(actions)
+    obs = pyconvert(Array{Float32}, obs) |> cu
+    obs = permutedims(reshape(obs, size(obs, 1), size(obs, 2)*size(obs, 5), size(obs, 3), size(obs, 4)), (3, 4, 2, 1))
+    env.prev_obs = obs
+    if Bool(terminated.any()) != Bool(terminated.all()) || 
+        Bool(truncated.any()) != Bool(truncated.all())
+        error("Some environments terminated while others didn't")
+    end
+    env.done = Bool(terminated.any()) || Bool(truncated.any())
+    [Interaction(ids[1], [], sum(PyArray(reward)))]
 end
-#= env = gymnasium.make("CarRacing-v3") =#
-#= gymnasium.wrappers.TimeLimit(env, max_episode_steps=1000) =#
-#= gymnasium.wrappers.FrameStackObservation(env, stack_size=4) =#
-
-#= observation, info = env.reset() =#
-#==#
-#= episode_over = false =#
-#= while !episode_over =#
-#=     action = env.action_space.sample()  # agent policy that uses the observation and info =#
-#=     observation, reward, terminated, truncated, info = env.step(action) =#
-#==#
-#=     episode_over = terminated or truncated =#
-#= end =#

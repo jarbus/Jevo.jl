@@ -1,0 +1,4 @@
+[deps]
+swig = ""
+gymnasium-box2d = ""
+gymnasium = ""

@@ -1,4 +1,4 @@
-export Transformer, FactorWeight, CompositeWeight, WeightsCollection, Weights, Dense, SelfAttention, JevoChain, PostNormResidual, Embed, EmbedDecoder, LayerNorm, TransformerDecoderBlock, RNN, TextModel, TextTransformer, TextRNN, CoupledWeights
+export Transformer, FactorWeight, CompositeWeight, WeightsCollection, Weights, Dense, SelfAttention, JevoChain, PostNormResidual, Embed, EmbedDecoder, LayerNorm, TransformerDecoderBlock, RNN, TextModel, TextTransformer, TextRNN, CoupledWeights, Conv
 """
     struct NetworkGene <: AbstractMutation
         id::Int
@@ -86,6 +86,18 @@ struct Dense{W,B} <: AbstractLayer where {W <: AbstractWeights, B <: AbstractWei
     bias::B
     σ::Function
 end
+
+struct Conv{N, S, P, D, W,B} <: AbstractLayer where {W <: AbstractWeights, B <: AbstractWeights}
+    weights::W
+    bias::B
+    σ::Function
+    kernel::NTuple{N,Int}
+    stride::NTuple{S,Int}
+    padding::NTuple{P,Int}
+    dilation::NTuple{D,Int}
+    groups::Int
+end
+
 
 struct RNN{Wi,Wh,B} <: AbstractLayer where {Wi <: AbstractWeights, Wh <: AbstractWeights, B <: AbstractWeights}
     input::Wi
@@ -198,6 +210,10 @@ Stores developed tensors of weights for genes. Keys are tensor dimensions and th
 _WeightCache = Union{LRU{Int, <:Array{Float32}}, Nothing}
 # Should be LRU{Int, <:AbstractLayer}, but abstract types slow down the code
 _GenotypeCache = Union{LRU, Nothing}
+
+struct Model <: AbstractPhenotype
+    chain
+end
 
 struct TextTransformer end # for creators
 struct TextRNN end

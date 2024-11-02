@@ -129,6 +129,12 @@ create_layer(layers::Vector; weight_cache::_WeightCache) =
 create_layer(layer::Jevo.Transformer; weight_cache::_WeightCache) = create_layer(layer.blocks, weight_cache=weight_cache)
 create_layer(layer::JevoChain; weight_cache::_WeightCache) = create_layer(layer.layers, weight_cache=weight_cache)
 
+function create_layer(layer::Jevo.Conv; weight_cache::_WeightCache)
+    weights = @inline tensor(layer.weights, weight_cache=weight_cache)
+    bias = @inline tensor(layer.bias, weight_cache=weight_cache)
+    Flux.Conv(layer.σ, weights, bias, layer.stride, layer.padding, layer.dilation, 1)
+end
+
 function create_layer(layer::Jevo.Dense; weight_cache::_WeightCache)
     weights = @inline tensor(layer.weights, weight_cache=weight_cache)
     bias = @inline tensor(layer.bias, weight_cache=weight_cache)
@@ -141,9 +147,17 @@ Creates a phenotype layer from a genotype, calls [tensor](@ref) on contained wei
 """
 create_layer(f::Function; kwargs...) = f
 
+
 function develop(::Creator{Flux.Chain}, chain::JevoChain)
     weight_cache = get_weight_cache()
     Flux.Chain((create_layer(l, weight_cache=weight_cache) for l in chain.layers)...)
+end
+
+function develop(::Creator{Model}, chain::JevoChain)
+    Model(develop(Creator(Flux.Chain), chain))
+end
+function (m::Model)(x...)
+    m.chain(x...) |> gpu
 end
 
 function develop(c::Creator{TextModel}, textnet::TextNetwork)
