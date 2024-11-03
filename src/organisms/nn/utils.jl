@@ -206,7 +206,7 @@ function get_local_gpu_id()
     end
     # Get the GPU ID assigned to the current process (wrap if more processes than GPUs)
     gpu_id = mod(local_process_idx, length(gpu_ids))
-    println("local_process_idx $local_process_idx gpu_id=$gpu_id")
+    println("local_process_idx $local_process_idx gpu_id=$gpu_id SLURM_JOB_GPUS=$(get(ENV, "SLURM_JOB_GPUS", "")) CUDA_VISIBLE_DEVICES=$(get(ENV, "CUDA_VISIBLE_DEVICES", ""))")
     return gpu_id
 end
 
