@@ -327,16 +327,16 @@ function JevoSelfAttention(rng::Jevo.AbstractRNG, counter::Jevo.AbstractCounter;
     o_init! = o_rank < 1 ? init! : Jevo.apply_kaiming_normal_noise!
     qkv_weights = Jevo.WeightsCollection(
         (head_dim*n_heads*3, hidden_dim),
-        [Jevo.Weights(rng, counter, (head_dim, hidden_dim), init=head_init!, rank=qkv_rank) for i in 1:n_heads*3])
+        [Jevo.Weights(rng, counter, (head_dim*n_heads, hidden_dim), init=head_init!, rank=qkv_rank) for i in 1:3])
 
     qkv_bias = Jevo.WeightsCollection(
         (head_dim*n_heads*3,),
-        [Jevo.Weights(rng, counter, (head_dim,)) for i in 1:n_heads*3]
+        [Jevo.Weights(rng, counter, (head_dim*n_heads,)) for i in 1:3]
     )
 
     out_weights = Jevo.WeightsCollection(
         (hidden_dim, head_dim*n_heads),
-        [Jevo.Weights(rng, counter, (hidden_dim, head_dim), init=o_init!, rank=o_rank) for _ in 1:1, h in 1:n_heads])
+        [Jevo.Weights(rng, counter, (hidden_dim, head_dim*n_heads), init=o_init!, rank=o_rank) for _ in 1:1, h in 1:1])
 
     out_bias = Jevo.Weights(rng, counter, (hidden_dim,))
     
