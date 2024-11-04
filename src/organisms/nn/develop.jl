@@ -157,7 +157,9 @@ function develop(::Creator{Model}, chain::JevoChain)
     Model(develop(Creator(Flux.Chain), chain))
 end
 function (m::Model)(x...)
-    m.chain(x...) |> gpu
+    Transformers.ChainRulesCore.ignore_derivatives() do
+        m.chain(x...) |> gpu
+    end
 end
 
 function develop(c::Creator{TextModel}, textnet::TextNetwork)

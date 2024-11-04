@@ -107,7 +107,7 @@ function get_weight_symbols(weights::Weights)
     str *= get_symbols(weights.muts) * "\n"
 end
 
-get_weight_symbols(::Nothing) = ""
+get_weight_symbols(::Union{Nothing, Function}) = ""
 get_weight_symbols(wc::WeightsCollection) = "weightscollection\n" *
     join([get_weight_symbols(w) for w in wc.weights])
 get_weight_symbols(factorized_weights::FactorWeight) =
@@ -119,8 +119,8 @@ get_weight_symbols(ln::LayerNorm) = "layernorm\n" * get_weight_symbols(ln.scale)
 get_weight_symbols(sa::Union{JevoSelfAttention,SelfAttention}) =
     "qkv\n" * get_weight_symbols(sa.qkv) *
     "out\n" * get_weight_symbols(sa.out)
-get_weight_symbols(d::Dense) =
-    get_weight_symbols(d.weights) * get_weight_symbols(d.bias)
+get_weight_symbols(l::Union{Dense, Conv}) =
+    get_weight_symbols(l.weights) * get_weight_symbols(l.bias)
 get_weight_symbols(e::Embed) = get_weight_symbols(e.weights)
 get_weight_symbols(e::EmbedDecoder) =
     get_weight_symbols(e.embed) * get_weight_symbols(e.bias)
