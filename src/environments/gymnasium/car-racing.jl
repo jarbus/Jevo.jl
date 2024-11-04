@@ -81,9 +81,6 @@ function step!(env::CarRacingV3, ids::Vector{Int}, phenotypes::Vector)
         reward += sum(PyArray(_reward))
     end
     env_process_time = time()
-    @info("Forward pass time: $(forward_pass_time - start_time)")
-    @info("Numpy import time: $(numpy_import_time - forward_pass_time)")
-    @info("Env process time: $(env_process_time - numpy_import_time)")
     @assert !isnothing(obs)
     obs = PyArray(obs) |> cu
     obs = permutedims(reshape(obs, size(obs, 1), size(obs, 2)*size(obs, 5), size(obs, 3), size(obs, 4)), (3, 4, 2, 1))
