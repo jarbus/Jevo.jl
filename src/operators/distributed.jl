@@ -16,7 +16,7 @@ function create_missing_workers(n::Int; slurm::Bool, c::Int, n_gpus::Int)
     if n_workers_to_add > 0
         if slurm 
             @info("adding $n_workers_to_add with $n_gpus")
-            addprocs(SlurmManager(n_workers_to_add), c=c, env=["JULIA_CUDA_SOFT_MEMORY_LIMIT"=>ENV["JULIA_CUDA_SOFT_MEMORY_LIMIT"]])
+            addprocs(SlurmManager(n_workers_to_add), c=c, env=["JULIA_CUDA_HARD_MEMORY_LIMIT"=>ENV["JULIA_CUDA_HARD_MEMORY_LIMIT"]])
         else
             addprocs(n_workers_to_add)
         end
