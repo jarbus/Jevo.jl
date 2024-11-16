@@ -6,7 +6,7 @@ using CUDA
 using Transformers
 using Flux
 enable_gpu(CUDA.functional()) 
-ENV["CUDA_VISIBLE_DEVICES"] = ENV["SLURM_JOB_GPUS"]
+#ENV["CUDA_VISIBLE_DEVICES"] = ENV["SLURM_JOB_GPUS"]
 CUDA.device_reset!()
 Jevo.set_device()
 @assert isdefined(Jevo, :jevo_device_id)

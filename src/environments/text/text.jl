@@ -7,6 +7,7 @@ struct PercentCorrect <: AbstractMetric end
 
 #global preprocessed_batch = nothing
 function get_preprocessed_batch(env::Union{RepeatSequence, RegularLanguage, AcceptRejectStrings, TinyStoriesDataSet}, tm::TextModel)
+    @info "Preprocessing batch"
     # There appears to be some memory management issue, where GPU OOMs.
     # Allocating a large amount of memory on the CPU appears to alleviate this 
     # issue. Garbage collection does not help. Unable to justify spending

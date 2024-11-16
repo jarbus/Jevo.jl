@@ -13,12 +13,16 @@ CreateMissingWorkers(n=Int; n_gpus::Int=0, slurm::Bool=true, c::Int, kwargs...) 
 function create_missing_workers(n::Int; slurm::Bool, c::Int, n_gpus::Int)
     n_workers = workers()[1] == 1 ? 0 : length(workers())
     n_workers_to_add = n - n_workers
+    env = [
+        "JULIA_CUDA_HARD_MEMORY_LIMIT"=>ENV["JULIA_CUDA_HARD_MEMORY_LIMIT"],
+        "JULIA_CUDA_MEMORY_POOL"=>ENV["JULIA_CUDA_MEMORY_POOL"],
+    ]
     if n_workers_to_add > 0
         if slurm 
             @info("adding $n_workers_to_add with $n_gpus")
-            addprocs(SlurmManager(n_workers_to_add), c=c, env=["JULIA_CUDA_HARD_MEMORY_LIMIT"=>ENV["JULIA_CUDA_HARD_MEMORY_LIMIT"]])
+            addprocs(SlurmManager(n_workers_to_add), c=c, env=env)
         else
-            addprocs(n_workers_to_add)
+            addprocs(n_workers_to_add, env=env)
         end
         @everywhere include(joinpath(@__DIR__, "load_jevo.jl"))
     end

@@ -1,4 +1,5 @@
 [deps]
 swig = ""
 gymnasium-box2d = ""
+gymnasium-other = ""
 gymnasium = ""

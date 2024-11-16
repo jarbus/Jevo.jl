@@ -1,15 +1,17 @@
 export step!, done, play
+using PythonCall
 # Creation should be done as an environment constructor
 done(::AbstractEnvironment)::Bool = true
 play(match::Match) = play(match.environment_creator, match.individuals)
 
 function play(c::Creator{E}, inds::Vector{I}) where {E<:AbstractEnvironment, I<:AbstractIndividual}
-    lock(get_env_lock()) do
-        isdefined(Jevo, :jevo_device_id) &&  device!(Jevo.jevo_device_id)
+    #= PythonCall.GIL.@lock lock(get_env_lock()) do =#
+        #= isdefined(Jevo, :jevo_device_id) &&  device!(Jevo.jevo_device_id) =#
         phenotypes = develop.(inds)
         ids = [ind.id for ind in inds]
         play(c(), ids, phenotypes)
-    end
+    #= end =#
+    #= @info "Playing ind $(inds[1].id)" =#
 end
 
 function play(env::E, ids::Vector{Int}, phenotypes::Vector{P}) where {E <: AbstractEnvironment, P<:AbstractPhenotype}
