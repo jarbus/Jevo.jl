@@ -2,31 +2,41 @@ export visualize, get_weights
 
 
 function cuda_randn(rng::AbstractRNG, dims::Integer...; std::Real=1.0f0)
-    arr = randn(rng, Float32, dims...) |> cu
+    arr = randn(rng, Float32, dims...) #|> cu
     arr .*= std
     arr
 end
 # We need to overwrite this Flux method to generate Float32 weights and maintain compatibility with the (rng, type, dims...) signature
-function kaiming_normal(rng::AbstractRNG,::Type, dims::Integer...; gain::Real = √2f0)
-  std = Float32(gain / sqrt(first(Flux.nfan(dims...)))) # fan_in
-  cuda_randn(rng, dims...; std=std)
+#= function kaiming_normal(rng::AbstractRNG,::Type, dims::Integer...; gain::Real = √2f0) =#
+#=   std = Float32(gain / sqrt(first(Flux.nfan(dims...)))) # fan_in =#
+#=   cuda_randn(rng, dims...; std=std) =#
+#= end =#
+
+function create_kaiming_nfactor_init(;n_factors::Int, dims=Tuple{Vararg{Int}})
+    (rng, _, arr, mr) -> apply_kaiming_normal_noise_factored!(rng, Float32, arr, mr, n_factors=n_factors, dims=dims)
 end
 
-# initialize factors with 2^(1/4) gain so when multiplied together,
-# the resulting matrix has 2^(1/2) gain
-apply_kaiming_normal_noise_factored!(rng::AbstractRNG, ::Type, arr::CuArray{Float32}, mr::Float32) =
-    apply_kaiming_normal_noise!(rng, Float32, arr, mr, gain=2^(1/4))
+function apply_kaiming_normal_noise!(rng::AbstractRNG, ::Type, arr::Array{Float32}, mr::Float32; )
+    apply_kaiming_normal_noise_factored!(rng, Float32, arr, mr, n_factors=1, dims=size(arr))
+end
     
-function apply_kaiming_normal_noise!(rng::AbstractRNG, ::Type, arr::CuArray{Float32}, mr::Float32; gain::Real = √2f0)
-    dims = size(arr)
-    std = Float32(gain / sqrt(first(Flux.nfan(dims...))))
-    scalar = std * mr
-    arr .+= cuda_randn(rng, dims...) .* scalar
+function apply_kaiming_normal_noise_factored!(rng::AbstractRNG, ::Type, arr::Array{Float32}, mr::Float32; n_factors::Int, dims::Tuple{Vararg{Int}})
+    if n_factors == 1
+        n_i = first(Flux.nfan(size(arr)...))
+        _std = sqrt(2/n_i)
+    elseif ndims(arr) > 2 || dims[2] > dims[1]  # core matrix
+        _std = Float32(sqrt(2/first(Flux.nfan(size(arr)...))))
+    else  # factor matrix
+        n_i = first(Flux.nfan(size(arr)...))
+        _std = sqrt(1/n_i)
+    end
+    scalar = _std * mr
+    arr .+= cuda_randn(rng, size(arr)...) .* scalar
 end
 
-function apply_gaussian_normal_noise!(rng::AbstractRNG, ::Type, arr::CuArray{Float32}, mr::Float32)
-    arr .+= cuda_randn(rng, size(arr)...) .* mr
-end
+#= function apply_gaussian_normal_noise!(rng::AbstractRNG, ::Type, arr::CuArray{Float32}, mr::Float32) =#
+#=     arr .+= cuda_randn(rng, size(arr)...) .* mr =#
+#= end =#
 
 function apply_sparse_noise!(rng::AbstractRNG, ::Type, arr::CuArray{Float32}, mr::Float32)
     # choose a random number of elements to mutate
@@ -35,9 +45,9 @@ function apply_sparse_noise!(rng::AbstractRNG, ::Type, arr::CuArray{Float32}, mr
     arr[elements] .+= cuda_randn(rng, n_elements) .* mr
 end
 
-apply_zero!(rng::AbstractRNG, t::Type, arr::CuArray{Float32}, ::Float32) = apply_constant!(rng, t, arr, 0f0)
-apply_one!(rng::AbstractRNG, t::Type, arr::CuArray{Float32}, ::Float32) = apply_constant!(rng, t, arr, 1f0)
-apply_constant!(::AbstractRNG, ::Type, arr::CuArray{Float32}, v::Float32) = (arr .+= v;)
+apply_zero!(rng::AbstractRNG, t::Type, arr::Array{Float32}, ::Float32) = apply_constant!(rng, t, arr, 0f0)
+apply_one!(rng::AbstractRNG, t::Type, arr::Array{Float32}, ::Float32) = apply_constant!(rng, t, arr, 1f0)
+apply_constant!(::AbstractRNG, ::Type, arr::Array{Float32}, v::Float32) = (arr .+= v;)
 
 global weight_cache = nothing
 global genotype_cache = nothing
@@ -48,7 +58,7 @@ function get_weight_cache()
     # check if weight_cache is defined
     if !isdefined(Jevo, :weight_cache) || isnothing(Jevo.weight_cache)
         @warn "No weight cache found. Creating weight cache on proc $(myid())"
-        Jevo.weight_cache = WeightCache(maxsize=Int(2^26), by=sizeof)
+        Jevo.weight_cache = WeightCache(maxsize=Int(2^23), by=sizeof)
     end
     Jevo.weight_cache
 end
@@ -112,6 +122,10 @@ get_weight_symbols(wc::WeightsCollection) = "weightscollection\n" *
     join([get_weight_symbols(w) for w in wc.weights])
 get_weight_symbols(factorized_weights::FactorWeight) =
     get_weight_symbols(factorized_weights.A) * get_weight_symbols(factorized_weights.B)
+
+get_weight_symbols(tuckerweight::TuckerWeight) = "tucker\n" *
+    get_weight_symbols(tuckerweight.core) *
+    join(get_weight_symbols(f) for f in tuckerweight.factors)
 get_weight_symbols(composite_weights::CompositeWeight) =
     join([get_weight_symbols(w) for w in composite_weights.weights])
 get_weight_symbols(pnr::PostNormResidual) = get_weight_symbols(pnr.layer) * get_weight_symbols(pnr.norm)
@@ -119,7 +133,7 @@ get_weight_symbols(ln::LayerNorm) = "layernorm\n" * get_weight_symbols(ln.scale)
 get_weight_symbols(sa::Union{JevoSelfAttention,SelfAttention}) =
     "qkv\n" * get_weight_symbols(sa.qkv) *
     "out\n" * get_weight_symbols(sa.out)
-get_weight_symbols(l::Union{Dense, Conv}) =
+get_weight_symbols(l::Union{Dense, Conv}) = "dense\n" *
     get_weight_symbols(l.weights) * get_weight_symbols(l.bias)
 get_weight_symbols(e::Embed) = get_weight_symbols(e.weights)
 get_weight_symbols(e::EmbedDecoder) =

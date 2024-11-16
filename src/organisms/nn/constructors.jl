@@ -8,10 +8,11 @@ NetworkGene(counter::Counter, seed::UInt64, mr::Float32, init::Function=Jevo.app
 
 function FreshWeights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{Int}}; init::Function=Jevo.apply_kaiming_normal_noise!, rank=-1)
     (length(dims) < 2 || rank < 0) && return Weights(dims, [NetworkGene(-inc!(counter), rand(rng, UInt64), 0f0, init)])
+    factor_init! = create_kaiming_nfactor_init(n_factors=2, dims=dims)
     CompositeWeight(dims, AbstractWeights[
         FactorWeight(dims,
-            Weights((dims[1], rank), [NetworkGene(-inc!(counter), rand(rng, UInt64), 0.0f0, apply_kaiming_normal_noise_factored!)]),
-            Weights((rank, dims[2]), [NetworkGene(-inc!(counter), rand(rng, UInt64), 0.0f0, apply_kaiming_normal_noise_factored!)]),
+            Weights((dims[1], rank), [NetworkGene(-inc!(counter), rand(rng, UInt64), 0.0f0, factor_init!)]),
+            Weights((rank, dims[2]), [NetworkGene(-inc!(counter), rand(rng, UInt64), 0.0f0, factor_init!)]),
         ),
         Weights(dims, [NetworkGene(-inc!(counter), rand(rng, UInt64), 0.0f0, apply_kaiming_normal_noise!)])
     ])
@@ -19,13 +20,19 @@ end
 function Weights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{Int}}; init::Function=Jevo.apply_kaiming_normal_noise!, rank=-1)
     rank == -1 && return Weights(dims, [NetworkGene(rng, counter, 1f0, init)])
     @assert length(dims) == 2 "Factorized weights must have 2 dimensions, got $(length(dims))"
-    CompositeWeight(dims, AbstractWeights[
-        FactorWeight(
-            dims,
-            Weights(rng, counter, (dims[1], rank), init=apply_kaiming_normal_noise_factored!),
-            Weights(rng, counter, (rank, dims[2]), init=apply_kaiming_normal_noise_factored!)
-        ),
-        Weights(rng, counter, dims, init=apply_zero!)])
+
+    factor_init! = create_kaiming_nfactor_init(n_factors=2, dims=dims)
+    FactorWeight(dims,
+        Weights(rng, counter, (dims[1], rank), init=factor_init!),
+        Weights(rng, counter, (rank, dims[2]), init=factor_init!)
+    )
+    #= CompositeWeight(dims, AbstractWeights[ =#
+    #=     FactorWeight( =#
+    #=         dims, =#
+    #=         Weights(rng, counter, (dims[1], rank), init=factor_init!), =#
+    #=         Weights(rng, counter, (rank, dims[2]), init=factor_init!) =#
+    #=     ), =#
+    #=     Weights(rng, counter, dims, init=apply_zero!)]) =#
 end
 
 function WeightsCollection(rng::AbstractRNG, counter::Counter; dims::Tuple{Vararg{Int}}, breakdown::BD, init::Function=Jevo.apply_kaiming_normal_noise!) where {BD <: Array{<:Tuple{Vararg{Int}}}}
@@ -142,6 +149,7 @@ update_dimensions!(x::Delta) = update_dimensions!(x.change)
 update_dimensions!(x) = nothing
 update_dimensions!(x::Weights) = nothing
 update_dimensions!(x::FactorWeight) = x.dims = (x.A.dims[1], x.B.dims[2])
+update_dimensions!(x::TuckerWeight) = throw("update_dimensions! for TuckerWeight is not implemented")
 function update_dimensions!(x::CompositeWeight) 
     @assert 1 == length(unique(w.dims for w in x.weights)) "All weights should have the same dimension for a composite weight"
     x.dims = x.weights[1].dims
@@ -233,10 +241,12 @@ function Base.:(==)(a::AbstractLayer, b::AbstractLayer)
 end
 Base.:(==)(a::Weights, b::Weights) = a.dims == b.dims && a.muts == b.muts
 Base.:(==)(a::FactorWeight, b::FactorWeight) = a.dims == b.dims && a.A == b.A && a.B == b.B
+Base.:(==)(a::TuckerWeight, b::TuckerWeight) = a.dims == b.dims && a.core == b.core && a.factors == b.factors
 Base.:(==)(a::CompositeWeight, b::CompositeWeight) = a.dims == b.dims && a.weights == b.weights
 Base.:(==)(a::WeightsCollection, b::WeightsCollection) = a.dims == b.dims && a.weights == b.weights
 hash(x::Weights) = hash((x.dims, x.muts))
 hash(x::FactorWeight) = hash((x.dims, x.A, x.B))
+hash(x::TuckerWeight) = hash((x.dims, x.core, x.factors))
 hash(x::Union{CompositeWeight,WeightsCollection}) = hash((x.dims, x.weights))
 hash(l::Union{AbstractLayer, Delta}) = hash(hash.(get_weights(l)))
 hash(c::Flux.Chain) = c |> Transformers.tocpudevice |> Flux.params |> Iterators.flatten |> collect |> hash
@@ -284,10 +294,29 @@ function Dense(rng::AbstractRNG, counter::AbstractCounter; dims::Tuple{Vararg{In
     Dense(weights, bias, σ)
 end
 
-function Conv(rng::AbstractRNG, counter::AbstractCounter; kernel::Tuple{Vararg{Int}}, channels::Pair{<:Integer, <:Integer}, σ=relu, stride=(1,1), padding=(0,0, 0, 0), dilation=(1,1), groups=1, rank=-1)
+function Conv(rng::AbstractRNG, counter::AbstractCounter; kernel::Tuple{Vararg{Int}}, channels::Pair{<:Integer, <:Integer}, σ=relu, stride=(1,1), padding=(0,0, 0, 0), dilation=(1,1), groups=1, rank=(-1, -1, -1, -1))
     in_ch, out_ch = channels
     dims = (kernel..., in_ch, out_ch)
-    weights = Weights(rng, counter, dims, rank=rank)
+    if rank == (-1, -1, -1, -1)
+        weights = Weights(rng, counter, dims)
+    else
+        @assert length(rank) == length(dims) == 4 "Rank must be a tuple of 4 integers, got $(rank)"
+        @assert all(rank .> 0) "Rank must be positive, got $(rank)"
+        tucker_init! = create_kaiming_nfactor_init(n_factors=5, dims=dims)
+        weights = TuckerWeight(dims, 
+            Weights(rng, counter, rank, init=tucker_init!),
+            [Weights(rng, counter, (d, r), init=tucker_init!) for (d, r) in zip(dims, rank)]
+        )
+        #= weights = CompositeWeight(dims, AbstractWeights[ =#
+        #=     TuckerWeight(dims,  =#
+        #=         # core =#
+        #=         Weights(rng, counter, rank, init=tucker_init!), =#
+        #=         # factors =#
+        #=         [Weights(rng, counter, (d, r), init=tucker_init!) for (d, r) in zip(dims, rank)] =#
+        #=     ), =#
+        #=     Weights(rng, counter, dims, init=apply_zero!), =#
+        #= ]) =#
+    end
     bias = Weights(rng, counter, (out_ch,))
     Jevo.Conv(weights, bias, σ, kernel, stride, padding, dilation, groups)
 end
@@ -323,8 +352,8 @@ end
 function JevoSelfAttention(rng::Jevo.AbstractRNG, counter::Jevo.AbstractCounter; n_heads::Int, head_dim::Int, hidden_dim::Int, qkv_rank::Int=-1, o_rank::Int=-1, init!::Function=Jevo.apply_kaiming_normal_noise!,)
     # NOTE: QKV weights are transposed, because we aren't going through our custom Dense constructor
     #       which automatically transposes for us.
-    head_init! = qkv_rank < 1 ? init! : Jevo.apply_kaiming_normal_noise_factored!
-    o_init! = o_rank < 1 ? init! : Jevo.apply_kaiming_normal_noise!
+    head_init! = qkv_rank < 1 ? init! : create_kaiming_nfactor_init(n_factors=2, dims=(head_dim*n_heads, hidden_dim))
+    o_init! = o_rank < 1 ? init! : create_kaiming_nfactor_init(n_factors=2, dims=(hidden_dim, head_dim*n_heads))
     qkv_weights = Jevo.WeightsCollection(
         (head_dim*n_heads*3, hidden_dim),
         [Jevo.Weights(rng, counter, (head_dim*n_heads, hidden_dim), init=head_init!, rank=qkv_rank) for i in 1:3])

@@ -55,6 +55,12 @@ mutable struct FactorWeight{F1<:AbstractWeights, F2<:AbstractWeights} <: Abstrac
     B::F2
 end
 
+mutable struct TuckerWeight <: AbstractWeights
+    dims::Tuple{Vararg{Int}}
+    core
+    factors
+end
+
 """
     struct CompositeWeight{T<:AbstractWeights} <: AbstractWeights
         dims::Tuple{Vararg{Int}}
