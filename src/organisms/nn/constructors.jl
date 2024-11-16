@@ -300,13 +300,21 @@ function Conv(rng::AbstractRNG, counter::AbstractCounter; kernel::Tuple{Vararg{I
     if rank == (-1, -1, -1, -1)
         weights = Weights(rng, counter, dims)
     else
-        @assert length(rank) == length(dims) == 4 "Rank must be a tuple of 4 integers, got $(rank)"
-        @assert all(rank .> 0) "Rank must be positive, got $(rank)"
-        tucker_init! = create_kaiming_nfactor_init(n_factors=5, dims=dims)
-        weights = TuckerWeight(dims, 
-            Weights(rng, counter, rank, init=tucker_init!),
-            [Weights(rng, counter, (d, r), init=tucker_init!) for (d, r) in zip(dims, rank)]
-        )
+        #= @assert length(rank) == length(dims) == 4 "Rank must be a tuple of 4 integers, got $(rank)" =#
+        #= @assert all(rank .> 0) "Rank must be positive, got $(rank)" =#
+        factor_init! = create_kaiming_nfactor_init(n_factors=2, dims=dims)
+        weights = CompositeWeight(dims, AbstractWeights[
+            FactorWeight((kernel..., in_ch, rank[1]),
+                Weights(rng, counter, (prod(kernel)* in_ch, rank[1]), init=factor_init!),
+                Weights(rng, counter, (rank[1], out_ch), init=factor_init!)
+            ),
+            Weights(rng, counter, (prod(kernel)*in_ch, out_ch), init=apply_zero!)
+        ])
+        #= tucker_init! = create_kaiming_nfactor_init(n_factors=5, dims=dims) =#
+        #= weights = TuckerWeight(dims,  =#
+        #=     Weights(rng, counter, rank, init=tucker_init!), =#
+        #=     [Weights(rng, counter, (d, r), init=tucker_init!) for (d, r) in zip(dims, rank)] =#
+        #= ) =#
         #= weights = CompositeWeight(dims, AbstractWeights[ =#
         #=     TuckerWeight(dims,  =#
         #=         # core =#

@@ -160,6 +160,10 @@ create_layer(layer::JevoChain; weight_cache::_WeightCache) = create_layer(layer.
 
 function create_layer(layer::Jevo.Conv; weight_cache::_WeightCache)
     weights = @inline tensor(layer.weights, weight_cache=weight_cache)
+    if ndims(weights) == 2
+        n_in_channels = Int(size(weights, 1)  / (layer.kernel[1] * layer.kernel[2]))
+        weights = reshape(weights, (layer.kernel[1], layer.kernel[2], n_in_channels, size(weights,2))) ./ 2
+    end
     bias = @inline tensor(layer.bias, weight_cache=weight_cache)
     Flux.Conv(layer.σ, weights, bias, layer.stride, layer.padding, layer.dilation, 1)
 end

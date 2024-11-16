@@ -4,9 +4,9 @@
     rng = StableRNG(1)
 
     #function Conv(rng::AbstractRNG, counter::AbstractCounter; kernel::Tuple{Vararg{Int}}, channels::Pair{<:Integer, <:Integer}, σ=relu, stride=(1,1), padding=(0,0, 0, 0), dilation=(1,1), groups=1, rank=(-1, -1, -1, -1))
-    fura_g = Jevo.Conv(rng, gene_counter; kernel=(4,4), channels=128=>256, stride=(1,1), padding=(1,1, 1,1), dilation=(1,1), groups=1, rank=(-1, -1, -1, -1))
-    fura_g_2 = Jevo.Conv(rng, gene_counter; kernel=(4,4), channels=128=>256, stride=(1,1), padding=(1,1, 1,1), dilation=(1,1), groups=1, rank=(-1, -1, -1, -1))
-    lora_g = Jevo.Conv(rng, gene_counter; kernel=(4,4), channels=128=>256, stride=(1,1), padding=(1,1, 1,1), dilation=(1,1), groups=1, rank=(4,4,32,128))
+    fura_g = Jevo.Conv(rng, gene_counter; kernel=(4,4), channels=32=>64, stride=(1,1), padding=(1,1, 1,1), dilation=(1,1), groups=1, rank=(-1, -1, -1, -1))
+    fura_g_2 = Jevo.Conv(rng, gene_counter; kernel=(4,4), channels=32=>64, stride=(1,1), padding=(1,1, 1,1), dilation=(1,1), groups=1, rank=(-1, -1, -1, -1))
+    lora_g = Jevo.Conv(rng, gene_counter; kernel=(4,4), channels=32=>64, stride=(1,1), padding=(1,1, 1,1), dilation=(1,1), groups=1, rank=4)
     fura_p = Jevo.create_layer(fura_g, weight_cache=weight_cache).weight
     lora_p = Jevo.create_layer(lora_g, weight_cache=weight_cache).weight
     # print means and std of weights
