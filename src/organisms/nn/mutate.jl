@@ -62,6 +62,16 @@ function nback_mutate(rng::AbstractRNG, state::State, ::AbstractPopulation, ind:
     for (weight, hist_weight) in random_order
         apply_nback_mutation!(rng, gene_counter, hist_weight, weight, n_back, mrs)
     end
+    # Go through and correct any factor mrs
+    map!(genome, weights_only=true) do hierarchy
+        if hierarchy[end-1] isa FactorWeight
+            weight = hierarchy[end]
+            prev_gene = weight.muts[end]
+            weight.muts[end] = NetworkGene(prev_gene.id, prev_gene.seed, sqrt(prev_gene.mr), prev_gene.init!)
+        end
+    end
+    map
+
     genome
 end
 
