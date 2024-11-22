@@ -22,7 +22,8 @@ function Weights(rng::AbstractRNG, counter::AbstractCounter, dims::Tuple{Vararg{
     @assert length(dims) == 2 "Factorized weights must have 2 dimensions, got $(length(dims))"
 
     factor_init! = create_kaiming_nfactor_init(n_factors=2, dims=dims)
-    FactorWeight(dims,
+    FactorWeight(
+        dims,
         Weights(rng, counter, (dims[1], rank), init=factor_init!),
         Weights(rng, counter, (rank, dims[2]), init=factor_init!)
     )
@@ -149,7 +150,6 @@ update_dimensions!(x::Delta) = update_dimensions!(x.change)
 update_dimensions!(x) = nothing
 update_dimensions!(x::Weights) = nothing
 update_dimensions!(x::FactorWeight) = x.dims = (x.A.dims[1], x.B.dims[2])
-update_dimensions!(x::TuckerWeight) = throw("update_dimensions! for TuckerWeight is not implemented")
 function update_dimensions!(x::CompositeWeight) 
     @assert 1 == length(unique(w.dims for w in x.weights)) "All weights should have the same dimension for a composite weight"
     x.dims = x.weights[1].dims
@@ -241,12 +241,10 @@ function Base.:(==)(a::AbstractLayer, b::AbstractLayer)
 end
 Base.:(==)(a::Weights, b::Weights) = a.dims == b.dims && a.muts == b.muts
 Base.:(==)(a::FactorWeight, b::FactorWeight) = a.dims == b.dims && a.A == b.A && a.B == b.B
-Base.:(==)(a::TuckerWeight, b::TuckerWeight) = a.dims == b.dims && a.core == b.core && a.factors == b.factors
 Base.:(==)(a::CompositeWeight, b::CompositeWeight) = a.dims == b.dims && a.weights == b.weights
 Base.:(==)(a::WeightsCollection, b::WeightsCollection) = a.dims == b.dims && a.weights == b.weights
 hash(x::Weights) = hash((x.dims, x.muts))
 hash(x::FactorWeight) = hash((x.dims, x.A, x.B))
-hash(x::TuckerWeight) = hash((x.dims, x.core, x.factors))
 hash(x::Union{CompositeWeight,WeightsCollection}) = hash((x.dims, x.weights))
 hash(l::Union{AbstractLayer, Delta}) = hash(hash.(get_weights(l)))
 hash(c::Flux.Chain) = c |> Transformers.tocpudevice |> Flux.params |> Iterators.flatten |> collect |> hash
@@ -303,35 +301,25 @@ function Conv(rng::AbstractRNG, counter::AbstractCounter; kernel::Tuple{Vararg{I
         #= @assert length(rank) == length(dims) == 4 "Rank must be a tuple of 4 integers, got $(rank)" =#
         #= @assert all(rank .> 0) "Rank must be positive, got $(rank)" =#
         factor_init! = create_kaiming_nfactor_init(n_factors=2, dims=dims)
-        weights = CompositeWeight(dims, AbstractWeights[
-            FactorWeight((kernel..., in_ch, rank[1]),
-                Weights(rng, counter, (prod(kernel)* in_ch, rank[1]), init=factor_init!),
-                Weights(rng, counter, (rank[1], out_ch), init=factor_init!)
-            ),
-            Weights(rng, counter, (prod(kernel)*in_ch, out_ch), init=apply_zero!)
-        ])
-        #= tucker_init! = create_kaiming_nfactor_init(n_factors=5, dims=dims) =#
-        #= weights = TuckerWeight(dims,  =#
-        #=     Weights(rng, counter, rank, init=tucker_init!), =#
-        #=     [Weights(rng, counter, (d, r), init=tucker_init!) for (d, r) in zip(dims, rank)] =#
-        #= ) =#
         #= weights = CompositeWeight(dims, AbstractWeights[ =#
-        #=     TuckerWeight(dims,  =#
-        #=         # core =#
-        #=         Weights(rng, counter, rank, init=tucker_init!), =#
-        #=         # factors =#
-        #=         [Weights(rng, counter, (d, r), init=tucker_init!) for (d, r) in zip(dims, rank)] =#
+        #=     FactorWeight((kernel..., in_ch, rank[1]), =#
+        #=         Weights(rng, counter, (prod(kernel)* in_ch, rank[1]), init=factor_init!), =#
+        #=         Weights(rng, counter, (rank[1], out_ch), init=factor_init!) =#
         #=     ), =#
-        #=     Weights(rng, counter, dims, init=apply_zero!), =#
+        #=     Weights(rng, counter, (prod(kernel)*in_ch, out_ch), init=apply_zero!) =#
         #= ]) =#
+        weights = FactorWeight((kernel..., in_ch, rank[1]),
+            Weights(rng, counter, (prod(kernel)* in_ch, rank[1]), init=factor_init!),
+            Weights(rng, counter, (rank[1], out_ch), init=factor_init!)
+        )
     end
     bias = Weights(rng, counter, (out_ch,))
     Jevo.Conv(weights, bias, σ, kernel, stride, padding, dilation, groups)
 end
 
 function RNN(rng::AbstractRNG, counter::AbstractCounter; dims::Tuple{Int, Int}, σ::Function, input_rank::Int=-1, hidden_rank::Int=-1)
-    input = Weights(rng, counter, (dims[2], dims[1]))
-    hidden = Weights(rng, counter, (dims[2], dims[2]))
+    input = Weights(rng, counter, (dims[2], dims[1]), rank=input_rank)
+    hidden = Weights(rng, counter, (dims[2], dims[2]), rank=hidden_rank)
     bias = Weights(rng, counter, (dims[2],))
     RNN(input, hidden, bias, σ)
 end

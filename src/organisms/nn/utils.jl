@@ -125,9 +125,6 @@ get_weight_symbols(wc::WeightsCollection) = "weightscollection\n" *
 get_weight_symbols(factorized_weights::FactorWeight) =
     get_weight_symbols(factorized_weights.A) * get_weight_symbols(factorized_weights.B)
 
-get_weight_symbols(tuckerweight::TuckerWeight) = "tucker\n" *
-    get_weight_symbols(tuckerweight.core) *
-    join(get_weight_symbols(f) for f in tuckerweight.factors)
 get_weight_symbols(composite_weights::CompositeWeight) =
     join([get_weight_symbols(w) for w in composite_weights.weights])
 get_weight_symbols(pnr::PostNormResidual) = get_weight_symbols(pnr.layer) * get_weight_symbols(pnr.norm)

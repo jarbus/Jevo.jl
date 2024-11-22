@@ -62,19 +62,7 @@ function n_mode_product(tensor, matrix, mode)
     return permutedims(result, invperm(order))
 end
 
-function reconstruct_tucker(core_tensor, factor_matrices)
-    full_tensor = core_tensor
-    for mode in eachindex(factor_matrices)
-        full_tensor = n_mode_product(full_tensor, factor_matrices[mode], mode)
-    end
-    return full_tensor
-end
 
-function tensor(tw::TuckerWeight; weight_cache::_WeightCache=nothing)
-    core = @inline tensor(tw.core, weight_cache=weight_cache)
-    factors = map(f->tensor(f, weight_cache=weight_cache), tw.factors)
-    reconstruct_tucker(core, factors)
-end
 function tensor(cw::CompositeWeight; weight_cache::_WeightCache=nothing)
     reduce(+, [tensor(w, weight_cache=weight_cache) for w in cw.weights])
 end
