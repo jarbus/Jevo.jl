@@ -88,6 +88,16 @@ function mr_symbol(mr::Float32)
     @error "mr too small to visualize"
 end
 
+function gene_symbol(gene::NetworkGene)
+    if gene.init! == apply_zero!
+        return " "
+    elseif gene.init! == apply_one!
+        return "|"
+    else
+        return mr_symbol(gene.mr)
+    end
+end
+
 function gene_symbol(prev_gene::NetworkGene, gene::NetworkGene)
     if gene.seed == prev_gene.seed
         if gene.mr == prev_gene.mr
@@ -101,13 +111,13 @@ function gene_symbol(prev_gene::NetworkGene, gene::NetworkGene)
         gene.mr >= 0.001f0 && return "S"
         gene.mr < 0.001f0 && return "s"
     else
-        return mr_symbol(gene.mr)
+        return gene_symbol(gene)
     end
 end
 
 function get_symbols(genes::Vector{NetworkGene})
     length(genes) == 0 && return ""
-    symbols = String[mr_symbol(genes[1].mr)]
+    symbols = String[gene_symbol(genes[1])]
     for i in 2:length(genes)
         push!(symbols, gene_symbol(genes[i-1], genes[i]))
     end

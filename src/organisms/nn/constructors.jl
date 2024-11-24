@@ -288,7 +288,7 @@ function Dense(rng::AbstractRNG, counter::AbstractCounter; dims::Tuple{Vararg{In
     """Create a dense layer with a weight matrix and a bias vector"""
     @assert length(dims) == 2 "Dense layer must have 2 dimensions, got $(length(dims))"
     weights = Weights(rng, counter, (dims[2], dims[1]), rank=rank)
-    bias = Weights(rng, counter, (dims[2],))
+    bias = Weights(rng, counter, (dims[2],), init=apply_zero!)
     Dense(weights, bias, σ)
 end
 
@@ -313,7 +313,7 @@ function Conv(rng::AbstractRNG, counter::AbstractCounter; kernel::Tuple{Vararg{I
             Weights(rng, counter, (rank[1], out_ch), init=factor_init!)
         )
     end
-    bias = Weights(rng, counter, (out_ch,))
+    bias = Weights(rng, counter, (out_ch,), init=apply_zero!)
     Jevo.Conv(weights, bias, σ, kernel, stride, padding, dilation, groups)
 end
 
