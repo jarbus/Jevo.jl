@@ -388,10 +388,10 @@ function PostNormResidual(rng::AbstractRNG, counter::AbstractCounter, layer::Abs
 end
 
 function TransformerDecoderBlock(rng::AbstractRNG, counter::AbstractCounter;
-        n_heads::Int, head_dim::Int, ff_dim::Int, hidden_dim::Int, qkv_rank::Int=-1, o_rank::Int=-1, ff_rank::Int=-1)
+                n_heads::Int, head_dim::Int, ff_dim::Int, hidden_dim::Int, qkv_rank::Int=-1, o_rank::Int=-1, ff_rank::Int=-1, ff_σ::Function=gelu)
     sa = JevoSelfAttention(rng, counter, n_heads=n_heads, head_dim=head_dim, hidden_dim=hidden_dim, qkv_rank=qkv_rank, o_rank=o_rank)
     ff = JevoChain([
-            Dense(rng, counter, dims=(hidden_dim, ff_dim), σ=gelu, rank=ff_rank),
+            Dense(rng, counter, dims=(hidden_dim, ff_dim), σ=ff_σ, rank=ff_rank),
             Dense(rng, counter, dims=(ff_dim, hidden_dim), σ=identity, rank=ff_rank)
     ])
     # postnorm
@@ -409,6 +409,7 @@ function TextTransformer(rng::AbstractRNG, counter::AbstractCounter;
         qkv_rank::Int=-1,
         o_rank::Int=-1,
         ff_rank::Int=-1,
+        ff_σ::Function=gelu,
         embed_rank::Int=-1,
         vocab_size::Int)
     """Create a transformer with n_layers of attention and feedforward blocks"""
@@ -421,6 +422,7 @@ function TextTransformer(rng::AbstractRNG, counter::AbstractCounter;
                                            qkv_rank=qkv_rank,
                                            o_rank=o_rank,
                                            ff_rank=ff_rank,
+                                           ff_σ=ff_σ,
                                             ) for _ in 1:n_blocks])
     TextNetwork(embed, tfr, embeddecoder)
 end
