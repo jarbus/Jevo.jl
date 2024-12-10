@@ -68,7 +68,7 @@ function get_genotype_cache()
     # check if weight_cache is defined
     if !isdefined(Jevo, :genotype_cache) || isnothing(Jevo.genotype_cache)
         @warn "No genotype cache found. Creating genotype cache on proc $(myid())"
-        Jevo.genotype_cache = GenotypeCache(maxsize=64)
+        Jevo.genotype_cache = GenotypeCache(maxsize=256)
     end
     Jevo.genotype_cache
 end
