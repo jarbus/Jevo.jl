@@ -36,10 +36,11 @@ function tensor(w::Weights; weight_cache::_WeightCache=nothing)
         # update cache if we are using one
         if yes_weight_cache && i != n_genes && gid ∉ keys(weight_cache)
             gene_id = genes[i].id
-            weight_cache[gene_id] = arr |> copy
+            weight_cache[gene_id] = arr |> deepcopy
         end
     end
-    copy(arr)
+    CUDA.synchronize()
+    gpu(arr)
 end
 function tensor(fw::FactorWeight; weight_cache::_WeightCache=nothing)
     A = @inline tensor(fw.A, weight_cache=weight_cache)
@@ -171,11 +172,11 @@ create_layer(f::Function; kwargs...) = f
 
 function develop(::Creator{Flux.Chain}, chain::JevoChain)
     weight_cache = get_weight_cache()
-    Flux.Chain((create_layer(l, weight_cache=weight_cache) for l in chain.layers)...)
+    Flux.Chain((create_layer(l, weight_cache=weight_cache) for l in chain.layers)...) |> gpu
 end
 
 function develop(::Creator{Model}, chain::JevoChain)
-    Model(develop(Creator(Flux.Chain), chain))
+    Model(develop(Creator(Flux.Chain), chain)) |> gpu
 end
 function (m::Model)(x...)
     Transformers.ChainRulesCore.ignore_derivatives() do

@@ -19,6 +19,12 @@ end
 function apply_kaiming_normal_noise!(rng::AbstractRNG, ::Type, arr::Array{Float32}, mr::Float32; )
     apply_kaiming_normal_noise_factored!(rng, Float32, arr, mr, n_factors=1, dims=size(arr))
 end
+
+function apply_gaussian_normal_noise!(rng::AbstractRNG, ::Type, arr::Array{Float32}, mr::Float32)
+    @fastmath @inbounds @simd for i in 1:length(arr)
+        arr[i] += randn(rng, Float32) * mr
+    end
+end
     
 function apply_kaiming_normal_noise_factored!(rng::AbstractRNG, ::Type, arr::Array{Float32}, mr::Float32; n_factors::Int, dims::Tuple{Vararg{Int}})
     if n_factors == 1
