@@ -4,3 +4,6 @@ gymnasium-box2d = ""
 gymnasium-other = ""
 gymnasium = ""
 ale-py = ""
+
+[pip.deps.gymnasium]
+extras = ["atari"]

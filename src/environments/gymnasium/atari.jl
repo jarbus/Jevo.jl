@@ -2,6 +2,7 @@ export AtariEnv
 using Images, FileIO
 using Random
 using PythonCall
+using CUDA
 
 global gym, atari_env, record_atari_env, np
 
@@ -37,7 +38,7 @@ function get_atari_imports(env::AtariEnv)
     if !isdefined(Jevo, :atari_env)
         gym = pyimport("gymnasium")
         ale_py = pyimport("ale_py")
-        print(gym.register_envs(ale_py))
+        gym.register_envs(ale_py)
         _env = gym.make(env.name)
         _env = gym.wrappers.ResizeObservation(_env, (84, 84))
         _env = gym.wrappers.FrameStackObservation(_env, stack_size=pyint(env.n_stack))
@@ -66,19 +67,24 @@ function step!(env::AtariEnv, ids::Vector{Int}, phenotypes::Vector)
     if isnothing(env.env)
         env.gym, env.env, env.np = get_atari_imports(env)
         obs, info = env.env.reset()
-        env.prev_obs = PyArray(obs)
+        env.prev_obs = PyArray(obs) |> Array |> deepcopy
     end
 
     obs = env.prev_obs
-    obs = obs ./ 255f0
     frames = [obs[i, :, :, :] for i in 1:env.n_stack]
-    obs = cat(frames..., dims=3)
+    obs = cat(frames..., dims=3) |> gpu
+    CUDA.synchronize()
+    obs = obs ./ 255f0
     obs = reshape(obs, 84, 84, 3*env.n_stack, 1)
 
     if env.step < env.skip_until
         action = 1
     else
-        action = phenotypes[1].chain(obs)[:, 1] |> argmax 
+        CUDA.synchronize()
+        action = phenotypes[1].chain(obs)
+        CUDA.synchronize()
+        action = cpu(action)
+        action = argmax(action[:, 1])
     end
     action = env.np.array(action .- 1).T
 
@@ -94,6 +100,6 @@ function step!(env::AtariEnv, ids::Vector{Int}, phenotypes::Vector)
         env.prev_obs = nothing
         return [Interaction(ids[1], [], reward)]
     end
-    env.prev_obs = PyArray(obs)
+    env.prev_obs = PyArray(obs) |> Array |> deepcopy
     [Interaction(ids[1], [], reward)]
 end
