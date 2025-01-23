@@ -34,7 +34,7 @@ function apply_kaiming_normal_noise_factored!(rng::AbstractRNG, ::Type, arr::Arr
         _std = Float32(sqrt(2/first(Flux.nfan(size(arr)...))))
     else  # factor matrix
         n_i = first(Flux.nfan(size(arr)...))
-        _std = sqrt(1/n_i)
+        _std = sqrt(2^(1/4)/n_i)
     end
     scalar = _std * mr
     arr .+= cuda_randn(rng, size(arr)...) .* scalar
