@@ -288,7 +288,7 @@ function Dense(rng::AbstractRNG, counter::AbstractCounter; dims::Tuple{Vararg{In
     """Create a dense layer with a weight matrix and a bias vector"""
     @assert length(dims) == 2 "Dense layer must have 2 dimensions, got $(length(dims))"
     weights = Weights(rng, counter, (dims[2], dims[1]), rank=rank)
-    bias = Weights(rng, counter, (dims[2],))
+    bias = Weights(rng, counter, (dims[2],), init=apply_zero!)
     Dense(weights, bias, σ)
 end
 
@@ -313,7 +313,7 @@ function Conv(rng::AbstractRNG, counter::AbstractCounter; kernel::Tuple{Vararg{I
             Weights(rng, counter, (rank[1], out_ch), init=factor_init!)
         )
     end
-    bias = Weights(rng, counter, (out_ch,))
+    bias = Weights(rng, counter, (out_ch,), init=apply_zero!)
     Jevo.Conv(weights, bias, σ, kernel, stride, padding, dilation, groups)
 end
 
@@ -356,14 +356,14 @@ function JevoSelfAttention(rng::Jevo.AbstractRNG, counter::Jevo.AbstractCounter;
 
     qkv_bias = Jevo.WeightsCollection(
         (head_dim*n_heads*3,),
-        [Jevo.Weights(rng, counter, (head_dim*n_heads,)) for i in 1:3]
+        [Jevo.Weights(rng, counter, (head_dim*n_heads, ), init=Jevo.apply_zero!) for i in 1:3]
     )
 
     out_weights = Jevo.WeightsCollection(
         (hidden_dim, head_dim*n_heads),
         [Jevo.Weights(rng, counter, (hidden_dim, head_dim*n_heads), init=o_init!, rank=o_rank) for _ in 1:1, h in 1:1])
 
-    out_bias = Jevo.Weights(rng, counter, (hidden_dim,))
+    out_bias = Jevo.Weights(rng, counter, (hidden_dim,), init=Jevo.apply_zero!)
     
     qkv = Jevo.Dense(qkv_weights, qkv_bias, identity)
     out = Jevo.Dense(out_weights, out_bias, identity)
@@ -388,10 +388,10 @@ function PostNormResidual(rng::AbstractRNG, counter::AbstractCounter, layer::Abs
 end
 
 function TransformerDecoderBlock(rng::AbstractRNG, counter::AbstractCounter;
-        n_heads::Int, head_dim::Int, ff_dim::Int, hidden_dim::Int, qkv_rank::Int=-1, o_rank::Int=-1, ff_rank::Int=-1)
+                n_heads::Int, head_dim::Int, ff_dim::Int, hidden_dim::Int, qkv_rank::Int=-1, o_rank::Int=-1, ff_rank::Int=-1, ff_σ::Function=gelu)
     sa = JevoSelfAttention(rng, counter, n_heads=n_heads, head_dim=head_dim, hidden_dim=hidden_dim, qkv_rank=qkv_rank, o_rank=o_rank)
     ff = JevoChain([
-            Dense(rng, counter, dims=(hidden_dim, ff_dim), σ=gelu, rank=ff_rank),
+            Dense(rng, counter, dims=(hidden_dim, ff_dim), σ=ff_σ, rank=ff_rank),
             Dense(rng, counter, dims=(ff_dim, hidden_dim), σ=identity, rank=ff_rank)
     ])
     # postnorm
@@ -409,6 +409,7 @@ function TextTransformer(rng::AbstractRNG, counter::AbstractCounter;
         qkv_rank::Int=-1,
         o_rank::Int=-1,
         ff_rank::Int=-1,
+        ff_σ::Function=gelu,
         embed_rank::Int=-1,
         vocab_size::Int)
     """Create a transformer with n_layers of attention and feedforward blocks"""
@@ -421,6 +422,7 @@ function TextTransformer(rng::AbstractRNG, counter::AbstractCounter;
                                            qkv_rank=qkv_rank,
                                            o_rank=o_rank,
                                            ff_rank=ff_rank,
+                                           ff_σ=ff_σ,
                                             ) for _ in 1:n_blocks])
     TextNetwork(embed, tfr, embeddecoder)
 end

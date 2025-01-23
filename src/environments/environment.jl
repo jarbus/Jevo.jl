@@ -4,14 +4,14 @@ using PythonCall
 done(::AbstractEnvironment)::Bool = true
 play(match::Match) = play(match.environment_creator, match.individuals)
 
+
 function play(c::Creator{E}, inds::Vector{I}) where {E<:AbstractEnvironment, I<:AbstractIndividual}
-    #= PythonCall.GIL.@lock lock(get_env_lock()) do =#
-        #= isdefined(Jevo, :jevo_device_id) &&  device!(Jevo.jevo_device_id) =#
-        phenotypes = develop.(inds)
+    isdefined(Jevo, :jevo_device_id) &&  device!(Jevo.jevo_device_id)
+    lock(Jevo.get_env_lock()) do
+        phenotypes = develop.(inds) .|> gpu
         ids = [ind.id for ind in inds]
         play(c(), ids, phenotypes)
-    #= end =#
-    #= @info "Playing ind $(inds[1].id)" =#
+    end
 end
 
 function play(env::E, ids::Vector{Int}, phenotypes::Vector{P}) where {E <: AbstractEnvironment, P<:AbstractPhenotype}

@@ -46,9 +46,10 @@ function get_car_racing_imports(env::CarRacingV3)
     if !isempty(env.record_prefix)
         if !isdefined(Jevo, :record_car_racing_env)
             @info "Creating CarRacing environment for recording"
-            gym = Jevo.gym
+            gym = pyimport("gymnasium")
             _env = gym.make("CarRacing-v3", render_mode="rgb_array")
             _env = gym.wrappers.ResizeObservation(_env, (64, 64))
+
             _env = gym.wrappers.TimeLimit(_env, max_episode_steps=pyint(env.n_steps))
             _env = gym.wrappers.FrameStackObservation(_env, stack_size=pyint(env.n_stack))
             _env = gym.wrappers.RecordVideo(_env, pystr("video/"), name_prefix=pystr(env.record_prefix * "-$(time())"),  episode_trigger=@pyeval("lambda x: True"))
@@ -65,16 +66,21 @@ function step!(env::CarRacingV3, ids::Vector{Int}, phenotypes::Vector)
     if isnothing(env.env)
         env.gym, env.env, env.np = get_car_racing_imports(env)
         obs, info = env.env.reset()
-        env.prev_obs = PyArray(obs)
+        env.prev_obs = PyArray(obs) |> Array |> deepcopy
     end
 
     obs = env.prev_obs
-    obs = obs ./ 255f0
     frames = [obs[i, :, :, :] for i in 1:env.n_stack]
-    obs = cat(frames..., dims=3)
+    obs = cat(frames..., dims=3) |> gpu
+    CUDA.synchronize()
+    obs = obs ./ 255f0
     obs = reshape(obs, 64, 64, 3*env.n_stack, 1)
-
-    action = phenotypes[1].chain(obs)[:, 1]
+    CUDA.synchronize()
+    action = phenotypes[1].chain(obs)
+    CUDA.synchronize()
+    action = action[:,1]
+    CUDA.synchronize()
+    action = cpu(action)
     action = env.np.array(action).T
 
     obs, reward, terminated, truncated, info = env.env.step(action)
@@ -90,6 +96,6 @@ function step!(env::CarRacingV3, ids::Vector{Int}, phenotypes::Vector)
         env.prev_obs = nothing
         return [Interaction(ids[1], [], reward)]
     end
-    env.prev_obs = PyArray(obs)
+    env.prev_obs = PyArray(obs) |> Array |> deepcopy
     [Interaction(ids[1], [], reward)]
 end
