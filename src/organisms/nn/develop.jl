@@ -10,6 +10,7 @@ function get_earliest_cached_weight(dims::NTuple{N, Int}, genes::Vector{NetworkG
             return (copy(weights), i)
         end
     end
+    @info "No cached weights found for any genes. Returning zero tensor."
     zeros(Float32, dims), 0
 end
 """
