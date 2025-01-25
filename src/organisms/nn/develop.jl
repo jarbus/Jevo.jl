@@ -10,6 +10,9 @@ function get_earliest_cached_weight(dims::NTuple{N, Int}, genes::Vector{NetworkG
             return (copy(weights), i)
         end
     end
+    if sizeof(weight_cache) > weight_cache.maxsize / 2
+        @error "Failed to find cache entry, but cache is more than half full. This is likely an error; consider increasing cache size."
+    end
     @info "[" * Dates.format(Dates.now(), "yy-mm-dd HH:MM:SS") * "] No cached weights found for any genes. Returning zero tensor."
     zeros(Float32, dims), 0
 end
