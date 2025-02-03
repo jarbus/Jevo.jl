@@ -101,14 +101,15 @@ function run_random_episode()
         # Generate random actions for each player
         phenotypes = [DummyPhenotype(randn(3)) for _ in env.players]
         step!(env, ids, phenotypes)
-        push!(frames, render(env))
+        push!(frames, map(clamp01nan, render(env)))
     end
-    save("episode.gif", frames)
+    save("episode.gif", collect(frames))
 end
 
 function render(env::TradeGridWorld)
     n = env.n
-    img = fill(RGB{N0f8}(0, 0, 0), n, n)
+    img = Array{RGB{N0f8}}(undef, n, n)
+    fill!(img, RGB{N0f8}(0, 0, 0))
     # Render apples and bananas on the grid
     for x in 1:n, y in 1:n
         if env.grid_apples[x, y] > 0
