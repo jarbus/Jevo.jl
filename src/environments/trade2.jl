@@ -7,7 +7,7 @@ struct DummyPhenotype <: AbstractPhenotype
     numbers::Vector{Float64}
 end
 
-struct PlayerState
+mutable struct PlayerState
     id::Int
     position::Tuple{Float64, Float64}
     resource_apples::Float64
@@ -15,7 +15,8 @@ struct PlayerState
 end
 
 abstract type AbstractGridworld <: Jevo.AbstractEnvironment end
-struct TradeGridWorld <: AbstractGridworld
+
+mutable struct TradeGridWorld <: AbstractGridworld
     n::Int           # Grid size
     p::Int           # Number of players
     grid_apples::Array{Float64,2}
@@ -44,7 +45,7 @@ function TradeGridWorld(n::Int, p::Int; max_steps::Int=100)
     TradeGridWorld(n, p, grid_apples, grid_bananas, players, 0, max_steps)
 end
 
-function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{AbstractPhenotype})
+function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{DummyPhenotype})
     @assert length(ids) == length(phenotypes) == env.p
     interactions = Interaction[]
     for (i, id) in enumerate(ids)
@@ -102,8 +103,7 @@ function run_random_episode()
         step!(env, ids, phenotypes)
         push!(frames, render(env))
     end
-    # Save the frames as a GIF
-    save("episode.gif", cat(frames..., dims=4))
+    save("episode.gif", frames)
 end
 
 function render(env::TradeGridWorld)
