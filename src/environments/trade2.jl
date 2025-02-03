@@ -55,8 +55,8 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{DummyPh
         @assert length(action_values) == 3
         dx, dy, resource_action = action_values
         # Update player position
-        new_x = mod(player.position[1] + dx, env.n)
-        new_y = mod(player.position[2] + dy, env.n)
+        new_x = clamp(player.position[1] + dx, 0, env.n - 1)
+        new_y = clamp(player.position[2] + dy, 0, env.n - 1)
         player.position = (new_x, new_y)
         # Resource action
         grid_x = clamp(floor(Int, new_x) + 1, 1, env.n)
