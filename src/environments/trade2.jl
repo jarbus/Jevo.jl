@@ -93,8 +93,8 @@ function get_action_values(phenotype::AbstractPhenotype)
     return phenotype.numbers
 end
 
-function run_random_episode()
-    env = TradeGridWorld(100, 2, max_steps=100)
+function run_random_episode(n::Int=10, p::Int=2, max_steps::Int=100, output_filename::String="episode.gif")
+    env = TradeGridWorld(n, p, max_steps=max_steps)
     frames = []
     while !done(env)
         ids = [player.id for player in env.players]
@@ -105,7 +105,7 @@ function run_random_episode()
     end
     frames = cat(frames..., dims=3)
     println(size(frames))
-    save("episode.gif", frames)
+    save(output_filename, frames)
 end
 
 function render(env::TradeGridWorld)
