@@ -3,6 +3,10 @@ using FileIO
 
 export TradeGridWorld, run_random_episode
 
+struct DummyPhenotype <: AbstractPhenotype
+    numbers::Vector{Float64}
+end
+
 struct PlayerState
     id::Int
     position::Tuple{Float64, Float64}
@@ -94,7 +98,7 @@ function run_random_episode()
     while !done(env)
         ids = [player.id for player in env.players]
         # Generate random actions for each player
-        phenotypes = [VectorPhenotype(randn(3)) for _ in env.players]
+        phenotypes = [DummyPhenotype(randn(3)) for _ in env.players]
         step!(env, ids, phenotypes)
         push!(frames, render(env))
     end
