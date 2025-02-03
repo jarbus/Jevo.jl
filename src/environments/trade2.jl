@@ -112,14 +112,6 @@ function render(env::TradeGridWorld)
     n = env.n
     img = Array{RGB{N0f8}}(undef, n, n)
     fill!(img, RGB{N0f8}(0, 0, 0))
-    # Render apples and bananas on the grid
-    for x in 1:n, y in 1:n
-        if env.grid_apples[x, y] > 0
-            img[x, y] = RGB{N0f8}(1, 0, 0)  # Red for apples
-        elseif env.grid_bananas[x, y] > 0
-            img[x, y] = RGB{N0f8}(0, 1, 0)  # Green for bananas
-        end
-    end
     # Render players as blue circles of radius 4
     for player in env.players
         x_center = player.position[1] + 1  # Adjust for 1-based indexing
@@ -142,6 +134,14 @@ function render(env::TradeGridWorld)
                     img[x, y] = RGB{N0f8}(0, 0, 1)  # Blue color for agents
                 end
             end
+        end
+    end
+    # Render apples and bananas on the grid
+    for x in 1:n, y in 1:n
+        if env.grid_apples[x, y] > 0
+            img[x, y] = RGB{N0f8}(1, 0, 0)  # Red for apples
+        elseif env.grid_bananas[x, y] > 0
+            img[x, y] = RGB{N0f8}(0, 1, 0)  # Green for bananas
         end
     end
     img
