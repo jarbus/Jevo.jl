@@ -120,11 +120,29 @@ function render(env::TradeGridWorld)
             img[x, y] = RGB{N0f8}(0, 1, 0)  # Green for bananas
         end
     end
-    # Render players as blue circles
+    # Render players as blue circles of radius 4
     for player in env.players
-        x = clamp(floor(Int, player.position[1]) + 1, 1, n)
-        y = clamp(floor(Int, player.position[2]) + 1, 1, n)
-        img[x, y] = RGB{N0f8}(0, 0, 1)
+        x_center = player.position[1] + 1  # Adjust for 1-based indexing
+        y_center = player.position[2] + 1  # Adjust for 1-based indexing
+        radius = 4  # Circle radius
+
+        # Determine the bounding box for the circle
+        x_min = max(floor(Int, x_center - radius), 1)
+        x_max = min(ceil(Int, x_center + radius), n)
+        y_min = max(floor(Int, y_center - radius), 1)
+        y_max = min(ceil(Int, y_center + radius), n)
+
+        for x in x_min:x_max
+            for y in y_min:y_max
+                # Compute the distance from the center
+                dx = x - x_center
+                dy = y - y_center
+                distance = sqrt(dx^2 + dy^2)
+                if distance <= radius
+                    img[x, y] = RGB{N0f8}(0, 0, 1)  # Blue color for agents
+                end
+            end
+        end
     end
     img
 end
