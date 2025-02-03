@@ -1,8 +1,3 @@
-module Trade2
-
-using ..environment
-using ..abstracts
-using ..datatypes.interaction
 using Images
 using FileIO
 
@@ -15,7 +10,8 @@ struct PlayerState
     resource_bananas::Float64
 end
 
-struct TradeGridWorld <: AbstractEnvironment
+abstract type AbstractGridworld <: Jevo.AbstractEnvironment end
+struct TradeGridWorld <: AbstractGridworld
     n::Int           # Grid size
     p::Int           # Number of players
     grid_apples::Array{Float64,2}
@@ -125,5 +121,3 @@ function render(env::TradeGridWorld)
     end
     img
 end
-
-end  # module Trade2
