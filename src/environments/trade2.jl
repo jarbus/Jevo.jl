@@ -94,16 +94,18 @@ function get_action_values(phenotype::AbstractPhenotype)
 end
 
 function run_random_episode()
-    env = TradeGridWorld(10, 2, max_steps=100)
+    env = TradeGridWorld(100, 2, max_steps=100)
     frames = []
     while !done(env)
         ids = [player.id for player in env.players]
         # Generate random actions for each player
         phenotypes = [DummyPhenotype(randn(3)) for _ in env.players]
         step!(env, ids, phenotypes)
-        push!(frames, map(clamp01nan, render(env)))
+        push!(frames, render(env))
     end
-    save("episode.gif", collect(frames))
+    frames = cat(frames..., dims=3)
+    println(size(frames))
+    save("episode.gif", frames)
 end
 
 function render(env::TradeGridWorld)
