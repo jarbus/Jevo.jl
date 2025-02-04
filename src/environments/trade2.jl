@@ -94,9 +94,40 @@ done(env::TradeGridWorld) = env.step_counter > env.max_steps
 Creates RGB pixel observations for each player in the environment.
 """
 function make_observations(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) where P<:AbstractPhenotype
-    render(env)
-    # return each player's view of the grid, centered around the player's position. if they are at the edge of the grid, the view should be padded with white cells.
-    [1 for _ in env.players]
+    base_img = render(env)
+    view_radius = 10  # Define the radius of view for each player
+    view_size = 2 * view_radius + 1
+    observations = []
+    
+    for player in env.players
+        # Create a new observation array filled with white
+        obs = fill(RGB{N0f8}(1, 1, 1), view_size, view_size)
+        
+        # Get player's position (converting to grid coordinates)
+        px = round(Int, player.position[1]) + 1
+        py = round(Int, player.position[2]) + 1
+        
+        # Calculate the bounds for copying from the base image
+        x_start = max(1, px - view_radius)
+        x_end = min(env.n, px + view_radius)
+        y_start = max(1, py - view_radius)
+        y_end = min(env.n, py + view_radius)
+        
+        # Calculate where in the observation array to place the visible portion
+        obs_x_start = view_radius + 1 - (px - x_start)
+        obs_y_start = view_radius + 1 - (py - y_start)
+        
+        # Copy the visible portion of the environment
+        for (i, x) in enumerate(x_start:x_end)
+            for (j, y) in enumerate(y_start:y_end)
+                obs[obs_x_start + i - 1, obs_y_start + j - 1] = base_img[x, y]
+            end
+        end
+        
+        push!(observations, obs)
+    end
+    
+    observations
 end
 
 function get_actions(observations::Vector, phenotypes::Vector{P}) where P<:AbstractPhenotype
