@@ -32,7 +32,7 @@ function TradeGridWorld(n::Int, p::Int; max_steps::Int=100)
     players = PlayerState[]
     for i in 1:p
         # Players start with 10 of one resource and zero of the other
-        if rand() < 0.5
+        if i % 2 == 1
             apples = 10.0
             bananas = 0.0
         else
@@ -53,7 +53,7 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{DummyPh
         phenotype = phenotypes[i]
         action_values = get_action_values(phenotype)
         @assert length(action_values) == 3
-        dx, dy, resource_action = action_values
+        dx, dy, place_action, pick_action = action_values
         # Update player position
         new_x = clamp(player.position[1] + dx, 0, env.n - 1)
         new_y = clamp(player.position[2] + dy, 0, env.n - 1)
@@ -61,23 +61,25 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{DummyPh
         # Resource action
         grid_x = clamp(floor(Int, new_x) + 1, 1, env.n)
         grid_y = clamp(floor(Int, new_y) + 1, 1, env.n)
-        if resource_action < 0  # Place apples
-            amount = -resource_action
-            if player.resource_apples >= amount
-                player.resource_apples -= amount
-                env.grid_apples[grid_x, grid_y] += amount
-            end
+        if place_action < 0  # Place apples
+            amount = min(player.resource_apples, abs(place_action))
+            player.resource_apples -= amount
+            env.grid_apples[grid_x, grid_y] += amount
         else  # Place bananas
-            amount = resource_action
-            if player.resource_bananas >= amount
-                player.resource_bananas -= amount
-                env.grid_bananas[grid_x, grid_y] += amount
-            end
+            amount = min(player.resource_bananas, abs(place_action))
+            player.resource_bananas -= amount
+            env.grid_bananas[grid_x, grid_y] += amount
         end
         # Players can pick up resources from the grid (logic can be added here)
+        if pick_action > 0 && env.grid_apples[grid_x, grid_y] > 0
+            player.resource_apples += env.grid_apples[grid_x, grid_y]
+            env.grid_apples[grid_x, grid_y] = 0
+        elseif pick_action < 0 && env.grid_bananas[grid_x, grid_y] > 0
+            player.resource_bananas += env.grid_bananas[grid_x, grid_y]
+            env.grid_bananas[grid_x, grid_y] = 0
+        end
 
-        # Record interaction
-        score = 0.0  # Define scoring mechanism if needed
+        score = log(player.resource_apples) + log(player.resource_bananas)
         push!(interactions, Interaction(id, [], score))
 
         env.players[i] = player  # Update player state
@@ -93,13 +95,13 @@ function get_action_values(phenotype::AbstractPhenotype)
     return phenotype.numbers
 end
 
-function run_random_episode(n::Int=10, p::Int=2, max_steps::Int=100, output_filename::String="episode.gif")
+function run_random_episode(;n::Int=10, p::Int=2, max_steps::Int=100, output_filename::String="episode.gif")
     env = TradeGridWorld(n, p, max_steps=max_steps)
     frames = []
     while !done(env)
         ids = [player.id for player in env.players]
         # Generate random actions for each player
-        phenotypes = [DummyPhenotype(randn(3)) for _ in env.players]
+        phenotypes = [DummyPhenotype(randn(4)) for _ in env.players]
         step!(env, ids, phenotypes)
         push!(frames, render(env))
     end
