@@ -1,11 +1,6 @@
 using Images
-using FileIO
 
-export TradeGridWorld, run_random_episode
-
-struct DummyPhenotype <: AbstractPhenotype
-    numbers::Vector{Float64}
-end
+export TradeGridWorld, render
 
 mutable struct PlayerState
     id::Int
@@ -42,17 +37,18 @@ function TradeGridWorld(n::Int, p::Int; max_steps::Int=100)
         position = (rand() * n, rand() * n)
         push!(players, PlayerState(i, position, apples, bananas))
     end
-    TradeGridWorld(n, p, grid_apples, grid_bananas, players, 0, max_steps)
+    TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps)
 end
 
-function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{DummyPhenotype})
+function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) where P<:AbstractPhenotype
     @assert length(ids) == length(phenotypes) == env.p
     interactions = Interaction[]
+    observations = make_observations(env, ids, phenotypes)
+    actions = get_actions(observations, phenotypes)
     for (i, id) in enumerate(ids)
         player = env.players[i]
-        phenotype = phenotypes[i]
-        action_values = get_action_values(phenotype)
-        @assert length(action_values) == 3
+        action_values = actions[i]
+        @assert length(action_values) == 4
         dx, dy, place_action, pick_action = action_values
         # Update player position
         new_x = clamp(player.position[1] + dx, 0, env.n - 1)
@@ -65,18 +61,20 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{DummyPh
             amount = min(player.resource_apples, abs(place_action))
             player.resource_apples -= amount
             env.grid_apples[grid_x, grid_y] += amount
-        else  # Place bananas
+        elseif place_action > 0  # Place bananas
             amount = min(player.resource_bananas, abs(place_action))
             player.resource_bananas -= amount
             env.grid_bananas[grid_x, grid_y] += amount
         end
         # Players can pick up resources from the grid (logic can be added here)
-        if pick_action > 0 && env.grid_apples[grid_x, grid_y] > 0
-            player.resource_apples += env.grid_apples[grid_x, grid_y]
-            env.grid_apples[grid_x, grid_y] = 0
-        elseif pick_action < 0 && env.grid_bananas[grid_x, grid_y] > 0
-            player.resource_bananas += env.grid_bananas[grid_x, grid_y]
-            env.grid_bananas[grid_x, grid_y] = 0
+        if pick_action < 0 && env.grid_apples[grid_x, grid_y] > 0
+            amount = min(env.grid_apples[grid_x, grid_y], abs(pick_action))
+            player.resource_apples += amount
+            env.grid_apples[grid_x, grid_y] -= amount
+        elseif pick_action > 0 && env.grid_bananas[grid_x, grid_y] > 0
+            amount = min(env.grid_bananas[grid_x, grid_y], pick_action)
+            player.resource_bananas += amount
+            env.grid_bananas[grid_x, grid_y] -= amount
         end
 
         score = log(player.resource_apples) + log(player.resource_bananas)
@@ -88,34 +86,33 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{DummyPh
     return interactions
 end
 
-done(env::TradeGridWorld) = env.step_counter >= env.max_steps
+done(env::TradeGridWorld) = env.step_counter > env.max_steps
 
-function get_action_values(phenotype::AbstractPhenotype)
-    # Assuming the phenotype provides action values as numbers
-    return phenotype.numbers
+"""
+    make_observations(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) where P<:AbstractPhenotype
+
+Creates RGB pixel observations for each player in the environment.
+"""
+function make_observations(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) where P<:AbstractPhenotype
+    render(env)
+    # return each player's view of the grid, centered around the player's position. if they are at the edge of the grid, the view should be padded with white cells.
+    [1 for _ in env.players]
 end
 
-function run_random_episode(;n::Int=10, p::Int=2, max_steps::Int=100, output_filename::String="episode.gif")
-    env = TradeGridWorld(n, p, max_steps=max_steps)
-    frames = []
-    while !done(env)
-        ids = [player.id for player in env.players]
-        # Generate random actions for each player
-        phenotypes = [DummyPhenotype(randn(4)) for _ in env.players]
-        step!(env, ids, phenotypes)
-        push!(frames, render(env))
-    end
-    frames = cat(frames..., dims=3)
-    println(size(frames))
-    save(output_filename, frames)
+function get_actions(observations::Vector, phenotypes::Vector{P}) where P<:AbstractPhenotype
+    [pheno(obs) for (obs, pheno) in zip(observations, phenotypes)]
 end
+
+player_colors = [RGB(0.67, 0.87, 0.73), RGB(0.47, 0.60, 0.54)]
 
 function render(env::TradeGridWorld)
     n = env.n
     img = Array{RGB{N0f8}}(undef, n, n)
     fill!(img, RGB{N0f8}(0, 0, 0))
+
     # Render players as blue circles of radius 4
-    for player in env.players
+    for idx in eachindex(env.players)
+        player = env.players[idx]
         x_center = player.position[1] + 1  # Adjust for 1-based indexing
         y_center = player.position[2] + 1  # Adjust for 1-based indexing
         radius = 4  # Circle radius
@@ -133,7 +130,7 @@ function render(env::TradeGridWorld)
                 dy = y - y_center
                 distance = sqrt(dx^2 + dy^2)
                 if distance <= radius
-                    img[x, y] = RGB{N0f8}(0, 0, 1)  # Blue color for agents
+                    img[x, y] = player_colors[idx]
                 end
             end
         end
@@ -141,9 +138,9 @@ function render(env::TradeGridWorld)
     # Render apples and bananas on the grid
     for x in 1:n, y in 1:n
         if env.grid_apples[x, y] > 0
-            img[x, y] = RGB{N0f8}(1, 0, 0)  # Red for apples
+            img[x, y] = RGB{N0f8}(env.grid_apples[x,y]/10, 0, 0)  # Red for apples
         elseif env.grid_bananas[x, y] > 0
-            img[x, y] = RGB{N0f8}(0, 1, 0)  # Green for bananas
+            img[x, y] = RGB{N0f8}(0, env.grid_bananas[x,y]/10, 0)  # Green for bananas
         end
     end
     img
