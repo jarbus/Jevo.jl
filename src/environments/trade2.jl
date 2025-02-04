@@ -90,32 +90,26 @@ done(env::TradeGridWorld) = env.step_counter > env.max_steps
 # Creates RGB pixel observations for each player in the environment.
 function make_observations(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) where P<:AbstractPhenotype
     base_img = render(env)
-    view_radius = 30  # Define the radius of view for each player
+    view_radius = 30
     view_size = 2 * view_radius + 1
-    observations = []
+    observations = Vector{Array{RGB{N0f8}, 2}}(undef, length(env.players))
     
-    for player in env.players
+    for (i, player) in enumerate(env.players)
         obs = fill(RGB{N0f8}(1, 1, 1), view_size, view_size)
-        
         px = round(Int, player.position[1]) + 1
         py = round(Int, player.position[2]) + 1
         
-        # Calculate the bounds for copying from the base image
-        x_start = max(1, px - view_radius)
-        x_end = min(env.n, px + view_radius)
-        y_start = max(1, py - view_radius)
-        y_end = min(env.n, py + view_radius)
+        # Calculate ranges for source and destination
+        x_src_range = max(1, px - view_radius):min(env.n, px + view_radius)
+        y_src_range = max(1, py - view_radius):min(env.n, py + view_radius)
+        x_dst_start = view_radius + 1 - (px - first(x_src_range))
+        y_dst_start = view_radius + 1 - (py - first(y_src_range))
+        x_dst_range = x_dst_start:(x_dst_start + length(x_src_range) - 1)
+        y_dst_range = y_dst_start:(y_dst_start + length(y_src_range) - 1)
         
-        # Calculate where in the observation array to place the visible portion
-        obs_x_start = view_radius + 1 - (px - x_start)
-        obs_y_start = view_radius + 1 - (py - y_start)
-        
-        for (i, x) in enumerate(x_start:x_end)
-            for (j, y) in enumerate(y_start:y_end)
-                obs[obs_x_start + i - 1, obs_y_start + j - 1] = base_img[x, y]
-            end
-        end
-        push!(observations, obs)
+        # Single array operation instead of nested loops
+        obs[x_dst_range, y_dst_range] = view(base_img, x_src_range, y_src_range)
+        observations[i] = obs
     end
     
     observations
