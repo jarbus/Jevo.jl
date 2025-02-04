@@ -66,7 +66,6 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
             player.resource_bananas -= amount
             env.grid_bananas[grid_x, grid_y] += amount
         end
-        # Players can pick up resources from the grid (logic can be added here)
         if pick_action < 0 && env.grid_apples[grid_x, grid_y] > 0
             amount = min(env.grid_apples[grid_x, grid_y], abs(pick_action))
             player.resource_apples += amount
@@ -88,22 +87,16 @@ end
 
 done(env::TradeGridWorld) = env.step_counter > env.max_steps
 
-"""
-    make_observations(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) where P<:AbstractPhenotype
-
-Creates RGB pixel observations for each player in the environment.
-"""
+# Creates RGB pixel observations for each player in the environment.
 function make_observations(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) where P<:AbstractPhenotype
     base_img = render(env)
-    view_radius = 10  # Define the radius of view for each player
+    view_radius = 30  # Define the radius of view for each player
     view_size = 2 * view_radius + 1
     observations = []
     
     for player in env.players
-        # Create a new observation array filled with white
         obs = fill(RGB{N0f8}(1, 1, 1), view_size, view_size)
         
-        # Get player's position (converting to grid coordinates)
         px = round(Int, player.position[1]) + 1
         py = round(Int, player.position[2]) + 1
         
@@ -117,13 +110,11 @@ function make_observations(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Ve
         obs_x_start = view_radius + 1 - (px - x_start)
         obs_y_start = view_radius + 1 - (py - y_start)
         
-        # Copy the visible portion of the environment
         for (i, x) in enumerate(x_start:x_end)
             for (j, y) in enumerate(y_start:y_end)
                 obs[obs_x_start + i - 1, obs_y_start + j - 1] = base_img[x, y]
             end
         end
-        
         push!(observations, obs)
     end
     
@@ -141,7 +132,6 @@ function render(env::TradeGridWorld)
     img = Array{RGB{N0f8}}(undef, n, n)
     fill!(img, RGB{N0f8}(0, 0, 0))
 
-    # Render players as blue circles of radius 4
     for idx in eachindex(env.players)
         player = env.players[idx]
         x_center = player.position[1] + 1  # Adjust for 1-based indexing
