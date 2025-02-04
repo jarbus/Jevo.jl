@@ -19,9 +19,10 @@ mutable struct TradeGridWorld <: AbstractGridworld
     players::Vector{PlayerState}
     step_counter::Int
     max_steps::Int
+    view_radius::Int # Radius of player's view window
 end
 
-function TradeGridWorld(n::Int, p::Int; max_steps::Int=100)
+function TradeGridWorld(n::Int, p::Int; max_steps::Int=100, view_radius::Int=30)
     grid_apples = zeros(n, n)
     grid_bananas = zeros(n, n)
     players = PlayerState[]
@@ -37,7 +38,7 @@ function TradeGridWorld(n::Int, p::Int; max_steps::Int=100)
         position = (rand() * n, rand() * n)
         push!(players, PlayerState(i, position, apples, bananas))
     end
-    TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps)
+    TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius)
 end
 
 function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) where P<:AbstractPhenotype
@@ -90,7 +91,7 @@ done(env::TradeGridWorld) = env.step_counter > env.max_steps
 # Creates RGB pixel observations for each player in the environment.
 function make_observations(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) where P<:AbstractPhenotype
     base_img = render(env)
-    view_radius = 30
+    view_radius = env.view_radius
     view_size = 2 * view_radius + 1
     observations = Vector{Array{RGB{N0f8}, 2}}(undef, length(env.players))
     
