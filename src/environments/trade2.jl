@@ -1,4 +1,5 @@
 using Images
+using Images.ImageCore: colorview, RGB
 
 export TradeGridWorld, render, LogTradeRatios
 
@@ -27,6 +28,27 @@ mutable struct TradeGridWorld <: AbstractGridworld
     step_counter::Int
     max_steps::Int
     view_radius::Int # Radius of player's view window
+    render_filename::String
+    frames::Vector{Array{Float32,3}}
+end
+
+function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30, render_filename::String="")
+    grid_apples = zeros(n, n)
+    grid_bananas = zeros(n, n)
+    players = PlayerState[]
+    for i in 1:p
+        # Players start with 10 of one resource and zero of the other
+        if i % 2 == 1
+            apples = 10.0
+            bananas = 0.0
+        else
+            apples = 0.0
+            bananas = 10.0
+        end
+        position = (rand() * n, rand() * n)
+        push!(players, PlayerState(i, position, apples, bananas))
+    end
+    TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius, render_filename, Array{Float32, 3}[])
 end
 
 struct TradeRatio <: AbstractMetric end
@@ -46,30 +68,10 @@ function remove_trade_ratios!(state, individuals)
     end
 end
 
-
 LogTradeRatios(;kwargs...) = create_op("Reporter";
     retriever=get_individuals,
     operator=log_trade_ratio,
     updater=remove_trade_ratios!,kwargs...)
-
-function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30)
-    grid_apples = zeros(n, n)
-    grid_bananas = zeros(n, n)
-    players = PlayerState[]
-    for i in 1:p
-        # Players start with 10 of one resource and zero of the other
-        if i % 2 == 1
-            apples = 10.0
-            bananas = 0.0
-        else
-            apples = 0.0
-            bananas = 10.0
-        end
-        position = (rand() * n, rand() * n)
-        push!(players, PlayerState(i, position, apples, bananas))
-    end
-    TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius)
-end
 
 # 0 when ratio is very unbalanced, 1 when ratio is even
 function inverse_absolute_difference(apples, bananas)
@@ -82,6 +84,9 @@ end
 inverse_absolute_difference(player::PlayerState) = inverse_absolute_difference(player.resource_apples, player.resource_bananas)
 
 function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) where P<:AbstractPhenotype
+
+    !isempty(env.render_filename) && push!(env.frames, render(env))
+
     @assert length(ids) == length(phenotypes) == env.p
     interactions = []
     observations = make_observations(env, ids, phenotypes)
@@ -129,6 +134,19 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
             push!(interactions, 
                 TradeRatioInteraction(ids[i], [ids[j]], inverse_absolute_difference(env.players[i])),
                 TradeRatioInteraction(ids[j], [ids[i]], inverse_absolute_difference(env.players[j])))
+        end
+        if !isempty(env.render_filename)
+            push!(env.frames, render(env))
+            # Save the frames as a gif
+            rgb_frames = [permutedims(frame, (3, 1, 2)) for frame in env.frames]
+
+            rgb_frames = [Array(colorview(RGB, frame)) for frame in rgb_frames]
+
+            rgb_frames = cat(rgb_frames..., dims=3)
+            println(size(rgb_frames))
+            
+            
+            FileIO.save(env.render_filename, rgb_frames)
         end
     end
     return interactions

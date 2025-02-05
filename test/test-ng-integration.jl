@@ -146,6 +146,18 @@
           n_unique_pairs = n_pairs * (n_inds^2 - n_inds) / 2
           @test length(state.matches) == n_unique_pairs * n_inds^2
       end
+
+      @testset "BestVsBest" begin
+          state = State("", rng, [comp_pop_creator, env_creator], [pop_initializer,RandomEvaluator(), BestVsBestMatchMaker()], counters=default_counters())
+          run!(state, 1)
+          # get best individual for p1 and p2
+          inds1 = Jevo.find_population("p1", state).individuals
+          inds2 = Jevo.find_population("p2", state).individuals
+          best_ind_p1 = inds1[argmax([ind.records[1].fitness for ind in inds1])]
+          best_ind_p2 = inds2[argmax([ind.records[1].fitness for ind in inds2])]
+          @test length(state.matches) == 1
+          @test state.matches[1].individuals == [best_ind_p1, best_ind_p2]
+      end
       @testset "Solo" begin
             state = State("", rng,[comp_comp_pop_creator, env_creator], [pop_initializer, solo], counters=default_counters())
           run!(state, 1)
