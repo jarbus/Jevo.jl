@@ -64,7 +64,7 @@ function get_weight_cache()
     # check if weight_cache is defined
     if !isdefined(Jevo, :weight_cache) || isnothing(Jevo.weight_cache)
         @warn "No weight cache found. Creating weight cache on proc $(myid())"
-        Jevo.weight_cache = WeightCache(maxsize=Int(2^30), by=sizeof)
+        Jevo.weight_cache = WeightCache(maxsize=Int(2^29), by=sizeof)
     end
     Jevo.weight_cache
 end

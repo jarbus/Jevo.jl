@@ -38,7 +38,7 @@ function Individual(
     genotype::AbstractGenotype,
     developer::AbstractCreator;
     records::Vector{AbstractRecord} = AbstractRecord[],
-    interactions::Vector{<:AbstractInteraction} = Interaction[],
+    interactions::Vector{<:AbstractInteraction} = AbstractInteraction[],
     data::Vector = []
 )
     Individual(id, generation, parents, genotype, developer, records, interactions, data)

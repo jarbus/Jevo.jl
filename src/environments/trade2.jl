@@ -1,6 +1,6 @@
 using Images
 
-export TradeGridWorld, render
+export TradeGridWorld, render, LogTradeRatios
 
 mutable struct PlayerState
     id::Int
@@ -10,6 +10,13 @@ mutable struct PlayerState
 end
 
 abstract type AbstractGridworld <: Jevo.AbstractEnvironment end
+
+
+struct TradeRatioInteraction <: AbstractInteraction
+    individual_id::Int
+    other_ids::Vector{Int}
+    trade_ratio::Float64
+end
 
 mutable struct TradeGridWorld <: AbstractGridworld
     n::Int           # Grid size
@@ -22,7 +29,30 @@ mutable struct TradeGridWorld <: AbstractGridworld
     view_radius::Int # Radius of player's view window
 end
 
-function TradeGridWorld(n::Int, p::Int; max_steps::Int=100, view_radius::Int=30)
+struct TradeRatio <: AbstractMetric end
+
+function log_trade_ratio(state, individuals)
+    # extract all trade ratio interactions
+    ratios = [int.trade_ratio for ind in individuals for int in ind.interactions if int isa TradeRatioInteraction]
+    m=StatisticalMeasurement(TradeRatio, ratios, generation(state))
+    @info(m)
+    @h5(m)
+    individuals
+end
+
+function remove_trade_ratios!(state, individuals)
+    for ind in individuals
+        filter!(interaction->!(interaction isa TradeRatioInteraction), ind.interactions)
+    end
+end
+
+
+LogTradeRatios(;kwargs...) = create_op("Reporter";
+    retriever=get_individuals,
+    operator=log_trade_ratio,
+    updater=remove_trade_ratios!,kwargs...)
+
+function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30)
     grid_apples = zeros(n, n)
     grid_bananas = zeros(n, n)
     players = PlayerState[]
@@ -41,9 +71,19 @@ function TradeGridWorld(n::Int, p::Int; max_steps::Int=100, view_radius::Int=30)
     TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius)
 end
 
+# 0 when ratio is very unbalanced, 1 when ratio is even
+function inverse_absolute_difference(apples, bananas)
+    max_resource = max(apples, bananas)
+    min_resource = min(apples, bananas)
+    ratio =  max_resource / min_resource
+    isnan(ratio) && return 0
+    return 1 / (ratio + 1)
+end
+inverse_absolute_difference(player::PlayerState) = inverse_absolute_difference(player.resource_apples, player.resource_bananas)
+
 function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) where P<:AbstractPhenotype
     @assert length(ids) == length(phenotypes) == env.p
-    interactions = Interaction[]
+    interactions = []
     observations = make_observations(env, ids, phenotypes)
     actions = get_actions(observations, phenotypes)
     for (i, id) in enumerate(ids)
@@ -77,12 +117,20 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
             env.grid_bananas[grid_x, grid_y] -= amount
         end
 
-        score = log(player.resource_apples) + log(player.resource_bananas)
+        score = log(player.resource_apples + 1) + log(player.resource_bananas + 1)
         push!(interactions, Interaction(id, [], score))
 
         env.players[i] = player  # Update player state
     end
     env.step_counter += 1
+    # Record trade ratio
+    if done(env)
+        for i in 1:env.p, j in (i+1):env.p
+            push!(interactions, 
+                TradeRatioInteraction(ids[i], [ids[j]], inverse_absolute_difference(env.players[i])),
+                TradeRatioInteraction(ids[j], [ids[i]], inverse_absolute_difference(env.players[j])))
+        end
+    end
     return interactions
 end
 
@@ -93,10 +141,10 @@ function make_observations(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Ve
     base_img = render(env)
     view_radius = env.view_radius
     view_size = 2 * view_radius + 1
-    observations = Vector{Array{RGB{N0f8}, 2}}(undef, length(env.players))
+    observations = Vector(undef, length(env.players))
     
     for (i, player) in enumerate(env.players)
-        obs = fill(RGB{N0f8}(1, 1, 1), view_size, view_size)
+        obs = ones(Float32, view_size, view_size, 3)
         px = round(Int, player.position[1]) + 1
         py = round(Int, player.position[2]) + 1
         
@@ -109,23 +157,23 @@ function make_observations(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Ve
         y_dst_range = y_dst_start:(y_dst_start + length(y_src_range) - 1)
         
         # Single array operation instead of nested loops
-        obs[x_dst_range, y_dst_range] = view(base_img, x_src_range, y_src_range)
+        obs[x_dst_range, y_dst_range, :] .= view(base_img, x_src_range, y_src_range, :)
+        # add dim 1 to make it a 4D array for batch size
+        obs = reshape(obs, view_size, view_size, 3, 1)
         observations[i] = obs
     end
-    
     observations
 end
 
-function get_actions(observations::Vector, phenotypes::Vector{P}) where P<:AbstractPhenotype
+function get_actions(observations, phenotypes::Vector{P}) where P<:AbstractPhenotype
     [pheno(obs) for (obs, pheno) in zip(observations, phenotypes)]
 end
 
-player_colors = [RGB(0.67, 0.87, 0.73), RGB(0.47, 0.60, 0.54)]
+player_colors = [[0.67f0, 0.87f0, 0.73f0], [0.47f0, 0.60f0, 0.54f0]]
 
 function render(env::TradeGridWorld)
     n = env.n
-    img = Array{RGB{N0f8}}(undef, n, n)
-    fill!(img, RGB{N0f8}(0, 0, 0))
+    img = zeros(Float32, n, n, 3)
 
     for idx in eachindex(env.players)
         player = env.players[idx]
@@ -146,7 +194,7 @@ function render(env::TradeGridWorld)
                 dy = y - y_center
                 distance = sqrt(dx^2 + dy^2)
                 if distance <= radius
-                    img[x, y] = player_colors[idx]
+                    img[x, y, :] .= player_colors[idx]
                 end
             end
         end
@@ -154,9 +202,9 @@ function render(env::TradeGridWorld)
     # Render apples and bananas on the grid
     for x in 1:n, y in 1:n
         if env.grid_apples[x, y] > 0
-            img[x, y] = RGB{N0f8}(env.grid_apples[x,y]/10, 0, 0)  # Red for apples
+            img[x, y, :] .= [env.grid_apples[x,y]/10, 0, 0] .|> Float32  # Red for apples
         elseif env.grid_bananas[x, y] > 0
-            img[x, y] = RGB{N0f8}(0, env.grid_bananas[x,y]/10, 0)  # Green for bananas
+            img[x, y, :] .= [0, env.grid_bananas[x,y]/10, 0] .|> Float32  # Green for bananas
         end
     end
     img
