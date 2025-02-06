@@ -1,7 +1,7 @@
 using Images
 using Images.ImageCore: colorview, RGB
 
-export TradeGridWorld, render, LogTradeRatios
+export TradeGridWorld, render, LogTradeRatios, ClearTradeRatios 
 
 mutable struct PlayerState
     id::Int
@@ -72,6 +72,9 @@ LogTradeRatios(;kwargs...) = create_op("Reporter";
     retriever=get_individuals,
     operator=log_trade_ratio,
     updater=remove_trade_ratios!,kwargs...)
+ClearTradeRatios(;kwargs...) = create_op("Reporter";
+    retriever=get_individuals,
+    updater=remove_trade_ratios!,kwargs...)
 
 # 0 when ratio is very unbalanced, 1 when ratio is even
 function inverse_absolute_difference(apples, bananas)
@@ -96,13 +99,23 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
         action_values = actions[i]
         @assert length(action_values) == 4
         dx, dy, place_action, pick_action = action_values
+        dx = clamp(dx, -2, 2)
+        dy = clamp(dy, -2, 2)
         # Update player position
-        new_x = clamp(player.position[1] + dx, 0, env.n - 1)
-        new_y = clamp(player.position[2] + dy, 0, env.n - 1)
+        new_x = clamp(player.position[1] + dx, 1, env.n)
+        new_y = clamp(player.position[2] + dy, 1, env.n)
+        prev_pos = player.position
         player.position = (new_x, new_y)
         # Resource action
+        try
+            grid_x = clamp(floor(Int, new_x) + 1, 1, env.n)
+            grid_y = clamp(floor(Int, new_y) + 1, 1, env.n)
+        catch e
+            @error "new_x: $new_x, new_y: $new_y, dx: $dx, dy: $dy, prev_pos: $prev_pos, error: $e"
+        end
         grid_x = clamp(floor(Int, new_x) + 1, 1, env.n)
         grid_y = clamp(floor(Int, new_y) + 1, 1, env.n)
+
         if place_action < 0  # Place apples
             amount = min(player.resource_apples, abs(place_action))
             player.resource_apples -= amount
@@ -139,13 +152,8 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
             push!(env.frames, render(env))
             # Save the frames as a gif
             rgb_frames = [permutedims(frame, (3, 1, 2)) for frame in env.frames]
-
             rgb_frames = [Array(colorview(RGB, frame)) for frame in rgb_frames]
-
             rgb_frames = cat(rgb_frames..., dims=3)
-            println(size(rgb_frames))
-            
-            
             FileIO.save(env.render_filename, rgb_frames)
         end
     end
