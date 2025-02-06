@@ -103,23 +103,53 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
         # Resource action
         grid_x = clamp(floor(Int, new_x) + 1, 1, env.n)
         grid_y = clamp(floor(Int, new_y) + 1, 1, env.n)
-        if place_action < 0  # Place apples
-            amount = min(player.resource_apples, abs(place_action))
-            player.resource_apples -= amount
-            env.grid_apples[grid_x, grid_y] += amount
-        elseif place_action > 0  # Place bananas
-            amount = min(player.resource_bananas, abs(place_action))
-            player.resource_bananas -= amount
-            env.grid_bananas[grid_x, grid_y] += amount
+        # Determine primary/secondary resources based on player number
+        is_player_one = i % 2 == 1
+        
+        # Handle placing resources
+        if place_action > 0  # Place primary resource
+            if is_player_one
+                amount = min(player.resource_apples, place_action)
+                player.resource_apples -= amount
+                env.grid_apples[grid_x, grid_y] += amount
+            else
+                amount = min(player.resource_bananas, place_action)
+                player.resource_bananas -= amount
+                env.grid_bananas[grid_x, grid_y] += amount
+            end
+        elseif place_action < 0  # Place secondary resource
+            if is_player_one
+                amount = min(player.resource_bananas, abs(place_action))
+                player.resource_bananas -= amount
+                env.grid_bananas[grid_x, grid_y] += amount
+            else
+                amount = min(player.resource_apples, abs(place_action))
+                player.resource_apples -= amount
+                env.grid_apples[grid_x, grid_y] += amount
+            end
         end
-        if pick_action < 0 && env.grid_apples[grid_x, grid_y] > 0
-            amount = min(env.grid_apples[grid_x, grid_y], abs(pick_action))
-            player.resource_apples += amount
-            env.grid_apples[grid_x, grid_y] -= amount
-        elseif pick_action > 0 && env.grid_bananas[grid_x, grid_y] > 0
-            amount = min(env.grid_bananas[grid_x, grid_y], pick_action)
-            player.resource_bananas += amount
-            env.grid_bananas[grid_x, grid_y] -= amount
+
+        # Handle picking resources
+        if pick_action > 0  # Pick primary resource
+            if is_player_one && env.grid_apples[grid_x, grid_y] > 0
+                amount = min(env.grid_apples[grid_x, grid_y], pick_action)
+                player.resource_apples += amount
+                env.grid_apples[grid_x, grid_y] -= amount
+            elseif !is_player_one && env.grid_bananas[grid_x, grid_y] > 0
+                amount = min(env.grid_bananas[grid_x, grid_y], pick_action)
+                player.resource_bananas += amount
+                env.grid_bananas[grid_x, grid_y] -= amount
+            end
+        elseif pick_action < 0  # Pick secondary resource
+            if is_player_one && env.grid_bananas[grid_x, grid_y] > 0
+                amount = min(env.grid_bananas[grid_x, grid_y], abs(pick_action))
+                player.resource_bananas += amount
+                env.grid_bananas[grid_x, grid_y] -= amount
+            elseif !is_player_one && env.grid_apples[grid_x, grid_y] > 0
+                amount = min(env.grid_apples[grid_x, grid_y], abs(pick_action))
+                player.resource_apples += amount
+                env.grid_apples[grid_x, grid_y] -= amount
+            end
         end
 
         score = log(player.resource_apples + 1) + log(player.resource_bananas + 1)
