@@ -28,3 +28,9 @@ docs/site/
 *.log
 *.h5
 scratch/
+.CondaPkg*
+.aider*
+x/*
+*.txt
+*.csv
+*.gif

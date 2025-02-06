@@ -183,6 +183,7 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
             rgb_frames = [permutedims(frame, (3, 1, 2)) for frame in env.frames]
             rgb_frames = [Array(colorview(RGB, frame)) for frame in rgb_frames]
             rgb_frames = cat(rgb_frames..., dims=3)
+
             FileIO.save(env.render_filename, rgb_frames)
         end
     end
