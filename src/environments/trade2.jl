@@ -85,7 +85,7 @@ inverse_absolute_difference(player::PlayerState) = inverse_absolute_difference(p
 
 function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) where P<:AbstractPhenotype
 
-    !isempty(env.render_filename) && push!(env.frames, render(env))
+    !isempty(env.render_filename) && push!(env.frames, render(env, 1))  # Always render from player 1's perspective
 
     @assert length(ids) == length(phenotypes) == env.p
     interactions = []
@@ -136,7 +136,7 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
                 TradeRatioInteraction(ids[j], [ids[i]], inverse_absolute_difference(env.players[j])))
         end
         if !isempty(env.render_filename)
-            push!(env.frames, render(env))
+            push!(env.frames, render(env, 1))  # Always render from player 1's perspective
             # Save the frames as a gif
             rgb_frames = [permutedims(frame, (3, 1, 2)) for frame in env.frames]
 
@@ -162,6 +162,8 @@ function make_observations(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Ve
     observations = Vector(undef, length(env.players))
     
     for (i, player) in enumerate(env.players)
+        # Render the world from this player's perspective
+        player_view = render(env, i)
         obs = ones(Float32, view_size, view_size, 3)
         px = round(Int, player.position[1]) + 1
         py = round(Int, player.position[2]) + 1
@@ -175,7 +177,7 @@ function make_observations(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Ve
         y_dst_range = y_dst_start:(y_dst_start + length(y_src_range) - 1)
         
         # Single array operation instead of nested loops
-        obs[x_dst_range, y_dst_range, :] .= view(base_img, x_src_range, y_src_range, :)
+        obs[x_dst_range, y_dst_range, :] .= view(player_view, x_src_range, y_src_range, :)
         # add dim 1 to make it a 4D array for batch size
         obs = reshape(obs, view_size, view_size, 3, 1)
         observations[i] = obs
@@ -187,9 +189,14 @@ function get_actions(observations, phenotypes::Vector{P}) where P<:AbstractPheno
     [pheno(obs) for (obs, pheno) in zip(observations, phenotypes)]
 end
 
-player_colors = [[0.67f0, 0.87f0, 0.73f0], [0.47f0, 0.60f0, 0.54f0]]
+const SELF_COLOR = [0.67f0, 0.87f0, 0.73f0]
+const OTHER_COLOR = [0.47f0, 0.60f0, 0.54f0]
 
-function render(env::TradeGridWorld)
+function get_player_color(viewing_player::Int, player_idx::Int)
+    viewing_player == player_idx ? SELF_COLOR : OTHER_COLOR
+end
+
+function render(env::TradeGridWorld, perspective::Int=1)
     n = env.n
     img = zeros(Float32, n, n, 3)
 
@@ -212,7 +219,7 @@ function render(env::TradeGridWorld)
                 dy = y - y_center
                 distance = sqrt(dx^2 + dy^2)
                 if distance <= radius
-                    img[x, y, :] .= player_colors[idx]
+                    img[x, y, :] .= get_player_color(perspective, idx)
                 end
             end
         end
