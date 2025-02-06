@@ -148,7 +148,7 @@
       end
 
       @testset "BestVsBest" begin
-          state = State("", rng, [comp_pop_creator, env_creator], [pop_initializer,RandomEvaluator(), BestVsBestMatchMaker()], counters=default_counters())
+          state = State("", rng, [comp_pop_creator, env_creator], [pop_initializer,RandomEvaluator(), BestVsBestMatchMaker(env_creator=env_creator)], counters=default_counters())
           run!(state, 1)
           # get best individual for p1 and p2
           inds1 = Jevo.find_population("p1", state).individuals
