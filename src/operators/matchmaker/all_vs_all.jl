@@ -18,6 +18,8 @@ AllVsAllMatchMaker(ids::Vector{String}=String[];kwargs...) =
     make_all_v_all_matches(state::AbstractState, pops::Vector{Vector{Population}})
 
 Returns a vector of [Matches](@ref Match) between all pairs of individuals in the populations.
+
+If there is only one population with one subpopulation, it returns a vector of matches between all pairs of individuals in that subpopulation.
 """
 function make_all_v_all_matches(state::AbstractState, pops::Vector{Vector{Population}})
     match_counter = get_counter(AbstractMatch, state)
@@ -25,6 +27,19 @@ function make_all_v_all_matches(state::AbstractState, pops::Vector{Vector{Popula
     @assert length(env_creators) == 1 "There should be exactly one environment creator for the time being, found $(length(env_creators))."
     env_creator = env_creators[1]
     matches = Vector{Match}()
+    
+    # if there is only one population with one subpopulation, return all vs all matches between individuals in that subpopulation
+    if length(pops) == 1 && length(pops[1]) == 1
+        for subpopi in pops[1]
+            inds = subpopi.individuals
+            @assert length(inds) > 1
+            for i in eachindex(inds), j in i+1:length(inds)
+                push!(matches, Match(inc!(match_counter), [inds[i], inds[j]], env_creator))
+            end
+        end
+        return matches
+    end
+
     for i in 1:length(pops), j in i+1:length(pops) # for each pair of populations
         for subpopi in pops[i], subpopj in pops[j] # for each pair of subpopulations
             for indi in subpopi.individuals, indj in subpopj.individuals # for each pair of individuals
