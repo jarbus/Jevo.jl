@@ -17,9 +17,9 @@
   @test Individual(counters, ng_genotype_creator, ng_developer).genotype.numbers |> sum != 0
   # Population
   @test Population("ng", n_inds, ng_genotype_creator, ng_developer, counters).individuals |> length == n_inds
+  single_pop_creator = Creator(Population, ("ng", n_inds, PassThrough(ng_genotype_creator), PassThrough(ng_developer), counters))
   # Composite population
   comp_pop = CompositePopulation("species", [("p$i", n_inds, ng_gc, ng_developer) for i in 1:n_species], counters)
-  # create a composite population creator
   comp_pop_creator = Creator(CompositePopulation, ("species", [("p$i", n_inds, ng_gc, ng_developer)
                                                                for i in 1:n_species], counters))
   comp_pop = comp_pop_creator()
@@ -139,12 +139,17 @@
 
   @testset "MatchMaker" begin
       @testset "AllVsAll" begin
+          # two pops
           state = State("", rng, [comp_comp_pop_creator, env_creator], [pop_initializer, ava], counters=default_counters())
           @test Jevo.get_creators(AbstractEnvironment, state) |> length == 1
           run!(state, 1)
           n_pairs = n_pops * n_species
           n_unique_pairs = n_pairs * (n_inds^2 - n_inds) / 2
           @test length(state.matches) == n_unique_pairs * n_inds^2
+          # single pop
+          state = State("", rng, [single_pop_creator, env_creator], [pop_initializer, AllVsAllMatchMaker()], counters=default_counters())
+          run!(state, 1)
+          @test length(state.matches) == n_inds * (n_inds + 1) / 2
       end
 
       @testset "BestVsBest" begin
@@ -157,6 +162,11 @@
           best_ind_p2 = inds2[argmax([ind.records[1].fitness for ind in inds2])]
           @test length(state.matches) == 1
           @test state.matches[1].individuals == [best_ind_p1, best_ind_p2]
+
+          state = State("", rng, [single_pop_creator, env_creator], [pop_initializer, RandomEvaluator(), BestVsBestMatchMaker(env_creator=env_creator)], counters=default_counters())
+          run!(state, 1)
+          @test length(state.matches) == 1
+          @test 1 == state.matches[1].individuals |> unique |> length
       end
       @testset "Solo" begin
             state = State("", rng,[comp_comp_pop_creator, env_creator], [pop_initializer, solo], counters=default_counters())

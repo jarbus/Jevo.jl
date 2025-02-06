@@ -25,7 +25,7 @@ function make_best_vs_best_matches(state::AbstractState, pops::Vector{Vector{Pop
     match_counter = get_counter(AbstractMatch, state)
     matches = Vector{Match}()
 
-    if length(pops) == 1 && length(pops[1]) > 1
+    if length(pops) == 1 && length(pops[1]) == 1
         for subpop in pops[1]
             fitnesses = [record.fitness for ind in subpop.individuals for record in ind.records]
             @assert length(fitnesses) == length(subpop.individuals)
