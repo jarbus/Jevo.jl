@@ -224,12 +224,24 @@ function render(env::TradeGridWorld, perspective::Int=1)
             end
         end
     end
+    # Helper function to get resource colors based on perspective
+    function get_resource_colors(perspective::Int)
+        if perspective % 2 == 1
+            return (apples = [1f0, 0f0, 0f0], bananas = [0f0, 1f0, 0f0])  # Red apples, Green bananas
+        else
+            return (apples = [0f0, 1f0, 0f0], bananas = [1f0, 0f0, 0f0])  # Green apples, Red bananas
+        end
+    end
+
+    # Get the correct colors for this perspective
+    resource_colors = get_resource_colors(perspective)
+    
     # Render apples and bananas on the grid
     for x in 1:n, y in 1:n
         if env.grid_apples[x, y] > 0
-            img[x, y, :] .= [env.grid_apples[x,y]/10, 0, 0] .|> Float32  # Red for apples
+            img[x, y, :] .= resource_colors.apples .* (env.grid_apples[x,y]/10)
         elseif env.grid_bananas[x, y] > 0
-            img[x, y, :] .= [0, env.grid_bananas[x,y]/10, 0] .|> Float32  # Green for bananas
+            img[x, y, :] .= resource_colors.bananas .* (env.grid_bananas[x,y]/10)
         end
     end
     img
