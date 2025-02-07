@@ -37,6 +37,8 @@ function make_all_v_all_matches(state::AbstractState, pops::Vector{Vector{Popula
                 push!(matches, Match(inc!(match_counter), [inds[i], inds[j]], env_creator))
             end
         end
+        n_inds = length(pops[1][1].individuals)
+        @assert length(matches) == n_inds*(n_inds+1)/2
         return matches
     end
 

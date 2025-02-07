@@ -53,12 +53,12 @@ end
 
 struct TradeRatio <: AbstractMetric end
 
-function log_trade_ratio(state, individuals)
+function log_trade_ratio(state, individuals, h5)
     # extract all trade ratio interactions
     ratios = [int.trade_ratio for ind in individuals for int in ind.interactions if int isa TradeRatioInteraction]
     m=StatisticalMeasurement(TradeRatio, ratios, generation(state))
     @info(m)
-    @h5(m)
+    h5 && @h5(m)
     individuals
 end
 
@@ -68,10 +68,11 @@ function remove_trade_ratios!(state, individuals)
     end
 end
 
-LogTradeRatios(;kwargs...) = create_op("Reporter";
+LogTradeRatios(;h5=true, kwargs...) = create_op("Reporter";
     retriever=get_individuals,
-    operator=log_trade_ratio,
+    operator=(s,is)->log_trade_ratio(s,is, h5),
     updater=remove_trade_ratios!,kwargs...)
+
 ClearTradeRatios(;kwargs...) = create_op("Reporter";
     retriever=get_individuals,
     updater=remove_trade_ratios!,kwargs...)
