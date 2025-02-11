@@ -19,6 +19,18 @@ struct TradeRatioInteraction <: AbstractInteraction
     trade_ratio::Float64
 end
 
+struct PrimaryResourceCountInteraction <: AbstractInteraction
+    individual_id::Int
+    other_ids::Vector{Int}
+    count::Float64
+end
+
+struct SecondaryResourceCountInteraction <: AbstractInteraction
+    individual_id::Int
+    other_ids::Vector{Int}
+    count::Float64
+end
+
 mutable struct TradeGridWorld <: AbstractGridworld
     n::Int           # Grid size
     p::Int           # Number of players
@@ -52,19 +64,29 @@ function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30,
 end
 
 struct TradeRatio <: AbstractMetric end
+struct PrimaryResourceCount <: AbstractMetric end
+struct SecondaryResourceCount <: AbstractMetric end
 
 function log_trade_ratio(state, individuals, h5)
     # extract all trade ratio interactions
     ratios = [int.trade_ratio for ind in individuals for int in ind.interactions if int isa TradeRatioInteraction]
-    m=StatisticalMeasurement(TradeRatio, ratios, generation(state))
-    @info(m)
-    h5 && @h5(m)
+    primaries = [int.count for ind in individuals for int in ind.interactions if int isa PrimaryResourceCountInteraction]
+    secondaries = [int.count for ind in individuals for int in ind.interactions if int isa SecondaryResourceCountInteraction]
+    ratio_m=StatisticalMeasurement(TradeRatio, ratios, generation(state))
+    primary_m=StatisticalMeasurement(PrimaryResourceCount, primaries, generation(state))
+    secondary_m=StatisticalMeasurement(SecondaryResourceCount, secondaries, generation(state))
+    @info(ratio_m)
+    @info(primary_m)
+    @info(secondary_m)
+    h5 && @h5(ratio_m)
+    h5 && @h5(primary_m)
+    h5 && @h5(secondary_m)
     individuals
 end
 
 function remove_trade_ratios!(state, individuals)
     for ind in individuals
-        filter!(interaction->!(interaction isa TradeRatioInteraction), ind.interactions)
+        filter!(interaction->interaction isa Interaction, ind.interactions)
     end
 end
 
@@ -77,7 +99,7 @@ ClearTradeRatios(;kwargs...) = create_op("Reporter";
     retriever=get_individuals,
     updater=remove_trade_ratios!,kwargs...)
 
-# 0 when ratio is very unbalanced, 1 when ratio is even
+# 0 when ratio is very unbalanced, 0.5 when ratio is even
 function inverse_absolute_difference(apples, bananas)
     max_resource = max(apples, bananas)
     min_resource = min(apples, bananas)
@@ -99,6 +121,8 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
         player = env.players[i]
         action_values = actions[i]
         @assert length(action_values) == 4
+        # assert all actions are not nan or inf
+        @assert !any(isnan.(action_values)) && !any(isinf.(action_values))
         dx, dy, place_action, pick_action = action_values
         dx = clamp(dx, -2, 2)
         dy = clamp(dy, -2, 2)
@@ -165,7 +189,7 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
             end
         end
 
-        score = log(player.resource_apples + 1) + log(player.resource_bananas + 1)
+        score = (player.resource_apples + 0.1) * (player.resource_bananas + 0.1)
         push!(interactions, Interaction(id, [], score))
 
         env.players[i] = player  # Update player state
@@ -177,6 +201,15 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
             push!(interactions, 
                 TradeRatioInteraction(ids[i], [ids[j]], inverse_absolute_difference(env.players[i])),
                 TradeRatioInteraction(ids[j], [ids[i]], inverse_absolute_difference(env.players[j])))
+            @assert env.p == 2
+            # compute primary
+            push!(interactions, 
+                PrimaryResourceCountInteraction(ids[i], [ids[j]], env.players[i].resource_apples),
+                PrimaryResourceCountInteraction(ids[j], [ids[i]], env.players[j].resource_bananas))
+            # compute secondary
+            push!(interactions, 
+                SecondaryResourceCountInteraction(ids[i], [ids[j]], env.players[i].resource_bananas),
+                SecondaryResourceCountInteraction(ids[j], [ids[i]], env.players[j].resource_apples))
         end
         if !isempty(env.render_filename)
             push!(env.frames, render(env, 1))  # Always render from player 1's perspective
@@ -235,6 +268,15 @@ function get_player_color(viewing_player::Int, player_idx::Int)
     viewing_player == player_idx ? SELF_COLOR : OTHER_COLOR
 end
 
+# Helper function to get resource colors based on perspective
+function get_resource_colors(perspective::Int)
+    if perspective % 2 == 1
+        return (apples = [1f0, 0f0, 0f0], bananas = [0f0, 1f0, 0f0])  # Red apples, Green bananas
+    else
+        return (apples = [0f0, 1f0, 0f0], bananas = [1f0, 0f0, 0f0])  # Green apples, Red bananas
+    end
+end
+
 function render(env::TradeGridWorld, perspective::Int=1)
     n = env.n
     img = zeros(Float32, n, n, 3)
@@ -261,14 +303,6 @@ function render(env::TradeGridWorld, perspective::Int=1)
                     img[x, y, :] .= get_player_color(perspective, idx)
                 end
             end
-        end
-    end
-    # Helper function to get resource colors based on perspective
-    function get_resource_colors(perspective::Int)
-        if perspective % 2 == 1
-            return (apples = [1f0, 0f0, 0f0], bananas = [0f0, 1f0, 0f0])  # Red apples, Green bananas
-        else
-            return (apples = [0f0, 1f0, 0f0], bananas = [1f0, 0f0, 0f0])  # Green apples, Red bananas
         end
     end
 
