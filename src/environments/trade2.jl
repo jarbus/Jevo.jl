@@ -121,7 +121,7 @@ function collect_nearby_resources(grid::Array{Float64, 2}, player::PlayerState, 
 
     total_collected = 0.0
     for i in x_min:x_max, j in y_min:y_max 
-        if (i - x)^2 + (j - y)^2 <= PLAYER_RADIUS^2 && grid[i, j] > 0
+        if grid[i,j] > 0 && (i - x)^2 + (j - y)^2 <= PLAYER_RADIUS^2
             amount_to_collect = min(amount - total_collected, grid[i, j]);
             grid[i, j] -= amount_to_collect;
             total_collected += amount_to_collect;
