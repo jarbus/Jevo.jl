@@ -78,6 +78,11 @@ end
     env.grid_bananas[6,3] = 1
     env.grid_bananas[6,6] = 1
 
+    env.grid_apples[1,1] = 1
+    env.grid_apples[1,10] = 1
+    env.grid_bananas[10,1] = 1
+    env.grid_bananas[10,10] = 1
+
     env.players[1].position = (5,5)
     env.players[2].position = (5,5)
     player_moves = [ [[0,0,0,-1],  [0,0,0,-1], [0,0,0,-1]],
