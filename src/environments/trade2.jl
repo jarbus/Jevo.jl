@@ -6,6 +6,7 @@ export TradeGridWorld, render, LogTradeRatios, ClearTradeRatios
 const SELF_COLOR = [0.67f0, 0.87f0, 0.73f0]
 const OTHER_COLOR = [0.47f0, 0.60f0, 0.54f0]
 const PLAYER_RADIUS = 4
+const STARTING_RESOURCES = 10f0
 
 struct TradeRatio <: AbstractMetric end
 struct PrimaryResourceCount <: AbstractMetric end
@@ -49,6 +50,7 @@ mutable struct TradeGridWorld <: AbstractGridworld
     view_radius::Int # Radius of player's view window
     render_filename::String
     frames::Vector{Array{Float32,3}}
+    perspective_frames::Vector  # each player's obs 
 end
 
 function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30, render_filename::String="")
@@ -58,16 +60,16 @@ function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30,
     for i in 1:p
         # Players start with 10 of one resource and zero of the other
         if i % 2 == 1
-            apples = 10.0
+            apples = STARTING_RESOURCES
             bananas = 0.0
         else
             apples = 0.0
-            bananas = 10.0
+            bananas = STARTING_RESOURCES
         end
         position = (rand() * n, rand() * n)
         push!(players, PlayerState(i, position, apples, bananas))
     end
-    TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius, render_filename, Array{Float32, 3}[])
+    TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius, render_filename, Array{Float32, 3}[], [Array{Float32, 3}[] for i in 1:p])
 end
 
 function log_trade_ratio(state, individuals, h5)
@@ -135,11 +137,18 @@ end
 
 function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) where P<:AbstractPhenotype
 
-    !isempty(env.render_filename) && push!(env.frames, render(env, 1))  # Always render from player 1's perspective
-
     @assert length(ids) == length(phenotypes) == env.p
     interactions = []
     observations = make_observations(env, ids, phenotypes)
+
+    if !isempty(env.render_filename) 
+        push!(env.frames, render(env, 1))  # Always render from player 1's perspective
+        for i in 1:env.p
+            # observations have a batch size associated with them, so we need to remove that
+            push!(env.perspective_frames[i], observations[i][:,:,:,1])
+        end
+    end
+
     actions = get_actions(observations, phenotypes)
     for (i, id) in enumerate(ids)
         player = env.players[i]
@@ -228,12 +237,13 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
         end
         if !isempty(env.render_filename)
             push!(env.frames, render(env, 1))  # Always render from player 1's perspective
-            # Save the frames as a gif
-            rgb_frames = [permutedims(frame, (3, 1, 2)) for frame in env.frames]
-            rgb_frames = [Array(colorview(RGB, frame)) for frame in rgb_frames]
-            rgb_frames = cat(rgb_frames..., dims=3)
+            root = split(env.render_filename, ".")[1]
+            save_gif(env.frames, "$(root)_full.gif")
 
-            FileIO.save(env.render_filename, rgb_frames)
+            for i in 1:env.p
+                save_gif(env.perspective_frames[i], "$(root)_player_$(i).gif")
+            end
+
         end
     end
     return interactions
@@ -321,13 +331,20 @@ function render(env::TradeGridWorld, perspective::Int=1)
     # Get the correct colors for this perspective
     resource_colors = get_resource_colors(perspective)
     
-    # Render apples and bananas on the grid
+    # Render apples and bananas on the grid, if there is anything, it starts at 0.5
     for x in 1:n, y in 1:n
         if env.grid_apples[x, y] > 0
-            img[x, y, :] .= resource_colors.apples .* (env.grid_apples[x,y]/10)
+            img[x, y, :] .= resource_colors.apples .* (0.5f0 + env.grid_apples[x,y]/(2*STARTING_RESOURCES))
         elseif env.grid_bananas[x, y] > 0
-            img[x, y, :] .= resource_colors.bananas .* (env.grid_bananas[x,y]/10)
+            img[x, y, :] .= resource_colors.bananas .* (0.5f0 + env.grid_bananas[x,y]/(2*STARTING_RESOURCES))
         end
     end
     img
+end
+
+function save_gif(frames::Vector{Array{Float32,3}}, filename::String)
+    rgb_frames = [permutedims(frame, (3, 1, 2)) for frame in frames]
+    rgb_frames = [Array(colorview(RGB, frame)) for frame in rgb_frames]
+    rgb_frames = cat(rgb_frames..., dims=3)
+    FileIO.save(filename, rgb_frames)
 end

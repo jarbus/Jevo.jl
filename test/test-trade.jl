@@ -52,16 +52,6 @@ end
         push!(p2_frames, obs[2])
         step!(env, ids, phenotypes)
     end
-
-    p1_rgb_frames = [permutedims(frame, (3, 1, 2, 4)) for frame in p1_frames]
-    p1_rgb_frames = [Array(colorview(RGB, frame)) for frame in p1_rgb_frames]
-    p1_rgb_frames = cat(p1_rgb_frames..., dims=3)
-    FileIO.save("test_record_player_1_perspective.gif", p1_rgb_frames)
-
-    p2_rgb_frames = [permutedims(frame, (3, 1, 2, 4)) for frame in p2_frames]
-    p2_rgb_frames = [Array(colorview(RGB, frame)) for frame in p2_rgb_frames]
-    p2_rgb_frames = cat(p2_rgb_frames..., dims=3)
-    FileIO.save("test_record_player_2_perspective.gif", p2_rgb_frames)
 end
 
 @testset "two_consecutive_pickups" begin
