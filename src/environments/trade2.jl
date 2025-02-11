@@ -3,15 +3,22 @@ using Images.ImageCore: colorview, RGB
 
 export TradeGridWorld, render, LogTradeRatios, ClearTradeRatios 
 
+const SELF_COLOR = [0.67f0, 0.87f0, 0.73f0]
+const OTHER_COLOR = [0.47f0, 0.60f0, 0.54f0]
+const PLAYER_RADIUS = 4
+
+struct TradeRatio <: AbstractMetric end
+struct PrimaryResourceCount <: AbstractMetric end
+struct SecondaryResourceCount <: AbstractMetric end
+
+abstract type AbstractGridworld <: Jevo.AbstractEnvironment end
+
 mutable struct PlayerState
     id::Int
     position::Tuple{Float64, Float64}
     resource_apples::Float64
     resource_bananas::Float64
 end
-
-abstract type AbstractGridworld <: Jevo.AbstractEnvironment end
-
 
 struct TradeRatioInteraction <: AbstractInteraction
     individual_id::Int
@@ -63,10 +70,6 @@ function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30,
     TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius, render_filename, Array{Float32, 3}[])
 end
 
-struct TradeRatio <: AbstractMetric end
-struct PrimaryResourceCount <: AbstractMetric end
-struct SecondaryResourceCount <: AbstractMetric end
-
 function log_trade_ratio(state, individuals, h5)
     # extract all trade ratio interactions
     ratios = [int.trade_ratio for ind in individuals for int in ind.interactions if int isa TradeRatioInteraction]
@@ -108,6 +111,27 @@ function inverse_absolute_difference(apples, bananas)
     return 1 / (ratio + 1)
 end
 inverse_absolute_difference(player::PlayerState) = inverse_absolute_difference(player.resource_apples, player.resource_bananas)
+
+function collect_nearby_resources(grid::Array{Float64, 2}, player::PlayerState, amount)
+    x, y = player.position
+    x_min = max(1, floor(Int, x - PLAYER_RADIUS))
+    x_max = min(size(grid, 1), ceil(Int, x + PLAYER_RADIUS))
+    y_min = max(1, floor(Int, y - PLAYER_RADIUS))
+    y_max = min(size(grid, 2), ceil(Int, y + PLAYER_RADIUS))
+
+    total_collected = 0.0
+    for i in x_min:x_max, j in y_min:y_max 
+        if (i - x)^2 + (j - y)^2 <= PLAYER_RADIUS^2 && grid[i, j] > 0
+            amount_to_collect = min(amount - total_collected, grid[i, j]);
+            grid[i, j] -= amount_to_collect;
+            total_collected += amount_to_collect;
+            if total_collected >= amount 
+                return total_collected 
+            end
+        end
+    end
+    return total_collected
+end
 
 function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) where P<:AbstractPhenotype
 
@@ -166,26 +190,17 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
             end
         end
 
-        # Handle picking resources
         if pick_action > 0  # Pick primary resource
-            if is_player_one && env.grid_apples[grid_x, grid_y] > 0
-                amount = min(env.grid_apples[grid_x, grid_y], pick_action)
-                player.resource_apples += amount
-                env.grid_apples[grid_x, grid_y] -= amount
-            elseif !is_player_one && env.grid_bananas[grid_x, grid_y] > 0
-                amount = min(env.grid_bananas[grid_x, grid_y], pick_action)
-                player.resource_bananas += amount
-                env.grid_bananas[grid_x, grid_y] -= amount
+            if is_player_one
+                player.resource_apples += collect_nearby_resources(env.grid_apples, player, pick_action)
+            else
+                player.resource_bananas += collect_nearby_resources(env.grid_bananas, player, pick_action)
             end
         elseif pick_action < 0  # Pick secondary resource
-            if is_player_one && env.grid_bananas[grid_x, grid_y] > 0
-                amount = min(env.grid_bananas[grid_x, grid_y], abs(pick_action))
-                player.resource_bananas += amount
-                env.grid_bananas[grid_x, grid_y] -= amount
-            elseif !is_player_one && env.grid_apples[grid_x, grid_y] > 0
-                amount = min(env.grid_apples[grid_x, grid_y], abs(pick_action))
-                player.resource_apples += amount
-                env.grid_apples[grid_x, grid_y] -= amount
+            if is_player_one
+                player.resource_bananas += collect_nearby_resources(env.grid_bananas, player, abs(pick_action))
+            else
+                player.resource_apples += collect_nearby_resources(env.grid_apples, player, abs(pick_action))
             end
         end
 
@@ -261,9 +276,6 @@ function get_actions(observations, phenotypes::Vector{P}) where P<:AbstractPheno
     [pheno(obs) for (obs, pheno) in zip(observations, phenotypes)]
 end
 
-const SELF_COLOR = [0.67f0, 0.87f0, 0.73f0]
-const OTHER_COLOR = [0.47f0, 0.60f0, 0.54f0]
-
 function get_player_color(viewing_player::Int, player_idx::Int)
     viewing_player == player_idx ? SELF_COLOR : OTHER_COLOR
 end
@@ -285,7 +297,7 @@ function render(env::TradeGridWorld, perspective::Int=1)
         player = env.players[idx]
         x_center = player.position[1] + 1  # Adjust for 1-based indexing
         y_center = player.position[2] + 1  # Adjust for 1-based indexing
-        radius = 4  # Circle radius
+        radius = PLAYER_RADIUS  # Circle radius
 
         # Determine the bounding box for the circle
         x_min = max(floor(Int, x_center - radius), 1)

@@ -64,6 +64,36 @@ end
     FileIO.save("test_record_player_2_perspective.gif", p2_rgb_frames)
 end
 
+@testset "two_consecutive_pickups" begin
+    # player picks up twice 
+    n = 10
+    p = 2
+    max_steps = 3
+    env = TradeGridWorld(n, p, max_steps, view_radius, "pickup_placedown.gif")
+
+    # place apples at (4,3) and (4,6)
+    # place bananas at (6,3) and (6,6)
+    env.grid_apples[4,3] = 1
+    env.grid_apples[4,6] = 1
+    env.grid_bananas[6,3] = 1
+    env.grid_bananas[6,6] = 1
+
+    env.players[1].position = (5,5)
+    env.players[2].position = (5,5)
+    player_moves = [ [[0,0,0,-1],  [0,0,0,-1], [0,0,0,-1]],
+                     [[0,0,0,-1], [0,0,0,-1], [0,0,0,-1]]]
+    
+    while !done(env)
+        ids = [player.id for player in env.players]
+        phenotypes = [DummyPhenotype(player_moves[i][env.step_counter]) for i in eachindex(env.players)]
+        step!(env, ids, phenotypes)
+    end
+    @test env.players[1].resource_apples == 10
+    @test env.players[1].resource_bananas == 2
+    @test env.players[2].resource_apples == 2
+    @test env.players[2].resource_bananas == 10
+end
+
 #= @testset "1k steps" begin =#
 #=     n=100 =#
 #=     p=2 =#
