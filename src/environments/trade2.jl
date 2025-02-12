@@ -258,7 +258,7 @@ function make_observations(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Ve
     for (i, player) in enumerate(env.players)
         # Render the world from this player's perspective
         player_view = render(env, i)
-        obs = ones(Float32, view_size, view_size, 3)
+        obs = fill(0.2f0, view_size, view_size, 3)
         px = round(Int, player.position[1]) + 1
         py = round(Int, player.position[2]) + 1
         
