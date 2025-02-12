@@ -7,6 +7,7 @@ const SELF_COLOR = [0.67f0, 0.87f0, 0.73f0]
 const OTHER_COLOR = [0.47f0, 0.60f0, 0.54f0]
 const PLAYER_RADIUS = 4
 const STARTING_RESOURCES = 10f0
+const POOL_REWARD = 0.5f0  # Reward for standing in water pool
 
 struct TradeRatio <: AbstractMetric end
 struct PrimaryResourceCount <: AbstractMetric end
@@ -49,12 +50,13 @@ mutable struct TradeGridWorld <: AbstractGridworld
     max_steps::Int
     view_radius::Int # Radius of player's view window
     reset_interval::Int  # Reset map every N steps
+    pool_radius::Int # Radius of central water pool
     render_filename::String
     frames::Vector{Array{Float32,3}}
     perspective_frames::Vector  # each player's obs 
 end
 
-function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30, reset_interval::Int=25, render_filename::String="")
+function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30, reset_interval::Int=25, pool_radius::Int=5, render_filename::String="")
     grid_apples = zeros(n, n)
     grid_bananas = zeros(n, n)
     players = PlayerState[]
@@ -65,7 +67,7 @@ function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30,
         position = (player_offsets[i], player_offsets[i])
         push!(players, PlayerState(i, position, 0.0, 0.0))
     end
-    env = TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius, reset_interval, render_filename, Array{Float32, 3}[], [Array{Float32, 3}[] for i in 1:p], )
+    env = TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius, reset_interval, pool_radius, render_filename, Array{Float32, 3}[], [Array{Float32, 3}[] for i in 1:p])
     reset_map!(env)
     env
 end
@@ -215,7 +217,14 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
             end
         end
 
-        score = (player.resource_apples + 0.1) * (player.resource_bananas + 0.1)
+        # Check if player is in water pool
+        center = env.n ÷ 2
+        dx = player.position[1] - center
+        dy = player.position[2] - center
+        in_pool = sqrt(dx^2 + dy^2) <= env.pool_radius
+        pool_bonus = in_pool ? POOL_REWARD : 0.0f0
+        
+        score = (player.resource_apples + 0.1) * (player.resource_bananas + 0.1) + pool_bonus
         push!(interactions, Interaction(id, [], score))
 
         env.players[i] = player  # Update player state
@@ -304,6 +313,16 @@ end
 function render(env::TradeGridWorld, perspective::Int=1)
     n = env.n
     img = zeros(Float32, n, n, 3)
+    
+    # Render water pool in center
+    center = n ÷ 2
+    for x in 1:n, y in 1:n
+        dx = x - center
+        dy = y - center
+        if sqrt(dx^2 + dy^2) <= env.pool_radius
+            img[x, y, :] .= [0.0f0, 0.0f0, 0.8f0]  # Blue color for water
+        end
+    end
 
     for idx in eachindex(env.players)
         player = env.players[idx]
