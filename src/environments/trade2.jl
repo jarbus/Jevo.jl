@@ -57,8 +57,6 @@ end
 function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30, render_filename::String="", reset_interval::Int=25)
     grid_apples = zeros(n, n)
     grid_bananas = zeros(n, n)
-    grid_apples[2, 2] = STARTING_RESOURCES
-    grid_bananas[n-2, n-2] = STARTING_RESOURCES
     players = PlayerState[]
     # start player 1 in top left corner, player 2 in bottom right corner
     player_offsets = Float32[4, n-4]
@@ -67,7 +65,9 @@ function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30,
         position = (player_offsets[i], player_offsets[i])
         push!(players, PlayerState(i, position, 0.0, 0.0))
     end
-    TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius, render_filename, Array{Float32, 3}[], [Array{Float32, 3}[] for i in 1:p], reset_interval)
+    env = TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius, render_filename, Array{Float32, 3}[], [Array{Float32, 3}[] for i in 1:p], reset_interval)
+    reset_map!(env)
+    env
 end
 
 function log_trade_ratio(state, individuals, h5)
