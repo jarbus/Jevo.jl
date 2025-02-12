@@ -56,18 +56,15 @@ end
 function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30, render_filename::String="")
     grid_apples = zeros(n, n)
     grid_bananas = zeros(n, n)
+    grid_apples[2, 2] = STARTING_RESOURCES
+    grid_bananas[n-2, n-2] = STARTING_RESOURCES
     players = PlayerState[]
+    # start player 1 in top left corner, player 2 in bottom right corner
+    player_offsets = Float32[4, n-4]
     for i in 1:p
         # Players start with 10 of one resource and zero of the other
-        if i % 2 == 1
-            apples = STARTING_RESOURCES
-            bananas = 0.0
-        else
-            apples = 0.0
-            bananas = STARTING_RESOURCES
-        end
-        position = (rand() * n, rand() * n)
-        push!(players, PlayerState(i, position, apples, bananas))
+        position = (player_offsets[i], player_offsets[i])
+        push!(players, PlayerState(i, position, 0.0, 0.0))
     end
     TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius, render_filename, Array{Float32, 3}[], [Array{Float32, 3}[] for i in 1:p])
 end

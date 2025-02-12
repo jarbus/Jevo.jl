@@ -22,6 +22,12 @@ view_radius = 30
     center_pos = (n/2, n/2)
     env.players[1].position = center_pos
     env.players[2].position = center_pos
+    env.players[1].resource_apples = 10
+    env.players[1].resource_bananas = 0
+    env.players[2].resource_bananas = 10
+    env.players[2].resource_apples = 0
+    env.grid_apples .= 0f0
+    env.grid_bananas .= 0f0
     player_moves = [ [[0,0,1,0],  [0,0,0,-1]],
                      [[0,0,1,0], [0,0,0,-1]]]
     
@@ -60,18 +66,24 @@ end
     p = 2
     max_steps = 3
     env = TradeGridWorld(n, p, max_steps, view_radius, "pickup_placedown.gif")
+    env.grid_apples .= 0f0
+    env.grid_bananas .= 0f0
 
-    # place apples at (4,3) and (4,6)
-    # place bananas at (6,3) and (6,6)
     env.grid_apples[4,3] = 1
     env.grid_apples[4,6] = 1
     env.grid_bananas[6,3] = 1
     env.grid_bananas[6,6] = 1
 
+    # confirm agents dont pick up fruit outside of their range
     env.grid_apples[1,1] = 1
     env.grid_apples[1,10] = 1
     env.grid_bananas[10,1] = 1
     env.grid_bananas[10,10] = 1
+
+    env.players[1].resource_apples = 10
+    env.players[1].resource_bananas = 0
+    env.players[2].resource_bananas = 10
+    env.players[2].resource_apples = 0
 
     env.players[1].position = (5,5)
     env.players[2].position = (5,5)
