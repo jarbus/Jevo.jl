@@ -7,8 +7,9 @@ const SELF_COLOR = [0.67f0, 0.87f0, 0.73f0]
 const OTHER_COLOR = [0.47f0, 0.60f0, 0.54f0]
 const PLAYER_RADIUS = 4
 const STARTING_RESOURCES = 10f0
-const POOL_REWARD = 0.5f0  # Reward for standing in water pool
-const POOL_COLOR = [0.0f0, 0.0f0, 0.8f0]  # Blue color for water
+const POOL_REWARD = 0.05f0  # Reward for standing in water pool
+const POOL_COLOR = [0.4f0, 0.8f0, 1.0f0]  # Blue color for water
+const FOOD_BONUS_EPSILON = 0.1
 
 struct TradeRatio <: AbstractMetric end
 struct PrimaryResourceCount <: AbstractMetric end
@@ -225,7 +226,7 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
         in_pool = sqrt(dx^2 + dy^2) <= env.pool_radius
         pool_bonus = in_pool ? POOL_REWARD : 0.0f0
         
-        score = (player.resource_apples + 0.1) * (player.resource_bananas + 0.1) + pool_bonus
+        score = (player.resource_apples + FOOD_BONUS_EPSILON) * (player.resource_bananas + FOOD_BONUS_EPSILON) + pool_bonus
         push!(interactions, Interaction(id, [], score))
 
         env.players[i] = player  # Update player state
