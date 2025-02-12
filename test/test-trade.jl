@@ -15,13 +15,13 @@ function (p::DummyPhenotype)(x...)
 end
 
 view_radius = 30
-reset_interval = 100
 @testset "Pickup/placedown" begin
     n = 10
     p = 2
-    max_steps = 2
+    max_steps = 3
+    reset_interval = 3
     env = TradeGridWorld(n, p, max_steps, view_radius, reset_interval, POOL_RADIUS, "pickup_placedown.gif")
-    
+
     center_pos = (n/2, n/2)
     env.players[1].position = center_pos
     env.players[2].position = center_pos
@@ -31,10 +31,10 @@ reset_interval = 100
     env.players[2].resource_apples = 0
     env.grid_apples .= 0f0
     env.grid_bananas .= 0f0
-    player_moves = [ [[0,0,1,0],  [0,0,0,-1]],
-                     [[0,0,1,0], [0,0,0,-1]]]
-    
-    while !done(env)
+    player_moves = [ [[0,0,1,0], [0,0,0,-1], [0,0,0,0]],
+                     [[0,0,1,0], [0,0,0,-1], [0,0,0,0]]]
+
+    for _ in 1:2
         ids = [player.id for player in env.players]
         phenotypes = [DummyPhenotype(player_moves[i][env.step_counter]) for i in eachindex(env.players)]
         step!(env, ids, phenotypes)
@@ -49,6 +49,7 @@ end
     n = 100
     p = 2
     max_steps = 50
+    reset_interval = max_steps
     env = TradeGridWorld(n, p, max_steps, view_radius, reset_interval, POOL_RADIUS, "record_player_perspective.gif")
 
     p1_frames = []
@@ -68,6 +69,7 @@ end
     n = 10
     p = 2
     max_steps = 3
+    reset_interval = 3
     env = TradeGridWorld(n, p, max_steps, view_radius, reset_interval, POOL_RADIUS, "pickup_placedown.gif")
     env.grid_apples .= 0f0
     env.grid_bananas .= 0f0
@@ -133,9 +135,13 @@ end
     @test env.grid_bananas[3,3] == 3.0
     @test env.players[1].resource_apples == 5.0
     
-    # Run another step (reset should occur)
+    # Run another step (reset should not occur until the start of step 3)
     step!(env, ids, phenotypes)
+    @test env.grid_apples[5,5] == 2.0
+    @test env.grid_bananas[3,3] == 3.0
+    @test env.players[1].resource_apples == 5.0
     
+    step!(env, ids, phenotypes)
     # Verify reset occurred
     @test env.grid_apples[2,2] == Jevo.STARTING_RESOURCES
     @test env.grid_bananas[n-2,n-2] == Jevo.STARTING_RESOURCES
@@ -153,6 +159,7 @@ end
     n = 20
     p = 2
     max_steps = 2
+    reset_interval = 2
     env = TradeGridWorld(n, p, max_steps, view_radius, reset_interval, POOL_RADIUS, "")
     
     # Place both players in center (pool)

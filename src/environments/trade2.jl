@@ -59,6 +59,7 @@ mutable struct TradeGridWorld <: AbstractGridworld
 end
 
 function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30, reset_interval::Int=25, pool_radius::Int=5, render_filename::String="")
+    @assert max_steps % reset_interval == 0
     grid_apples = zeros(n, n)
     grid_bananas = zeros(n, n)
     players = PlayerState[]
@@ -141,10 +142,12 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
 
     @assert length(ids) == length(phenotypes) == env.p
     
-    if env.step_counter % env.reset_interval == 0
+    interactions = []
+
+    if env.step_counter > 1 && env.step_counter % env.reset_interval == 1
+        append!(interactions, make_resource_interactions(env, ids))
         reset_map!(env)
     end
-    interactions = []
     observations = make_observations(env, ids, phenotypes)
 
     if !isempty(env.render_filename) 
@@ -234,20 +237,6 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
     env.step_counter += 1
     # Record trade ratio
     if done(env)
-        for i in 1:env.p, j in (i+1):env.p
-            push!(interactions, 
-                TradeRatioInteraction(ids[i], [ids[j]], inverse_absolute_difference(env.players[i])),
-                TradeRatioInteraction(ids[j], [ids[i]], inverse_absolute_difference(env.players[j])))
-            @assert env.p == 2
-            # compute primary
-            push!(interactions, 
-                PrimaryResourceCountInteraction(ids[i], [ids[j]], env.players[i].resource_apples),
-                PrimaryResourceCountInteraction(ids[j], [ids[i]], env.players[j].resource_bananas))
-            # compute secondary
-            push!(interactions, 
-                SecondaryResourceCountInteraction(ids[i], [ids[j]], env.players[i].resource_bananas),
-                SecondaryResourceCountInteraction(ids[j], [ids[i]], env.players[j].resource_apples))
-        end
         if !isempty(env.render_filename)
             push!(env.frames, render(env, 1))  # Always render from player 1's perspective
             root = split(env.render_filename, ".")[1]
@@ -263,6 +252,25 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
 end
 
 done(env::TradeGridWorld) = env.step_counter > env.max_steps
+
+function make_resource_interactions(env::TradeGridWorld, ids::Vector{Int})
+    interactions = []
+    @assert env.p == 2
+    for i in 1:env.p, j in (i+1):env.p
+        push!(interactions, 
+            TradeRatioInteraction(ids[i], [ids[j]], inverse_absolute_difference(env.players[i])),
+            TradeRatioInteraction(ids[j], [ids[i]], inverse_absolute_difference(env.players[j])))
+        # compute primary
+        push!(interactions, 
+            PrimaryResourceCountInteraction(ids[i], [ids[j]], env.players[i].resource_apples),
+            PrimaryResourceCountInteraction(ids[j], [ids[i]], env.players[j].resource_bananas))
+        # compute secondary
+        push!(interactions, 
+            SecondaryResourceCountInteraction(ids[i], [ids[j]], env.players[i].resource_bananas),
+            SecondaryResourceCountInteraction(ids[j], [ids[i]], env.players[j].resource_apples))
+    end
+    interactions
+end
 
 # Creates RGB pixel observations for each player in the environment.
 function make_observations(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) where P<:AbstractPhenotype
