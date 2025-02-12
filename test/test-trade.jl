@@ -13,11 +13,12 @@ function (p::DummyPhenotype)(x...)
 end
 
 view_radius = 30
+reset_interval = 100
 @testset "Pickup/placedown" begin
     n = 10
     p = 2
     max_steps = 2
-    env = TradeGridWorld(n, p, max_steps, view_radius, "pickup_placedown.gif")
+    env = TradeGridWorld(n, p, max_steps, view_radius, reset_interval, "pickup_placedown.gif")
     
     center_pos = (n/2, n/2)
     env.players[1].position = center_pos
@@ -46,7 +47,7 @@ end
     n = 100
     p = 2
     max_steps = 50
-    env = TradeGridWorld(n, p, max_steps, view_radius, "record_player_perspective.gif")
+    env = TradeGridWorld(n, p, max_steps, view_radius, reset_interval, "record_player_perspective.gif")
 
     p1_frames = []
     p2_frames = []
@@ -65,7 +66,7 @@ end
     n = 10
     p = 2
     max_steps = 3
-    env = TradeGridWorld(n, p, max_steps, view_radius, "pickup_placedown.gif")
+    env = TradeGridWorld(n, p, max_steps, view_radius, reset_interval, "pickup_placedown.gif")
     env.grid_apples .= 0f0
     env.grid_bananas .= 0f0
 
@@ -106,7 +107,7 @@ end
     p = 2
     max_steps = 4  # Run for 4 steps to see reset at step 2
     reset_interval = 2
-    env = TradeGridWorld(n, p, max_steps, view_radius, "", reset_interval)
+    env = TradeGridWorld(n, p, max_steps, view_radius, reset_interval, "")
     
     # Give players some resources
     env.players[1].resource_apples = 5.0

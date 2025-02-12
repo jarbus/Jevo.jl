@@ -48,24 +48,24 @@ mutable struct TradeGridWorld <: AbstractGridworld
     step_counter::Int
     max_steps::Int
     view_radius::Int # Radius of player's view window
+    reset_interval::Int  # Reset map every N steps
     render_filename::String
     frames::Vector{Array{Float32,3}}
     perspective_frames::Vector  # each player's obs 
-    reset_interval::Int  # Reset map every N steps
 end
 
-function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30, render_filename::String="", reset_interval::Int=25)
+function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30, reset_interval::Int=25, render_filename::String="")
     grid_apples = zeros(n, n)
     grid_bananas = zeros(n, n)
     players = PlayerState[]
     # start player 1 in top left corner, player 2 in bottom right corner
-    player_offsets = Float32[4, n-4]
+    player_offsets = Float32[6, n-6]
     for i in 1:p
         # Players start with 10 of one resource and zero of the other
         position = (player_offsets[i], player_offsets[i])
         push!(players, PlayerState(i, position, 0.0, 0.0))
     end
-    env = TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius, render_filename, Array{Float32, 3}[], [Array{Float32, 3}[] for i in 1:p], reset_interval)
+    env = TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius, reset_interval, render_filename, Array{Float32, 3}[], [Array{Float32, 3}[] for i in 1:p], )
     reset_map!(env)
     env
 end
