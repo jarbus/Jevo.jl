@@ -51,9 +51,10 @@ mutable struct TradeGridWorld <: AbstractGridworld
     render_filename::String
     frames::Vector{Array{Float32,3}}
     perspective_frames::Vector  # each player's obs 
+    reset_interval::Int  # Reset map every N steps
 end
 
-function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30, render_filename::String="")
+function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30, render_filename::String="", reset_interval::Int=25)
     grid_apples = zeros(n, n)
     grid_bananas = zeros(n, n)
     grid_apples[2, 2] = STARTING_RESOURCES
@@ -66,7 +67,7 @@ function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30,
         position = (player_offsets[i], player_offsets[i])
         push!(players, PlayerState(i, position, 0.0, 0.0))
     end
-    TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius, render_filename, Array{Float32, 3}[], [Array{Float32, 3}[] for i in 1:p])
+    TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius, render_filename, Array{Float32, 3}[], [Array{Float32, 3}[] for i in 1:p], reset_interval)
 end
 
 function log_trade_ratio(state, individuals, h5)
@@ -135,6 +136,10 @@ end
 function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) where P<:AbstractPhenotype
 
     @assert length(ids) == length(phenotypes) == env.p
+    
+    if env.step_counter % env.reset_interval == 0
+        reset_map!(env)
+    end
     interactions = []
     observations = make_observations(env, ids, phenotypes)
 
@@ -337,6 +342,22 @@ function render(env::TradeGridWorld, perspective::Int=1)
         end
     end
     img
+end
+
+function reset_map!(env::TradeGridWorld)
+    # Clear grids
+    fill!(env.grid_apples, 0.0)
+    fill!(env.grid_bananas, 0.0)
+    
+    # Respawn resources in corners
+    env.grid_apples[2, 2] = STARTING_RESOURCES
+    env.grid_bananas[env.n-2, env.n-2] = STARTING_RESOURCES
+    
+    # Reset player resources
+    for player in env.players
+        player.resource_apples = 0.0
+        player.resource_bananas = 0.0
+    end
 end
 
 function save_gif(frames::Vector{Array{Float32,3}}, filename::String)
