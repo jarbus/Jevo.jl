@@ -149,6 +149,48 @@ end
     end
 end
 
+@testset "pool reward" begin
+    n = 20
+    p = 2
+    max_steps = 2
+    env = TradeGridWorld(n, p, max_steps, view_radius, reset_interval, POOL_RADIUS, "")
+    
+    # Place both players in center (pool)
+    center = n ÷ 2
+    env.players[1].position = (center, center)
+    env.players[2].position = (center, center)
+    
+    # Give some initial resources
+    env.players[1].resource_apples = 1.0
+    env.players[1].resource_bananas = 1.0
+    env.players[2].resource_apples = 1.0
+    env.players[2].resource_bananas = 1.0
+    
+    # Run one step with players in pool
+    ids = [player.id for player in env.players]
+    phenotypes = [DummyPhenotype([0.0, 0.0, 0.0, 0.0]) for _ in 1:p]
+    interactions = step!(env, ids, phenotypes)
+    
+    # Expected score without pool: (1.0 + 0.1) * (1.0 + 0.1) = 1.21
+    # With pool bonus: 1.21 + POOL_REWARD
+    expected_score = 1.21 + Jevo.POOL_REWARD
+    
+    # Check both players got pool bonus
+    @test interactions[1].score ≈ expected_score
+    @test interactions[2].score ≈ expected_score
+    
+    # Move players out of pool
+    env.players[1].position = (1.0, 1.0)
+    env.players[2].position = (1.0, 1.0)
+    
+    # Run another step with players outside pool
+    interactions = step!(env, ids, phenotypes)
+    
+    # Check scores without pool bonus
+    @test interactions[1].score ≈ 1.21
+    @test interactions[2].score ≈ 1.21
+end
+
 #= @testset "1k steps" begin =#
 #=     n=100 =#
 #=     p=2 =#
