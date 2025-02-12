@@ -8,6 +8,7 @@ const OTHER_COLOR = [0.47f0, 0.60f0, 0.54f0]
 const PLAYER_RADIUS = 4
 const STARTING_RESOURCES = 10f0
 const POOL_REWARD = 0.5f0  # Reward for standing in water pool
+const POOL_COLOR = [0.0f0, 0.0f0, 0.8f0]  # Blue color for water
 
 struct TradeRatio <: AbstractMetric end
 struct PrimaryResourceCount <: AbstractMetric end
@@ -320,7 +321,7 @@ function render(env::TradeGridWorld, perspective::Int=1)
         dx = x - center
         dy = y - center
         if sqrt(dx^2 + dy^2) <= env.pool_radius
-            img[x, y, :] .= [0.0f0, 0.0f0, 0.8f0]  # Blue color for water
+            img[x, y, :] .= POOL_COLOR
         end
     end
 
