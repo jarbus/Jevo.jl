@@ -33,12 +33,12 @@ function make_all_v_all_matches(state::AbstractState, pops::Vector{Vector{Popula
         for subpopi in pops[1]
             inds = subpopi.individuals
             @assert length(inds) > 1
-            for i in eachindex(inds), j in i:length(inds)
-                push!(matches, Match(inc!(match_counter), [inds[i], inds[j]], env_creator))
+            for ind_i in inds, ind_j in inds
+                push!(matches, Match(inc!(match_counter), [ind_i, ind_j], env_creator))
             end
         end
         n_inds = length(pops[1][1].individuals)
-        @assert length(matches) == n_inds*(n_inds+1)/2
+        @assert length(matches) == n_inds^2
         return matches
     end
 

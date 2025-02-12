@@ -149,7 +149,7 @@
           # single pop
           state = State("", rng, [single_pop_creator, env_creator], [pop_initializer, AllVsAllMatchMaker()], counters=default_counters())
           run!(state, 1)
-          @test length(state.matches) == n_inds * (n_inds + 1) / 2
+          @test length(state.matches) == n_inds^2
       end
 
       @testset "BestVsBest" begin
