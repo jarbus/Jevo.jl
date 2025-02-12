@@ -101,6 +101,41 @@ end
     @test env.players[2].resource_bananas == 10
 end
 
+@testset "manual map reset" begin
+    n = 10
+    p = 2
+    max_steps = 4  # Run for 4 steps to see reset at step 2
+    reset_interval = 2
+    env = TradeGridWorld(n, p, max_steps, view_radius, "", reset_interval)
+    
+    # Give players some resources
+    env.players[1].resource_apples = 5.0
+    env.players[1].resource_bananas = 3.0
+    env.players[2].resource_apples = 2.0
+    env.players[2].resource_bananas = 4.0
+    
+    # Clear and modify grid
+    env.grid_apples .= 0.0
+    env.grid_bananas .= 0.0
+    env.grid_apples[5,5] = 2.0
+    env.grid_bananas[3,3] = 3.0
+    
+    # Force a reset
+    reset_map!(env)
+    
+    # Check grid reset
+    @test env.grid_apples[2,2] == STARTING_RESOURCES
+    @test env.grid_bananas[n-2,n-2] == STARTING_RESOURCES
+    @test sum(env.grid_apples) == STARTING_RESOURCES
+    @test sum(env.grid_bananas) == STARTING_RESOURCES
+    
+    # Check player resources reset
+    for player in env.players
+        @test player.resource_apples == 0.0
+        @test player.resource_bananas == 0.0
+    end
+end
+
 @testset "automatic map reset" begin
     n = 10
     p = 2
