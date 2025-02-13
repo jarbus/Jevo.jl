@@ -10,10 +10,12 @@ const STARTING_RESOURCES = 10f0
 const POOL_REWARD = 0.05f0  # Reward for standing in water pool
 const POOL_COLOR = [0.4f0, 0.8f0, 1.0f0]  # Blue color for water
 const FOOD_BONUS_EPSILON = 0.1
+const APPLE_COLOR = [1.0f0, 0.0f0, 0.0f0]  # Red color for apples
+const BANANA_COLOR = [0.0f0, 1.0f0, 0.0f0]  # Green color for bananas
 
 struct TradeRatio <: AbstractMetric end
-struct PrimaryResourceCount <: AbstractMetric end
-struct SecondaryResourceCount <: AbstractMetric end
+struct NumApples <: AbstractMetric end
+struct NumBananas <: AbstractMetric end
 
 abstract type AbstractGridworld <: Jevo.AbstractEnvironment end
 
@@ -30,13 +32,13 @@ struct TradeRatioInteraction <: AbstractInteraction
     trade_ratio::Float64
 end
 
-struct PrimaryResourceCountInteraction <: AbstractInteraction
+struct NumApplesInteraction <: AbstractInteraction
     individual_id::Int
     other_ids::Vector{Int}
     count::Float64
 end
 
-struct SecondaryResourceCountInteraction <: AbstractInteraction
+struct NumBananasInteraction <: AbstractInteraction
     individual_id::Int
     other_ids::Vector{Int}
     count::Float64
@@ -183,43 +185,22 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
         grid_x = clamp(floor(Int, new_x) + 1, 1, env.n)
         grid_y = clamp(floor(Int, new_y) + 1, 1, env.n)
         # Determine primary/secondary resources based on player number
-        is_player_one = i % 2 == 1
         
         # Handle placing resources
         if place_action > 0  # Place primary resource
-            if is_player_one
-                amount = min(player.resource_apples, place_action)
-                player.resource_apples -= amount
-                env.grid_apples[grid_x, grid_y] += amount
-            else
-                amount = min(player.resource_bananas, place_action)
-                player.resource_bananas -= amount
-                env.grid_bananas[grid_x, grid_y] += amount
-            end
+            amount = min(player.resource_apples, place_action)
+            player.resource_apples -= amount
+            env.grid_apples[grid_x, grid_y] += amount
         elseif place_action < 0  # Place secondary resource
-            if is_player_one
-                amount = min(player.resource_bananas, abs(place_action))
-                player.resource_bananas -= amount
-                env.grid_bananas[grid_x, grid_y] += amount
-            else
-                amount = min(player.resource_apples, abs(place_action))
-                player.resource_apples -= amount
-                env.grid_apples[grid_x, grid_y] += amount
-            end
+            amount = min(player.resource_bananas, abs(place_action))
+            player.resource_bananas -= amount
+            env.grid_bananas[grid_x, grid_y] += amount
         end
 
         if pick_action > 0  # Pick primary resource
-            if is_player_one
-                player.resource_apples += collect_nearby_resources(env.grid_apples, player, pick_action)
-            else
-                player.resource_bananas += collect_nearby_resources(env.grid_bananas, player, pick_action)
-            end
+            player.resource_apples += collect_nearby_resources(env.grid_apples, player, pick_action)
         elseif pick_action < 0  # Pick secondary resource
-            if is_player_one
-                player.resource_bananas += collect_nearby_resources(env.grid_bananas, player, abs(pick_action))
-            else
-                player.resource_apples += collect_nearby_resources(env.grid_apples, player, abs(pick_action))
-            end
+            player.resource_bananas += collect_nearby_resources(env.grid_bananas, player, abs(pick_action))
         end
 
         # Check if player is in water pool
@@ -262,12 +243,12 @@ function make_resource_interactions(env::TradeGridWorld, ids::Vector{Int})
             TradeRatioInteraction(ids[j], [ids[i]], inverse_absolute_difference(env.players[j])))
         # compute primary
         push!(interactions, 
-            PrimaryResourceCountInteraction(ids[i], [ids[j]], env.players[i].resource_apples),
-            PrimaryResourceCountInteraction(ids[j], [ids[i]], env.players[j].resource_bananas))
+            NumApplesInteraction(ids[i], [ids[j]], env.players[i].resource_apples),
+            NumBananasInteraction(ids[i], [ids[j]], env.players[i].resource_bananas))
         # compute secondary
         push!(interactions, 
-            SecondaryResourceCountInteraction(ids[i], [ids[j]], env.players[i].resource_bananas),
-            SecondaryResourceCountInteraction(ids[j], [ids[i]], env.players[j].resource_apples))
+            NumApplesInteraction(ids[j], [ids[i]], env.players[j].resource_apples),
+            NumBananasInteraction(ids[j], [ids[i]], env.players[j].resource_bananas))
     end
     interactions
 end
@@ -307,17 +288,12 @@ function get_actions(observations, phenotypes::Vector{P}) where P<:AbstractPheno
     [pheno(obs) for (obs, pheno) in zip(observations, phenotypes)]
 end
 
-function get_player_color(viewing_player::Int, player_idx::Int)
-    viewing_player == player_idx ? SELF_COLOR : OTHER_COLOR
-end
-
-# Helper function to get resource colors based on perspective
-function get_resource_colors(perspective::Int)
-    if perspective % 2 == 1
-        return (apples = [1f0, 0f0, 0f0], bananas = [0f0, 1f0, 0f0])  # Red apples, Green bananas
-    else
-        return (apples = [0f0, 1f0, 0f0], bananas = [1f0, 0f0, 0f0])  # Green apples, Red bananas
-    end
+function get_player_color(viewing_player::Int, player_idx::Int, players::Vector{PlayerState})
+    color = viewing_player == player_idx ? copy(SELF_COLOR) : copy(OTHER_COLOR)
+    increments = (1 .- color) ./ STARTING_RESOURCES  # apples increments are [1], banana increments are [2]
+    color[1] += players[player_idx].resource_apples * increments[1]
+    color[2] += players[player_idx].resource_bananas * increments[2]
+    color
 end
 
 function render(env::TradeGridWorld, perspective::Int=1)
@@ -334,7 +310,12 @@ function render(env::TradeGridWorld, perspective::Int=1)
         end
     end
 
-    for idx in eachindex(env.players)
+    # Iterate through all players and plot them, but do the current player's perspective last
+    # to ensure they are on top of the others
+    player_order = [i for i in 1:env.p if i != perspective]
+    player_order = vcat(player_order, perspective)
+
+    for idx in player_order
         player = env.players[idx]
         x_center = player.position[1] + 1  # Adjust for 1-based indexing
         y_center = player.position[2] + 1  # Adjust for 1-based indexing
@@ -346,6 +327,8 @@ function render(env::TradeGridWorld, perspective::Int=1)
         y_min = max(floor(Int, y_center - radius), 1)
         y_max = min(ceil(Int, y_center + radius), n)
 
+        player_color = get_player_color(perspective, idx, env.players)
+
         for x in x_min:x_max
             for y in y_min:y_max
                 # Compute the distance from the center
@@ -353,23 +336,26 @@ function render(env::TradeGridWorld, perspective::Int=1)
                 dy = y - y_center
                 distance = sqrt(dx^2 + dy^2)
                 if distance <= radius
-                    img[x, y, :] .= get_player_color(perspective, idx)
+                    img[x, y, :] .= player_color
                 end
             end
         end
     end
 
-    # Get the correct colors for this perspective
-    resource_colors = get_resource_colors(perspective)
-    
     # Render apples and bananas on the grid, if there is anything, it starts at 0.5
     for x in 1:n, y in 1:n
+        # clear pixels to add food colors
+        if env.grid_apples[x, y] > 0 || env.grid_bananas[x, y] > 0
+            img[x, y, :] .= 0.0f0
+        end
         if env.grid_apples[x, y] > 0
-            img[x, y, :] .= resource_colors.apples .* (0.5f0 + env.grid_apples[x,y]/(2*STARTING_RESOURCES))
-        elseif env.grid_bananas[x, y] > 0
-            img[x, y, :] .= resource_colors.bananas .* (0.5f0 + env.grid_bananas[x,y]/(2*STARTING_RESOURCES))
+            img[x, y, :] += APPLE_COLOR .* (0.5f0 + env.grid_apples[x,y]/(2*STARTING_RESOURCES))
+        end
+        if env.grid_bananas[x, y] > 0
+            img[x, y, :] += BANANA_COLOR .* (0.5f0 + env.grid_bananas[x,y]/(2*STARTING_RESOURCES))
         end
     end
+    @assert all(0.0f0 .<= img .<= 1.0f0)
     img
 end
 
