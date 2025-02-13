@@ -158,6 +158,17 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
             # observations have a batch size associated with them, so we need to remove that
             push!(env.perspective_frames[i], observations[i][:,:,:,1])
         end
+
+        root = split(env.render_filename, ".")[1]
+        render_txt = root * ".txt"
+        # write player states to txt file
+        open_code = env.step_counter == 1 ? "w" : "a"
+        open(render_txt, open_code) do f
+            println(f, "Step: $(env.step_counter)")
+            for player in env.players
+                println(f, "Player $(player.id): $(round.(player.position, digits=2)), apples: $(round.(player.resource_apples, digits=2)), bananas: $(round.(player.resource_bananas, digits=2))")
+            end
+        end
     end
 
     actions = get_actions(observations, phenotypes)
