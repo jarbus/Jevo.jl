@@ -55,7 +55,7 @@ mutable struct TradeGridWorld <: AbstractGridworld
     view_radius::Int # Radius of player's view window
     reset_interval::Int  # Reset map every N steps
     pool_radius::Int # Radius of central water pool
-    render_filename::String
+    render_filename::String # directory
     frames::Vector{Array{Float32,3}}
     perspective_frames::Vector  # each player's obs 
 end
@@ -220,12 +220,17 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
     if done(env)
         if !isempty(env.render_filename)
             push!(env.frames, render(env, 1))  # Always render from player 1's perspective
-            root = split(env.render_filename, ".")[1]
-            save_gif(env.frames, "$(root)_full.gif")
-
-            for i in 1:env.p
-                save_gif(env.perspective_frames[i], "$(root)_player_$(i).gif")
+            try
+                mkpath(env.render_filename)
+            catch
             end
+
+            render_name = joinpath(env.render_filename, "$(ids[1])_vs_$(ids[2]).gif")
+            save_gif(env.frames, render_name)
+
+            #= for i in 1:env.p =#
+            #=     save_gif(env.perspective_frames[i], "$(root)_player_$(i).gif") =#
+            #= end =#
 
         end
     end

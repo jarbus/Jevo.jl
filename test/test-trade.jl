@@ -21,7 +21,7 @@ view_radius = 30
         p = 2
         max_steps = 3
         reset_interval = 3
-        env = TradeGridWorld(n, p, max_steps, view_radius, reset_interval, POOL_RADIUS, "pickup_placedown.gif")
+        env = TradeGridWorld(n, p, max_steps, view_radius, reset_interval, POOL_RADIUS, "test/render/pickup_placedown/")
 
         center_pos = (n/2, n/2)
         env.players[1].position = center_pos
@@ -51,7 +51,7 @@ view_radius = 30
         p = 2
         max_steps = 50
         reset_interval = max_steps
-        env = TradeGridWorld(n, p, max_steps, view_radius, reset_interval, POOL_RADIUS, "record_player_perspective.gif")
+        env = TradeGridWorld(n, p, max_steps, view_radius, reset_interval, POOL_RADIUS, "test/render/record_player_perspective")
 
         p1_frames = []
         p2_frames = []
@@ -71,7 +71,7 @@ view_radius = 30
         p = 2
         max_steps = 3
         reset_interval = 3
-        env = TradeGridWorld(n, p, max_steps, view_radius, reset_interval, POOL_RADIUS, "pickup_placedown.gif")
+        env = TradeGridWorld(n, p, max_steps, view_radius, reset_interval, POOL_RADIUS, "test/render/two_consecutive_pickups/")
         env.grid_apples .= 0f0
         env.grid_bananas .= 0f0
 

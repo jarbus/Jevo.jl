@@ -168,6 +168,11 @@
           @test length(state.matches) == 1
           @test 1 == state.matches[1].individuals |> unique |> length
       end
+      @testset "BestVsAll" begin
+          state = State("", rng, [single_pop_creator, env_creator], [pop_initializer, RandomEvaluator(), BestVsAllMatchMaker(env_creator=env_creator)], counters=default_counters())
+          run!(state, 1)
+          @test length(state.matches) == 2 * n_inds - 1
+      end
       @testset "Solo" begin
             state = State("", rng,[comp_comp_pop_creator, env_creator], [pop_initializer, solo], counters=default_counters())
           run!(state, 1)
