@@ -72,6 +72,7 @@ function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30,
         position = (player_offsets[i], player_offsets[i])
         push!(players, PlayerState(i, position, 0.0, 0.0))
     end
+
     env = TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius, reset_interval, pool_radius, render_filename, Array{Float32, 3}[], [Array{Float32, 3}[] for i in 1:p])
     reset_map!(env)
     env
@@ -146,6 +147,15 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
     
     interactions = []
 
+    if env.step_counter == 1 && !isempty(env.render_filename)
+        timestamp = Dates.format(Dates.now(), "yyyy-mm-ddTHH:MM:SS")
+        env.render_filename = joinpath(env.render_filename, "$(timestamp)_$(ids[1])_vs_$(ids[2])")
+        try
+            mkpath(env.render_filename)
+        catch
+        end
+    end
+
     if env.step_counter > 1 && env.step_counter % env.reset_interval == 1
         append!(interactions, make_resource_interactions(env, ids))
         reset_map!(env)
@@ -154,13 +164,12 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
 
     if !isempty(env.render_filename) 
         push!(env.frames, render(env, 1))  # Always render from player 1's perspective
-        for i in 1:env.p
-            # observations have a batch size associated with them, so we need to remove that
-            push!(env.perspective_frames[i], observations[i][:,:,:,1])
-        end
+        #= for i in 1:env.p =#
+        #=     # observations have a batch size associated with them, so we need to remove that =#
+        #=     push!(env.perspective_frames[i], observations[i][:,:,:,1]) =#
+        #= end =#
 
-        root = split(env.render_filename, ".")[1]
-        render_txt = root * ".txt"
+        render_txt = env.render_filename * ".txt"
         # write player states to txt file
         open_code = env.step_counter == 1 ? "w" : "a"
         open(render_txt, open_code) do f
@@ -231,13 +240,7 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
     if done(env)
         if !isempty(env.render_filename)
             push!(env.frames, render(env, 1))  # Always render from player 1's perspective
-            try
-                mkpath(env.render_filename)
-            catch
-            end
-
-            render_name = joinpath(env.render_filename, "$(ids[1])_vs_$(ids[2]).gif")
-            save_gif(env.frames, render_name)
+            save_gif(env.frames, env.render_filename * ".gif")
 
             #= for i in 1:env.p =#
             #=     save_gif(env.perspective_frames[i], "$(root)_player_$(i).gif") =#

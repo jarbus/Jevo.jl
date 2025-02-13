@@ -1,3 +1,4 @@
 include("./all_vs_all.jl")
 include("./solo.jl")
 include("./best_vs_best.jl")
+include("./best_vs_all.jl")
