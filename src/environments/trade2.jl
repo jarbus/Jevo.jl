@@ -80,17 +80,17 @@ end
 function log_trade_ratio(state, individuals, h5)
     # extract all trade ratio interactions
     ratios = [int.trade_ratio for ind in individuals for int in ind.interactions if int isa TradeRatioInteraction]
-    primaries = [int.count for ind in individuals for int in ind.interactions if int isa PrimaryResourceCountInteraction]
-    secondaries = [int.count for ind in individuals for int in ind.interactions if int isa SecondaryResourceCountInteraction]
+    apples = [int.count for ind in individuals for int in ind.interactions if int isa NumApplesInteraction]
+    bananas = [int.count for ind in individuals for int in ind.interactions if int isa NumBananasInteraction]
     ratio_m=StatisticalMeasurement(TradeRatio, ratios, generation(state))
-    primary_m=StatisticalMeasurement(PrimaryResourceCount, primaries, generation(state))
-    secondary_m=StatisticalMeasurement(SecondaryResourceCount, secondaries, generation(state))
+    apple_m=StatisticalMeasurement(NumApples, apples, generation(state))
+    banana_m=StatisticalMeasurement(NumBananas, bananas, generation(state))
     @info(ratio_m)
-    @info(primary_m)
-    @info(secondary_m)
+    @info(apple_m)
+    @info(banana_m)
     h5 && @h5(ratio_m)
-    h5 && @h5(primary_m)
-    h5 && @h5(secondary_m)
+    h5 && @h5(apple_m)
+    h5 && @h5(banana_m)
     individuals
 end
 
