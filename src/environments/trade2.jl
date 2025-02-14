@@ -7,7 +7,7 @@ const SELF_COLOR = [0.67f0, 0.87f0, 0.73f0]
 const OTHER_COLOR = [0.47f0, 0.60f0, 0.54f0]
 const PLAYER_RADIUS = 4
 const STARTING_RESOURCES = 10f0
-const POOL_REWARD = 0.05f0  # Reward for standing in water pool
+const POOL_REWARD = 0.2f0  # Reward for standing in water pool
 const POOL_COLOR = [0.4f0, 0.8f0, 1.0f0]  # Blue color for water
 const FOOD_BONUS_EPSILON = 0.1
 const APPLE_COLOR = [1.0f0, 0.0f0, 0.0f0]  # Red color for apples
@@ -148,12 +148,12 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
     interactions = []
 
     if env.step_counter == 1 && !isempty(env.render_filename)
-        timestamp = Dates.format(Dates.now(), "yyyy-mm-ddTHH:MM:SS")
-        env.render_filename = joinpath(env.render_filename, "$(timestamp)_$(ids[1])_vs_$(ids[2])")
         try
             mkpath(env.render_filename)
         catch
         end
+        timestamp = Dates.format(Dates.now(), "yyyy-mm-ddTHH:MM:SS")
+        env.render_filename = joinpath(env.render_filename, "$(timestamp)_$(ids[1])_vs_$(ids[2])")
     end
 
     if env.step_counter > 1 && env.step_counter % env.reset_interval == 1
@@ -230,7 +230,7 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
         in_pool = sqrt(dx^2 + dy^2) <= env.pool_radius
         pool_bonus = in_pool ? POOL_REWARD : 0.0f0
         
-        score = (player.resource_apples + FOOD_BONUS_EPSILON) * (player.resource_bananas + FOOD_BONUS_EPSILON) + pool_bonus
+        score = log(1.1+ 10player.resource_apples) * log(1.1+10player.resource_bananas) + pool_bonus
         push!(interactions, Interaction(id, [], score))
 
         env.players[i] = player  # Update player state
