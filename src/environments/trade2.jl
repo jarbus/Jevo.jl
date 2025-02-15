@@ -209,10 +209,24 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
         new_y = clamp(player.position[2] + dy, 1, env.n)
         new_pos = (new_x, new_y)
         
-        # Only update position if it wouldn't be too close to other players
-        if !too_close_to_others(new_pos, i, env.players)
-            prev_pos = player.position
-            player.position = new_pos
+        # Find closest valid position along movement vector
+        prev_pos = player.position
+        dx_unit = dx == 0 ? 0 : dx/sqrt(dx^2 + dy^2)
+        dy_unit = dy == 0 ? 0 : dy/sqrt(dx^2 + dy^2)
+        dist = sqrt(dx^2 + dy^2)
+        
+        # Try full movement first, then gradually reduce until valid
+        test_dist = dist
+        while test_dist > 0
+            test_x = prev_pos[1] + dx_unit * test_dist
+            test_y = prev_pos[2] + dy_unit * test_dist
+            test_pos = (clamp(test_x, 1, env.n), clamp(test_y, 1, env.n))
+            
+            if !too_close_to_others(test_pos, i, env.players)
+                player.position = test_pos
+                break
+            end
+            test_dist -= 0.1
         end
         # Resource action
         try
