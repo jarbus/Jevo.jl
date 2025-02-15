@@ -141,6 +141,20 @@ function collect_nearby_resources(grid::Array{Float64, 2}, player::PlayerState, 
     return total_collected
 end
 
+# Returns true if the position would be too close to any other player
+function too_close_to_others(pos::Tuple{Float64,Float64}, current_player::Int, players::Vector{PlayerState})
+    for (i, other) in enumerate(players)
+        if i != current_player
+            dx = pos[1] - other.position[1]
+            dy = pos[2] - other.position[2]
+            if sqrt(dx^2 + dy^2) < 2.0
+                return true
+            end
+        end
+    end
+    return false
+end
+
 function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) where P<:AbstractPhenotype
 
     @assert length(ids) == length(phenotypes) == env.p
@@ -190,11 +204,16 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
         dx, dy, place_action, pick_action = action_values
         dx = clamp(dx, -2, 2)
         dy = clamp(dy, -2, 2)
-        # Update player position
+        # Calculate new position
         new_x = clamp(player.position[1] + dx, 1, env.n)
         new_y = clamp(player.position[2] + dy, 1, env.n)
-        prev_pos = player.position
-        player.position = (new_x, new_y)
+        new_pos = (new_x, new_y)
+        
+        # Only update position if it wouldn't be too close to other players
+        if !too_close_to_others(new_pos, i, env.players)
+            prev_pos = player.position
+            player.position = new_pos
+        end
         # Resource action
         try
             grid_x = clamp(floor(Int, new_x) + 1, 1, env.n)
