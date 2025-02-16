@@ -207,7 +207,6 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
         # Calculate new position
         new_x = clamp(player.position[1] + dx, 1, env.n)
         new_y = clamp(player.position[2] + dy, 1, env.n)
-        new_pos = (new_x, new_y)
         
         # Find closest valid position along movement vector
         prev_pos = player.position
@@ -228,15 +227,9 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
             end
             test_dist -= 0.1
         end
-        # Resource action
-        try
-            grid_x = clamp(floor(Int, new_x) + 1, 1, env.n)
-            grid_y = clamp(floor(Int, new_y) + 1, 1, env.n)
-        catch e
-            @error "new_x: $new_x, new_y: $new_y, dx: $dx, dy: $dy, prev_pos: $prev_pos, error: $e"
-        end
-        grid_x = clamp(floor(Int, new_x) + 1, 1, env.n)
-        grid_y = clamp(floor(Int, new_y) + 1, 1, env.n)
+       
+        grid_x = clamp(floor(Int, new_x), 1, env.n)
+        grid_y = clamp(floor(Int, new_y), 1, env.n)
         # Determine primary/secondary resources based on player number
         
         # Handle placing resources
@@ -316,16 +309,16 @@ function make_observations(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Ve
         # Render the world from this player's perspective
         player_view = render(env, i)
         obs = fill(0.2f0, view_size, view_size, 3)
-        px = round(Int, player.position[1]) + 1
-        py = round(Int, player.position[2]) + 1
+        px = round(Int, player.position[1])
+        py = round(Int, player.position[2])
         
         # Calculate ranges for source and destination
         x_src_range = max(1, px - view_radius):min(env.n, px + view_radius)
         y_src_range = max(1, py - view_radius):min(env.n, py + view_radius)
         x_dst_start = view_radius + 1 - (px - first(x_src_range))
         y_dst_start = view_radius + 1 - (py - first(y_src_range))
-        x_dst_range = x_dst_start:(x_dst_start + length(x_src_range) - 1)
-        y_dst_range = y_dst_start:(y_dst_start + length(y_src_range) - 1)
+        x_dst_range = x_dst_start:(x_dst_start + length(x_src_range)-1)
+        y_dst_range = y_dst_start:(y_dst_start + length(y_src_range)-1)
         
         # Single array operation instead of nested loops
         obs[x_dst_range, y_dst_range, :] .= view(player_view, x_src_range, y_src_range, :)
@@ -369,8 +362,8 @@ function render(env::TradeGridWorld, perspective::Int=1)
 
     for idx in player_order
         player = env.players[idx]
-        x_center = player.position[1] + 1  # Adjust for 1-based indexing
-        y_center = player.position[2] + 1  # Adjust for 1-based indexing
+        x_center = player.position[1]
+        y_center = player.position[2]
         radius = PLAYER_RADIUS  # Circle radius
 
         # Determine the bounding box for the circle
