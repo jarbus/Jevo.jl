@@ -5,7 +5,7 @@ export TradeGridWorld, render, LogTradeRatios, ClearTradeRatios
 
 const SELF_COLOR = [0.67f0, 0.87f0, 0.73f0]
 const OTHER_COLOR = [0.47f0, 0.60f0, 0.54f0]
-const PLAYER_RADIUS = 4
+const PLAYER_RADIUS = 3
 const STARTING_RESOURCES = 10f0
 const POOL_REWARD = 0.2f0  # Reward for standing in water pool
 const POOL_COLOR = [0.4f0, 0.8f0, 1.0f0]  # Blue color for water
