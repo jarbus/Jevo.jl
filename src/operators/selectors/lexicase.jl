@@ -98,5 +98,5 @@ function lexicase_select!(state::AbstractState, pops::Vector{Population}, pop_si
     @assert length(elites) < pop_size "ElitistLexicaseSelector found $(length(elites)) elites for a pop_size=$(pop_size) . This probably shouldn't happen, and you need to change the algorithm if this is."
     #= @info "selected elites $elites with parents $parents" =#
     @info "selected $(length(elites)) elites"
-    pop.individuals[:] = new_pop[:]
+    pop.individuals = new_pop
 end
