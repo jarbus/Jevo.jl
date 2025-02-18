@@ -5,7 +5,7 @@ export TradeGridWorld, render, LogTradeRatios, ClearTradeRatios
 
 const SELF_COLOR = [0.67f0, 0.87f0, 0.73f0]
 const OTHER_COLOR = [0.47f0, 0.60f0, 0.54f0]
-const PLAYER_RADIUS = 4
+const PLAYER_RADIUS = 3
 const STARTING_RESOURCES = 10f0
 const POOL_REWARD = 0.2f0  # Reward for standing in water pool
 const POOL_COLOR = [0.4f0, 0.8f0, 1.0f0]  # Blue color for water
@@ -122,10 +122,10 @@ inverse_absolute_difference(player::PlayerState) = inverse_absolute_difference(p
 
 function collect_nearby_resources(grid::Array{Float64, 2}, player::PlayerState, amount)
     x, y = player.position
-    x_min = max(1, floor(Int, x - PLAYER_RADIUS))
-    x_max = min(size(grid, 1), ceil(Int, x + PLAYER_RADIUS))
-    y_min = max(1, floor(Int, y - PLAYER_RADIUS))
-    y_max = min(size(grid, 2), ceil(Int, y + PLAYER_RADIUS))
+    x_min = max(1, ceil(Int, x - PLAYER_RADIUS))
+    x_max = min(size(grid, 1), floor(Int, x + PLAYER_RADIUS))
+    y_min = max(1, ceil(Int, y - PLAYER_RADIUS))
+    y_max = min(size(grid, 2), floor(Int, y + PLAYER_RADIUS))
 
     total_collected = 0.0
     for i in x_min:x_max, j in y_min:y_max 
@@ -147,7 +147,7 @@ function too_close_to_others(pos::Tuple{Float64,Float64}, current_player::Int, p
         if i != current_player
             dx = pos[1] - other.position[1]
             dy = pos[2] - other.position[2]
-            if sqrt(dx^2 + dy^2) < 2.0
+            if sqrt(dx^2 + dy^2) < (2*PLAYER_RADIUS)-1
                 return true
             end
         end
@@ -204,9 +204,6 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
         dx, dy, place_action, pick_action = action_values
         dx = clamp(dx, -2, 2)
         dy = clamp(dy, -2, 2)
-        # Calculate new position
-        new_x = clamp(player.position[1] + dx, 1, env.n)
-        new_y = clamp(player.position[2] + dy, 1, env.n)
         
         # Find closest valid position along movement vector
         prev_pos = player.position
@@ -227,20 +224,19 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
             end
             test_dist -= 0.1
         end
-       
-        grid_x = clamp(floor(Int, new_x), 1, env.n)
-        grid_y = clamp(floor(Int, new_y), 1, env.n)
-        # Determine primary/secondary resources based on player number
+
+        px = round(Int, player.position[1])
+        py = round(Int, player.position[2])
         
         # Handle placing resources
         if place_action > 0  # Place primary resource
             amount = min(player.resource_apples, place_action)
             player.resource_apples -= amount
-            env.grid_apples[grid_x, grid_y] += amount
+            env.grid_apples[px, py] += amount
         elseif place_action < 0  # Place secondary resource
             amount = min(player.resource_bananas, abs(place_action))
             player.resource_bananas -= amount
-            env.grid_bananas[grid_x, grid_y] += amount
+            env.grid_bananas[px, py] += amount
         end
 
         if pick_action > 0  # Pick primary resource
@@ -253,7 +249,7 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
         center = env.n ÷ 2
         dx = player.position[1] - center
         dy = player.position[2] - center
-        in_pool = sqrt(dx^2 + dy^2) <= env.pool_radius
+        in_pool = sqrt(dx^2 + dy^2) <= env.pool_radius + PLAYER_RADIUS
         pool_bonus = in_pool ? POOL_REWARD : 0.0f0
         
         score = log(1.1+ 10player.resource_apples) * log(1.1+10player.resource_bananas) + pool_bonus
@@ -367,10 +363,10 @@ function render(env::TradeGridWorld, perspective::Int=1)
         radius = PLAYER_RADIUS  # Circle radius
 
         # Determine the bounding box for the circle
-        x_min = max(floor(Int, x_center - radius), 1)
-        x_max = min(ceil(Int, x_center + radius), n)
-        y_min = max(floor(Int, y_center - radius), 1)
-        y_max = min(ceil(Int, y_center + radius), n)
+        x_min = max(ceil(Int, x_center - radius), 1)
+        x_max = min(floor(Int, x_center + radius), n)
+        y_min = max(ceil(Int, y_center - radius), 1)
+        y_max = min(floor(Int, y_center + radius), n)
 
         player_color = get_player_color(perspective, idx, env.players)
 
@@ -410,13 +406,18 @@ function reset_map!(env::TradeGridWorld)
     fill!(env.grid_bananas, 0.0)
     
     # Respawn resources in corners
-    env.grid_apples[2, 2] = STARTING_RESOURCES
-    env.grid_bananas[env.n-2, env.n-2] = STARTING_RESOURCES
+    # env.grid_apples[2, 2] = STARTING_RESOURCES
+    # env.grid_bananas[env.n-2, env.n-2] = STARTING_RESOURCES
     
     # Reset player resources
-    for player in env.players
-        player.resource_apples = 0.0
-        player.resource_bananas = 0.0
+    for (idx, player) in enumerate(env.players)
+        if idx == 1
+            player.resource_apples = STARTING_RESOURCES
+            player.resource_bananas = 0.0
+        else
+            player.resource_apples = 0.0
+            player.resource_bananas = STARTING_RESOURCES
+        end
     end
 end
 
