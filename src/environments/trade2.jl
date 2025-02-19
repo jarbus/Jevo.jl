@@ -147,7 +147,7 @@ function too_close_to_others(pos::Tuple{Float64,Float64}, current_player::Int, p
         if i != current_player
             dx = pos[1] - other.position[1]
             dy = pos[2] - other.position[2]
-            if sqrt(dx^2 + dy^2) < (2*PLAYER_RADIUS)-1
+            if sqrt(dx^2 + dy^2) < (PLAYER_RADIUS)-1
                 return true
             end
         end
