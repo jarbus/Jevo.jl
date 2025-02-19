@@ -80,9 +80,9 @@ end
 
 function log_trade_ratio(state, individuals, h5)
     # extract all trade ratio interactions
-    ratios = [int.trade_ratio for ind in individuals for int in ind.interactions if int isa TradeRatioInteraction]
-    apples = [int.count for ind in individuals for int in ind.interactions if int isa NumApplesInteraction]
-    bananas = [int.count for ind in individuals for int in ind.interactions if int isa NumBananasInteraction]
+    ratios = [mean(int.trade_ratio for int in ind.interactions if int isa TradeRatioInteraction) for ind in individuals]
+    apples = [mean(int.count for int in ind.interactions if int isa NumApplesInteraction) for ind in individuals]
+    bananas = [mean(int.count for int in ind.interactions if int isa NumBananasInteraction) for ind in individuals]
     ratio_m=StatisticalMeasurement(TradeRatio, ratios, generation(state))
     apple_m=StatisticalMeasurement(NumApples, apples, generation(state))
     banana_m=StatisticalMeasurement(NumBananas, bananas, generation(state))
