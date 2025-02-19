@@ -6,11 +6,11 @@ export AllVsAllMatchMaker
 Creates an [Operator](@ref) that creates all vs all matches between individuals in populations with ids in `ids`.
 """
 @define_op "AllVsAllMatchMaker" "AbstractMatchMaker"
-AllVsAllMatchMaker(ids::Vector{String}=String[];kwargs...) =
+AllVsAllMatchMaker(ids::Vector{String}=String[]; env_creator=nothing, kwargs...) =
     create_op("AllVsAllMatchMaker",
           condition=always,
           retriever=PopulationRetriever(ids),
-          operator=make_all_v_all_matches,
+          operator=(s,ps)->make_all_v_all_matches(s, ps; env_creator=env_creator),
           updater=add_matches!;kwargs...)
 
 
@@ -21,11 +21,13 @@ Returns a vector of [Matches](@ref Match) between all pairs of individuals in th
 
 If there is only one population with one subpopulation, it returns a vector of matches between all pairs of individuals in that subpopulation.
 """
-function make_all_v_all_matches(state::AbstractState, pops::Vector{Vector{Population}})
+function make_all_v_all_matches(state::AbstractState, pops::Vector{Vector{Population}}; env_creator=nothing)
     match_counter = get_counter(AbstractMatch, state)
-    env_creators = get_creators(AbstractEnvironment, state)
-    @assert length(env_creators) == 1 "There should be exactly one environment creator for the time being, found $(length(env_creators))."
-    env_creator = env_creators[1]
+    if isnothing(env_creator)
+        env_creators = get_creators(AbstractEnvironment, state)
+        @assert length(env_creators) == 1 "There should be exactly one environment creator for the time being, found $(length(env_creators))."
+        env_creator = env_creators[1]
+    end
     matches = Vector{Match}()
     
     # if there is only one population with one subpopulation, return all vs all matches between individuals in that subpopulation
