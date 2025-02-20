@@ -76,12 +76,15 @@ end
 
 master_construct_genome(ind::Individual, pop::Population) = 
     master_construct_genome(ind, get_tree(pop), get_delta_cache(pop), get_genotype_cache())
-function master_construct_genome(ind::Individual, tree::PhylogeneticTree, dc::DeltaCache, gc::_GenotypeCache)
-    ind.id ∈ keys(gc) && return gc[ind.id]
+master_construct_genome(ind::Individual, tree::PhylogeneticTree, dc::DeltaCache, gc::_GenotypeCache) =
+    master_construct_genome(ind.id, tree, dc, gc)
+
+function master_construct_genome(id::Int, tree::PhylogeneticTree, dc::DeltaCache, gc::_GenotypeCache)
+    id ∈ keys(gc) && return gc[id]
     # go back up the tree to find the nearest cached ancestor in genotype cache
     # then construct the genome from the nearest ancestor to the individual
     # by applying deltas
-    path = [tree.tree[ind.id]] # start path from individual to nearest ancestor
+    path = [tree.tree[id]] # start path from individual to nearest ancestor
     # go up the tree until we find a cached ancestor
     while !isnothing(path[end].parent) && !(path[end].parent.id in keys(gc))
         push!(path, path[end].parent)
@@ -116,15 +119,26 @@ function master_construct_parents_genomes(pops::Vector{Vector{Population}}, work
     pids = reduce(union!, values(workers_missing_parents), init=Set{Int}())
     gc = get_genotype_cache()
     parent_genomes = Dict(pid=>gc[pid] for pid in pids if pid in keys(gc))
+    missing_pids = setdiff(pids, keys(parent_genomes))
     for comp_pop in pops, subpop in comp_pop
         tree, dc = get_tree(subpop), get_delta_cache(subpop)
-        for ind in subpop.individuals
-            if ind.id in pids && !(ind.id in keys(parent_genomes))
-                gc[ind.id] = parent_genomes[ind.id] = master_construct_genome(ind, tree, dc, gc)
+        for id in missing_pids
+            if id ∈ keys(tree.tree)
+                @assert id ∈ keys(dc) "id $(id) found in tree but not found in delta cache"
+                gc[id] = parent_genomes[id] = master_construct_genome(id, tree, dc, gc)
+                pop!(missing_pids, id)
             end
         end
+        #= for ind in subpop.individuals =#
+        #=     # send parents if they currently exist in the population =#
+        #=     if ind.id in pids && !(ind.id in keys(parent_genomes)) =#
+        #=         gc[ind.id] = parent_genomes[ind.id] = master_construct_genome(ind, tree, dc, gc) =#
+        #=     end =#
+        #= end =#
+
     end
-    @assert pids ⊆ keys(parent_genomes) "missing $(setdiff(pids, keys(parent_genomes))). Is your genotype cache too small?"
+    @assert isempty(missing_pids) "missing $(missing_pids) when constructing parent genomes"
+    @assert pids ⊆ keys(parent_genomes) "missing $(setdiff(pids, keys(parent_genomes))) for child pids $pids given parent pids $(keys(parent_genomes)). Is your genotype cache too small?"
     worker_parent_genomes = Dict(wid =>[(pid, parent_genomes[pid]) for pid in pids]
                                  for (wid, pids) in workers_missing_parents)
     return worker_parent_genomes

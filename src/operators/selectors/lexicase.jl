@@ -1,4 +1,4 @@
-export ElitistLexicaseSelectorAndReproducer
+export LexicaseSelectorAndReproducer
 
 function fast_max_filter!(source_idxs::Vector{Int},
         n_source_idxs::Int,
@@ -60,13 +60,13 @@ Updates the population with selected individuals using (ϵ)-lexicase selection[1
 
 [1] A probabilistic and multi-objective analysis of lexicase selection and ε-lexicase selection. La Cava et al (2019)
 """
-@define_op "ElitistLexicaseSelectorAndReproducer" "AbstractOperator"
-ElitistLexicaseSelectorAndReproducer(pop_size::Int, ids::Vector{String}=String[]; ϵ::Bool=false, kwargs...) =
-    create_op("ElitistLexicaseSelectorAndReproducer",
+@define_op "LexicaseSelectorAndReproducer" "AbstractOperator"
+LexicaseSelectorAndReproducer(pop_size::Int, ids::Vector{String}=String[]; ϵ::Bool=false, elitism::Bool=false, kwargs...) =
+    create_op("LexicaseSelectorAndReproducer",
                     retriever=PopulationRetriever(ids),
-                    updater=map((s,p)->lexicase_select!(s,p,pop_size,ϵ))
+                    updater=map((s,p)->lexicase_select!(s,p,pop_size,ϵ, elitism))
                     ;kwargs...)
-function lexicase_select!(state::AbstractState, pops::Vector{Population}, pop_size::Int, ϵ::Bool)
+function lexicase_select!(state::AbstractState, pops::Vector{Population}, pop_size::Int, ϵ::Bool, elitism::Bool)
     @assert pop_size > 0                           "pop_size must be greater than 0"
     @assert length(pops) == 1               "Lexicase selection can only be applied to a non-compsite Population"
     pop = pops[1]
@@ -86,17 +86,19 @@ function lexicase_select!(state::AbstractState, pops::Vector{Population}, pop_si
     # Go through new_pop, replacing any duplicate individuals with clones
     elites = Set{Int}()
     for (idx, ind) in enumerate(new_pop)
-        if ind.id ∈ elites
+        if !elitism || ind.id ∈ elites
             new_pop[idx] = clone(state, ind)
         else
             push!(elites, ind.id)
             new_pop[idx] = ind
         end
     end
-    parents = unique([ind.parents[1] for ind in new_pop if !isempty(ind.parents)])
-    length(elites) <= 2 && @info "WARNING: Found <= 2 elites: $(elites)"
-    @assert length(elites) < pop_size "ElitistLexicaseSelector found $(length(elites)) elites for a pop_size=$(pop_size) . This probably shouldn't happen, and you need to change the algorithm if this is."
-    #= @info "selected elites $elites with parents $parents" =#
-    @info "selected $(length(elites)) elites"
+
+    if elitism
+        length(elites) <= 2 && @info "WARNING: Found <= 2 elites: $(elites)"
+        @assert length(elites) < pop_size "ElitistLexicaseSelector found $(length(elites)) elites for a pop_size=$(pop_size) . This probably shouldn't happen, and you need to change the algorithm if this is."
+        #= @info "selected elites $elites with parents $parents" =#
+        @info "selected $(length(elites)) elites"
+    end
     pop.individuals = new_pop
 end
