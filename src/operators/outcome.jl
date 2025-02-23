@@ -23,7 +23,10 @@ function add_outcome_matrices!(::AbstractState,
     test_ids = [test_id for ind in pop.individuals 
                            for int in ind.interactions
                            for test_id in int.other_ids]|> unique
+
     solution_ids = [ind.id for ind in pop.individuals]
+    @assert length(test_ids) > 0
+    @assert length(solution_ids) > 0
     test_idxs = Dict(test_id => idx for (idx, test_id) in enumerate(test_ids))
     solution_idxs = Dict(sol_id => idx for (idx, sol_id) in enumerate(solution_ids))
 
