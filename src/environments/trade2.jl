@@ -16,6 +16,7 @@ const BANANA_COLOR = [0.0f0, 1.0f0, 0.0f0]  # Green color for bananas
 struct TradeRatio <: AbstractMetric end
 struct NumApples <: AbstractMetric end
 struct NumBananas <: AbstractMetric end
+struct MinResource <: AbstractMetric end
 
 abstract type AbstractGridworld <: Jevo.AbstractEnvironment end
 
@@ -30,6 +31,12 @@ struct TradeRatioInteraction <: AbstractInteraction
     individual_id::Int
     other_ids::Vector{Int}
     trade_ratio::Float64
+end
+
+struct MinResourceInteraction <: AbstractInteraction
+    individual_id::Int
+    other_ids::Vector{Int}
+    min_resource::Float64
 end
 
 struct NumApplesInteraction <: AbstractInteraction
@@ -80,18 +87,22 @@ end
 
 function log_trade_ratio(state, individuals, h5)
     # extract all trade ratio interactions
-    ratios = [mean(int.trade_ratio for int in ind.interactions if int isa TradeRatioInteraction) for ind in individuals]
-    apples = [mean(int.count for int in ind.interactions if int isa NumApplesInteraction) for ind in individuals]
-    bananas = [mean(int.count for int in ind.interactions if int isa NumBananasInteraction) for ind in individuals]
+    ratios = [mean(int.trade_ratio for int in ind.interactions if int isa TradeRatioInteraction) for ind in individuals if !isempty(ind.interactions)]
+    apples = [mean(int.count for int in ind.interactions if int isa NumApplesInteraction) for ind in individuals if !isempty(ind.interactions)]
+    bananas = [mean(int.count for int in ind.interactions if int isa NumBananasInteraction) for ind in individuals if !isempty(ind.interactions)]
+    mins = [maximum(int.min_resource for int in ind.interactions if int isa MinResourceInteraction) for ind in individuals if !isempty(ind.interactions)]
     ratio_m=StatisticalMeasurement(TradeRatio, ratios, generation(state))
     apple_m=StatisticalMeasurement(NumApples, apples, generation(state))
     banana_m=StatisticalMeasurement(NumBananas, bananas, generation(state))
+    min_m=StatisticalMeasurement(MinResource, mins, generation(state))
     @info(ratio_m)
     @info(apple_m)
     @info(banana_m)
+    @info(min_m)
     h5 && @h5(ratio_m)
     h5 && @h5(apple_m)
     h5 && @h5(banana_m)
+    h5 && @h5(min_m)
     individuals
 end
 
@@ -119,6 +130,14 @@ function inverse_absolute_difference(apples, bananas)
     return 1 / (ratio + 1)
 end
 inverse_absolute_difference(player::PlayerState) = inverse_absolute_difference(player.resource_apples, player.resource_bananas)
+
+function min_resource(players::Vector{PlayerState})
+    min_resource = Inf
+    for player in players
+        min_resource = min(min_resource, player.resource_apples, player.resource_bananas)
+    end
+    return min_resource
+end
 
 function collect_nearby_resources(grid::Array{Float64, 2}, player::PlayerState, amount)
     x, y = player.position
@@ -196,14 +215,17 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
 
     actions = get_actions(observations, phenotypes)
     for (i, id) in enumerate(ids)
+        other_id = ids[3-i]
         player = env.players[i]
         action_values = actions[i]
         @assert length(action_values) == 4
         # assert all actions are not nan or inf
         @assert !any(isnan.(action_values)) && !any(isinf.(action_values))
         dx, dy, place_action, pick_action = action_values
-        dx = clamp(dx, -2, 2)
-        dy = clamp(dy, -2, 2)
+        dx = 2*dx 
+        dy = 2*dy 
+        place_action = place_action * STARTING_RESOURCES
+        pick_action = pick_action * STARTING_RESOURCES
         
         # Find closest valid position along movement vector
         prev_pos = player.position
@@ -253,7 +275,7 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
         pool_bonus = in_pool ? POOL_REWARD : 0.0f0
         
         score = log(1.1+ 10player.resource_apples) * log(1.1+10player.resource_bananas) + pool_bonus
-        push!(interactions, Interaction(id, [], score))
+        push!(interactions, Interaction(id, [other_id], score))
 
         env.players[i] = player  # Update player state
     end
@@ -279,6 +301,13 @@ function make_resource_interactions(env::TradeGridWorld, ids::Vector{Int})
     interactions = []
     @assert env.p == 2
     for i in 1:env.p, j in (i+1):env.p
+
+        min_resource_value = min_resource(env.players)
+
+        push!(interactions, 
+            MinResourceInteraction(ids[i], [ids[j]], min_resource_value),
+            MinResourceInteraction(ids[j], [ids[i]], min_resource_value))
+
         push!(interactions, 
             TradeRatioInteraction(ids[i], [ids[j]], inverse_absolute_difference(env.players[i])),
             TradeRatioInteraction(ids[j], [ids[i]], inverse_absolute_difference(env.players[j])))

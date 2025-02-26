@@ -34,7 +34,7 @@ function make_all_v_all_matches(state::AbstractState, pops::Vector{Vector{Popula
     if length(pops) == 1 && length(pops[1]) == 1
         for subpopi in pops[1]
             inds = subpopi.individuals
-            @assert length(inds) > 1
+            @assert length(inds) >= 1
             for ind_i in inds, ind_j in inds
                 push!(matches, Match(inc!(match_counter), [ind_i, ind_j], env_creator))
             end

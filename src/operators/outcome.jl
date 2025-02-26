@@ -14,6 +14,10 @@ ComputeOutcomeMatrix(ids::Vector{String}=String[]; kwargs...) =
 
 function add_outcome_matrices!(::AbstractState,
         populations::Vector{<:AbstractPopulation})
+    # confirm there are no outcomes already
+    for pop in populations
+        @assert !any(x->x isa OutcomeMatrix, pop.data) "OutcomeMatrix already exists in population $(pop.id)"
+    end
     @assert length(populations) == 1
     pop = populations[1]
     # objectives can be arbitrarily large numbers, to create interaction matrix
@@ -32,12 +36,12 @@ function add_outcome_matrices!(::AbstractState,
 
     # initialize outcomes matrix to avoid repeated dict lookups when lexicasing
     outcomes = zeros(Float64, length(solution_ids), length(test_ids))
-    for ind in pop.individuals, int in ind.interactions, 
-        test_id in int.other_ids
+    for ind in pop.individuals, int in ind.interactions, test_id in int.other_ids
+        !(int isa Interaction) && continue
         sol_idx = solution_idxs[int.individual_id]
         test_idx = test_idxs[test_id]
         outcomes[sol_idx, test_idx] += int.score
     end
-    filter!(x->!isa(x, OutcomeMatrix), pop.data)
+    #filter!(x->!isa(x, OutcomeMatrix), pop.data)
     push!(pop.data, OutcomeMatrix(outcomes))
 end

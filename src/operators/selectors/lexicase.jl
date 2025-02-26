@@ -1,4 +1,4 @@
-export LexicaseSelectorAndReproducer
+export LexicaseSelectorAndReproducer, ClearMissingInteractions, ClearOutcomeMatrix
 
 function fast_max_filter!(source_idxs::Vector{Int},
         n_source_idxs::Int,
@@ -61,12 +61,14 @@ Updates the population with selected individuals using (ϵ)-lexicase selection[1
 [1] A probabilistic and multi-objective analysis of lexicase selection and ε-lexicase selection. La Cava et al (2019)
 """
 @define_op "LexicaseSelectorAndReproducer" "AbstractOperator"
-LexicaseSelectorAndReproducer(pop_size::Int, ids::Vector{String}=String[]; ϵ::Bool=false, elitism::Bool=false, kwargs...) =
+LexicaseSelectorAndReproducer(pop_size::Int, ids::Vector{String}=String[]; ϵ::Bool=false, elitism::Bool=false, selection_only::Bool=false, keep_all_parents::Bool=false, kwargs...) =
     create_op("LexicaseSelectorAndReproducer",
                     retriever=PopulationRetriever(ids),
-                    updater=map((s,p)->lexicase_select!(s,p,pop_size,ϵ, elitism))
+                    updater=map((s,p)->lexicase_select!(s,p,pop_size,ϵ, elitism, selection_only, keep_all_parents)),
                     ;kwargs...)
-function lexicase_select!(state::AbstractState, pops::Vector{Population}, pop_size::Int, ϵ::Bool, elitism::Bool)
+function lexicase_select!(state::AbstractState, pops::Vector{Population}, pop_size::Int, ϵ::Bool, elitism::Bool, selection_only::Bool, keep_all_parents::Bool)
+    @assert !selection_only || elitism "You probably don't want to use selection_only without elitism"
+    @assert !(selection_only && keep_all_parents) "You probably don't want to use selection_only and keep_all_parents"
     @assert pop_size > 0                           "pop_size must be greater than 0"
     @assert length(pops) == 1               "Lexicase selection can only be applied to a non-compsite Population"
     pop = pops[1]
@@ -78,19 +80,28 @@ function lexicase_select!(state::AbstractState, pops::Vector{Population}, pop_si
         median(abs.(outcomes .- median(outcomes, dims=1)), dims=1) |> vec
     end
 
-    # now that we have our outcomes, lexicase select
-    new_pop = Vector{Individual}(undef, pop_size)
-    for i in 1:pop_size
-        @inline new_pop[i] = pop.individuals[lexicase_sample(state.rng, outcomes, ϵ)]
+    if keep_all_parents
+        new_pop = deepcopy(pop.individuals)
+        start_ind = length(new_pop) + 1
+    else
+        new_pop = Vector{Individual}()
+        start_ind = 1
     end
-    # Go through new_pop, replacing any duplicate individuals with clones
+
+    # now that we have our outcomes, lexicase select
+    for _ in start_ind:pop_size
+        new_ind =  pop.individuals[lexicase_sample(state.rng, outcomes, ϵ)]
+        if !selection_only || new_ind ∉ new_pop
+            @inline push!(new_pop, new_ind)
+        end
+    end
     elites = Set{Int}()
+    # Go through new_pop, replacing any duplicate individuals with clones
     for (idx, ind) in enumerate(new_pop)
         if !elitism || ind.id ∈ elites
             new_pop[idx] = clone(state, ind)
         else
             push!(elites, ind.id)
-            new_pop[idx] = ind
         end
     end
 
@@ -101,4 +112,28 @@ function lexicase_select!(state::AbstractState, pops::Vector{Population}, pop_si
         @info "selected $(length(elites)) elites"
     end
     pop.individuals = new_pop
+end
+
+
+ClearOutcomeMatrix(ids::Vector{String}=String[]; kwargs...) =
+    create_op("LexicaseSelectorAndReproducer",
+                    retriever=PopulationRetriever(ids),
+                    updater=map(map((s,p)->filter!(x->!isa(x, OutcomeMatrix), p.data))),
+                    ;kwargs...)
+
+ClearMissingInteractions(ids::Vector{String}=String[]; kwargs...) =
+    create_op("LexicaseSelectorAndReproducer",
+                    retriever=PopulationRetriever(ids),
+                    updater=map(map((s,p)->clear_missing_interactions!(s,p))),
+                    ;kwargs...)
+
+function clear_missing_interactions!(state, pop)
+    # confirm all invidivudals have at least one interaction
+    @assert all(length(ind.interactions) > 0 for ind in pop.individuals)
+    ind_ids = Set(ind.id for ind in pop.individuals)
+    # remove any interaction where all ids in interation.other_ids is not in ind_ids
+    for ind in pop.individuals 
+        filter!(int->all(id->id in ind_ids, int.other_ids), ind.interactions)
+    end
+    @assert all(length(ind.interactions) > 0 for ind in pop.individuals) "This is only supported for one population right now"
 end
