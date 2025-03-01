@@ -1,4 +1,4 @@
-using Jevo: Interaction
+using Jevo: Interaction, OutcomeMatrix
 
 @testset "lexicase units" begin
     rng = StableRNG(1)
@@ -167,7 +167,7 @@ end
     # Apply DBScan clustering with parameters that should identify 2 clusters
     # eps=0.3 and min_points=2 should group (1,2) and (3,4) into separate clusters
     # and potentially mark individual 5 as noise
-    Jevo.cluster_outcome_matrices!(state, 0.3, 2)
+    Jevo.cluster_outcome_matrices!(state, pop, 0.3, 2)
     
     # There should now be two outcome matrices
     outcome_matrices = filter(x -> x isa OutcomeMatrix, pop.data)
