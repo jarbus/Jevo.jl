@@ -56,9 +56,7 @@ function n_offspring_reproduce!(state::AbstractState, pop::Population, n_offspri
         pop.individuals[i] = parents[i]
     end
     # initialize rest of individuals as undefined
-    rngs = [rand(state.rng, UInt) for _ in 1:n_children]
     Threads.@threads for i in 1:n_children
-        rng = StableRNG(rngs[i])
         parent_idx = mod1(i, n_parents)
         parent = pop.individuals[parent_idx]
         child = copy_fn(state, parent)
@@ -67,6 +65,5 @@ function n_offspring_reproduce!(state::AbstractState, pop::Population, n_offspri
     @info "Population $(pop.id) now has $(length(pop.individuals)) individuals"
     # confirm all individuals are assigned
     @assert all(i-> isassigned(pop.individuals,i), eachindex(pop.individuals)) "Failed to reproduce $(pop.id) uniformly"
-    #@assert length(pop.individuals) == n_offspring*n_parents "Failed to reproduce $(pop.id) uniformly"
 
 end

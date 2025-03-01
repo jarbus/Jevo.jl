@@ -1,8 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.11.1"
+julia_version = "1.11.3"
 manifest_format = "2.0"
-project_hash = "91b62cefca254cdef6c9babdc6d3df7b73615b7b"
+project_hash = "c99d2f181487b0616bbf1f73537e856a5499acbd"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -312,9 +312,9 @@ version = "0.4.6"
 
 [[deps.Clustering]]
 deps = ["Distances", "LinearAlgebra", "NearestNeighbors", "Printf", "Random", "SparseArrays", "Statistics", "StatsBase"]
-git-tree-sha1 = "9ebb045901e9bbf58767a9f34ff89831ed711aae"
+git-tree-sha1 = "3e22db924e2945282e70c33b75d4dde8bfa44c94"
 uuid = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
-version = "0.15.7"
+version = "0.15.8"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -2472,7 +2472,7 @@ version = "0.4.84"
     Referenceables = "42d2dcc6-99eb-4e98-b66c-637b7d73030e"
 
 [[deps.Transformers]]
-deps = ["BangBang", "Base64", "BytePairEncoding", "CUDA", "ChainRulesCore", "DataDeps", "DataStructures", "Dates", "DelimitedFiles", "DoubleArrayTries", "Fetch", "FillArrays", "Flux", "FuncPipelines", "Functors", "HTTP", "HuggingFaceApi", "InteractiveUtils", "JSON3", "LRUCache", "LightXML", "LinearAlgebra", "Mmap", "NNlib", "NeuralAttentionlib", "Pickle", "Pkg", "PrimitiveOneHot", "Random", "SHA", "SafeTensors", "Static", "Statistics", "StringViews", "StructWalk", "TextEncodeBase", "Tricks", "Unicode", "ValSplit", "WordTokenizers", "Zygote", "cuDNN"]
+deps = ["BangBang", "Base64", "BytePairEncoding", "ChainRulesCore", "DataDeps", "DataStructures", "Dates", "DelimitedFiles", "DoubleArrayTries", "Fetch", "FillArrays", "Flux", "FuncPipelines", "Functors", "HTTP", "HuggingFaceApi", "InteractiveUtils", "JSON3", "LRUCache", "LightXML", "LinearAlgebra", "Mmap", "NNlib", "NeuralAttentionlib", "Pickle", "Pkg", "PrimitiveOneHot", "Random", "SHA", "SafeTensors", "Static", "Statistics", "StringViews", "StructWalk", "TextEncodeBase", "Tricks", "Unicode", "ValSplit", "WordTokenizers", "Zygote", "cuDNN"]
 path = "../Transformers"
 uuid = "21ca0261-441d-5938-ace7-c90938fde4d4"
 version = "0.3.1"
@@ -2482,6 +2482,7 @@ version = "0.3.1"
     TransformersMetalExt = "Metal"
 
     [deps.Transformers.weakdeps]
+    CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
     Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
 
 [[deps.Tricks]]

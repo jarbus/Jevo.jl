@@ -61,25 +61,25 @@ Parameters:
 - `min_points`: The number of samples in a neighborhood for a point to be considered as a core point
 """
 @define_op "ClusterOutcomeMatrix" "AbstractOperator"
-ClusterOutcomeMatrix(ids::Vector{String}=String[]; eps=0.5, min_points=5, kwargs...) =
+ClusterOutcomeMatrix(ids::Vector{String}=String[]; radius, kwargs...) =
     create_op("ClusterOutcomeMatrix",
             retriever=PopulationRetriever(ids),
-            updater=map(map((s, p)  -> cluster_outcome_matrices!(s, p, eps, min_points))),
+            updater=map(map((s, p)  -> cluster_outcome_matrices!(s, p, radius ))),
             ; kwargs...)
 
-function cluster_outcome_matrices!(state::AbstractState, pop::Population, eps::Float64, min_points::Int)
+function cluster_outcome_matrices!(state::AbstractState, pop::Population, radius)
     
     # Find the outcome matrix in the population data
     outcome_idx = findfirst(x -> x isa OutcomeMatrix, pop.data)
     @assert !isnothing(outcome_idx) "OutcomeMatrix not found in population $(pop.id)"
-    
     outcome_matrix = pop.data[outcome_idx].matrix
+    deleteat!(pop.data, outcome_idx)
     
     # Each row is a sample for DBScan
     samples = outcome_matrix
     
     # Run DBScan clustering
-    result = dbscan(samples, eps; minpoints=min_points)
+    result = dbscan(samples, radius)
     
     # Get the number of clusters (excluding noise points marked as 0)
     clusters = unique(result.assignments)
@@ -105,6 +105,4 @@ function cluster_outcome_matrices!(state::AbstractState, pop::Population, eps::F
     
     # Add the clustered outcome matrix to population data
     push!(pop.data, OutcomeMatrix(cluster_matrix))
-    
-    return [pop]
 end
