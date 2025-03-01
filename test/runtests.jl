@@ -1,23 +1,23 @@
 start_time = time()
 using Jevo
-#= using HDF5 =#
+using HDF5
 using Test
 using StableRNGs
 using Logging
-#= using StatsBase =#
-#= using Flux =#
-#= using Transformers =#
-#= using Transformers.TextEncoders =#
-#= using Transformers.Datasets: batched =#
-#= using PhylogeneticTrees =#
-#= using CUDA =#
-#= using Distributed =#
-#= Jevo.set_device() =#
+using StatsBase
+using Flux
+using Transformers
+using Transformers.TextEncoders
+using Transformers.Datasets: batched
+using PhylogeneticTrees
+using CUDA
+using Distributed
+Jevo.set_device()
 
 # Global variable for weight_cache
-#= weight_cache = WeightCache(maxsize=1_000_000) =#
+weight_cache = WeightCache(maxsize=1_000_000)
 
-#= rng = StableRNG(1) =#
+rng = StableRNG(1)
 
 #= @testset "counter" begin =#
 #=   """Creates a counter, counts 10 times, and checks that the final value is correct.""" =#
@@ -40,7 +40,7 @@ using Logging
 #=   @test Jevo.get_counter(AbstractGeneration, state) |> value == 2 =#
 #= end =#
 
-#= include("./test-ng-integration.jl") =#
+include("./test-ng-integration.jl")
 #= include("./test-writers.jl") =#
 #= include("./test-phylo.jl") =#
 # include("./test-nn.jl")
