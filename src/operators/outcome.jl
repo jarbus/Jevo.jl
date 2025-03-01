@@ -1,7 +1,9 @@
+using Clustering
+
 struct OutcomeMatrix
     matrix::Matrix{Float64}
 end
-export ComputeOutcomeMatrix
+export ComputeOutcomeMatrix, ClusterOutcomeMatrix
 """
     ComputeOutcomeMatrix(ids::Vector{String}=String[]; kwargs...)
 
@@ -44,4 +46,68 @@ function add_outcome_matrices!(::AbstractState,
     end
     #filter!(x->!isa(x, OutcomeMatrix), pop.data)
     push!(pop.data, OutcomeMatrix(outcomes))
+end
+
+"""
+    ClusterOutcomeMatrix(ids::Vector{String}=String[]; eps=0.5, min_points=5, kwargs...)
+
+Clusters the outcome matrix using DBScan algorithm and creates a new outcome matrix
+where each row is assigned to a cluster. The new matrix has dimensions (rows × k),
+where k is the number of discovered clusters. Each element is 1 if the row belongs
+to that cluster, and 0 otherwise.
+
+Parameters:
+- `eps`: The maximum distance between two samples for one to be considered as in the neighborhood of the other
+- `min_points`: The number of samples in a neighborhood for a point to be considered as a core point
+"""
+@define_op "ClusterOutcomeMatrix" "AbstractEvaluator"
+ClusterOutcomeMatrix(ids::Vector{String}=String[]; eps=0.5, min_points=5, kwargs...) =
+    create_op("ClusterOutcomeMatrix",
+            retriever=PopulationRetriever(ids),
+            updater=state -> cluster_outcome_matrices!(state, eps, min_points); 
+            kwargs...)
+
+function cluster_outcome_matrices!(state::AbstractState, eps::Float64, min_points::Int)
+    populations = retrieve_populations(state)
+    
+    for pop in populations
+        # Find the outcome matrix in the population data
+        outcome_idx = findfirst(x -> x isa OutcomeMatrix, pop.data)
+        isnothing(outcome_idx) && continue
+        
+        outcome_matrix = pop.data[outcome_idx].matrix
+        
+        # Transpose the matrix for DBScan (each row becomes a sample)
+        samples = transpose(outcome_matrix)
+        
+        # Run DBScan clustering
+        result = dbscan(samples, eps, min_points=min_points)
+        
+        # Get the number of clusters (excluding noise points marked as 0)
+        clusters = unique(result.assignments)
+        if 0 in clusters  # Remove noise cluster (marked as 0)
+            clusters = filter(c -> c != 0, clusters)
+        end
+        k = length(clusters)
+        
+        # Create a new outcome matrix based on cluster assignments
+        n_rows = size(outcome_matrix, 1)
+        cluster_matrix = zeros(Float64, n_rows, k)
+        
+        for i in 1:n_rows
+            cluster_id = result.assignments[i]
+            if cluster_id > 0  # Skip noise points (cluster 0)
+                # Find the index of this cluster in our filtered list
+                cluster_idx = findfirst(c -> c == cluster_id, clusters)
+                if !isnothing(cluster_idx)
+                    cluster_matrix[i, cluster_idx] = 1.0
+                end
+            end
+        end
+        
+        # Add the clustered outcome matrix to population data
+        push!(pop.data, OutcomeMatrix(cluster_matrix))
+    end
+    
+    return populations
 end
