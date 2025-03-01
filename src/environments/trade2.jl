@@ -7,7 +7,7 @@ const SELF_COLOR = [0.67f0, 0.87f0, 0.73f0]
 const OTHER_COLOR = [0.47f0, 0.60f0, 0.54f0]
 const PLAYER_RADIUS = 3
 const STARTING_RESOURCES = 10f0
-const POOL_REWARD = 0.2f0  # Reward for standing in water pool
+const POOL_REWARD = 1.0f0  # Reward for standing in water pool
 const POOL_COLOR = [0.4f0, 0.8f0, 1.0f0]  # Blue color for water
 const FOOD_BONUS_EPSILON = 0.1
 const APPLE_COLOR = [1.0f0, 0.0f0, 0.0f0]  # Red color for apples
@@ -222,6 +222,12 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
         # assert all actions are not nan or inf
         @assert !any(isnan.(action_values)) && !any(isinf.(action_values))
         dx, dy, place_action, pick_action = action_values
+        place_action, pick_action = tanh(place_action), tanh(pick_action)
+        movement_weight = abs(dx) + abs(dy)
+        if movement_weight > 1
+            dx = dx / movement_weight
+            dy = dy / movement_weight
+        end
         dx = 2*dx 
         dy = 2*dy 
         place_action = place_action * STARTING_RESOURCES
