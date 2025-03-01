@@ -79,7 +79,7 @@ function cluster_outcome_matrices!(state::AbstractState, pop::Population, eps::F
     samples = outcome_matrix
     
     # Run DBScan clustering
-    result = dbscan(samples, eps, minpoints=min_points)
+    result = dbscan(samples, eps; minpoints=min_points)
     
     # Get the number of clusters (excluding noise points marked as 0)
     clusters = unique(result.assignments)
