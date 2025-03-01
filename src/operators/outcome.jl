@@ -79,7 +79,7 @@ function cluster_outcome_matrices!(state::AbstractState, pop::Population, eps::F
     samples = outcome_matrix
     
     # Run DBScan clustering
-    result = dbscan(samples, eps, min_points=min_points)
+    result = dbscan(samples, eps, minpoints=min_points)
     
     # Get the number of clusters (excluding noise points marked as 0)
     clusters = unique(result.assignments)
@@ -106,5 +106,5 @@ function cluster_outcome_matrices!(state::AbstractState, pop::Population, eps::F
     # Add the clustered outcome matrix to population data
     push!(pop.data, OutcomeMatrix(cluster_matrix))
     
-    return populations
+    return [pop]
 end
