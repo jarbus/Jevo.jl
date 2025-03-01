@@ -77,8 +77,8 @@ function cluster_outcome_matrices!(state::AbstractState, eps::Float64, min_point
         
         outcome_matrix = pop.data[outcome_idx].matrix
         
-        # Transpose the matrix for DBScan (each row becomes a sample)
-        samples = transpose(outcome_matrix)
+        # Each row is a sample for DBScan
+        samples = outcome_matrix
         
         # Run DBScan clustering
         result = dbscan(samples, eps, min_points=min_points)

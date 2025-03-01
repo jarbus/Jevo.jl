@@ -85,6 +85,154 @@ end
         end
     end
 end
+
+@testset "DBScan clustering" begin
+    # Create a population with individuals that have interactions
+    id_counter = Counter(AbstractIndividual)
+    ng_developer = Creator(VectorPhenotype)
+
+    # Create genotypes with distinct patterns to form clear clusters
+    genotypes = [
+        VectorGenotype([1.0, 0.0]),  # Cluster 1
+        VectorGenotype([0.9, 0.1]),  # Cluster 1
+        VectorGenotype([0.0, 1.0]),  # Cluster 2
+        VectorGenotype([0.1, 0.9]),  # Cluster 2
+        VectorGenotype([0.5, 0.5])   # Potential noise point
+    ]
+
+    inds = [Individual(inc!(id_counter), 0, Int[], genotypes[i], ng_developer) for i in 1:5]
+    
+    # Create interactions to form a clear pattern in the outcome matrix
+    # Cluster 1 individuals (1,2) perform similarly
+    # Cluster 2 individuals (3,4) perform similarly
+    # Individual 5 is different from both clusters
+    
+    # Individual 1 (Cluster 1)
+    inds[1].interactions = [
+        Interaction(1, [1], 1.0),
+        Interaction(1, [2], 0.9),
+        Interaction(1, [3], 0.1),
+        Interaction(1, [4], 0.2),
+        Interaction(1, [5], 0.5)
+    ]
+    
+    # Individual 2 (Cluster 1)
+    inds[2].interactions = [
+        Interaction(2, [1], 0.9),
+        Interaction(2, [2], 1.0),
+        Interaction(2, [3], 0.2),
+        Interaction(2, [4], 0.1),
+        Interaction(2, [5], 0.4)
+    ]
+    
+    # Individual 3 (Cluster 2)
+    inds[3].interactions = [
+        Interaction(3, [1], 0.1),
+        Interaction(3, [2], 0.2),
+        Interaction(3, [3], 1.0),
+        Interaction(3, [4], 0.9),
+        Interaction(3, [5], 0.5)
+    ]
+    
+    # Individual 4 (Cluster 2)
+    inds[4].interactions = [
+        Interaction(4, [1], 0.2),
+        Interaction(4, [2], 0.1),
+        Interaction(4, [3], 0.9),
+        Interaction(4, [4], 1.0),
+        Interaction(4, [5], 0.6)
+    ]
+    
+    # Individual 5 (potential noise point)
+    inds[5].interactions = [
+        Interaction(5, [1], 0.5),
+        Interaction(5, [2], 0.4),
+        Interaction(5, [3], 0.5),
+        Interaction(5, [4], 0.6),
+        Interaction(5, [5], 1.0)
+    ]
+    
+    # Create population and state
+    pop = Population("test_pop", inds)
+    state = State()
+    
+    # First compute the outcome matrix
+    Jevo.add_outcome_matrices!(state, [pop])
+    
+    # Verify the outcome matrix was created
+    @test any(x -> x isa OutcomeMatrix, pop.data)
+    outcome_matrix = getonly(x -> x isa OutcomeMatrix, pop.data)
+    @test size(outcome_matrix.matrix) == (5, 5)
+    
+    # Apply DBScan clustering with parameters that should identify 2 clusters
+    # eps=0.3 and min_points=2 should group (1,2) and (3,4) into separate clusters
+    # and potentially mark individual 5 as noise
+    Jevo.cluster_outcome_matrices!(state, 0.3, 2)
+    
+    # There should now be two outcome matrices
+    outcome_matrices = filter(x -> x isa OutcomeMatrix, pop.data)
+    @test length(outcome_matrices) == 2
+    
+    # Get the clustered matrix
+    clustered_matrix = outcome_matrices[2].matrix
+    
+    # The clustered matrix should have 5 rows (one per individual)
+    # and 2 columns (one per cluster)
+    @test size(clustered_matrix, 1) == 5
+    
+    # Check that individuals 1 and 2 are in the same cluster
+    # and individuals 3 and 4 are in a different cluster
+    cluster1_idx = findfirst(j -> clustered_matrix[1, j] == 1.0, 1:size(clustered_matrix, 2))
+    cluster2_idx = findfirst(j -> clustered_matrix[3, j] == 1.0, 1:size(clustered_matrix, 2))
+    
+    @test !isnothing(cluster1_idx)
+    @test !isnothing(cluster2_idx)
+    @test cluster1_idx != cluster2_idx
+    
+    # Check that individual 2 is in the same cluster as individual 1
+    @test clustered_matrix[2, cluster1_idx] == 1.0
+    
+    # Check that individual 4 is in the same cluster as individual 3
+    @test clustered_matrix[4, cluster2_idx] == 1.0
+    
+    # Test the operator version
+    pop = Population("test_pop", deepcopy(inds))
+    state = State()
+    
+    # First compute the outcome matrix
+    Jevo.add_outcome_matrices!(state, [pop])
+    
+    # Create and apply the ClusterOutcomeMatrix operator
+    cluster_op = ClusterOutcomeMatrix(eps=0.3, min_points=2)
+    apply!(state, cluster_op)
+    
+    # Verify results
+    outcome_matrices = filter(x -> x isa OutcomeMatrix, pop.data)
+    @test length(outcome_matrices) == 2
+    
+    # Get the clustered matrix
+    clustered_matrix = outcome_matrices[2].matrix
+    
+    # The clustered matrix should have 5 rows (one per individual)
+    # and 2 columns (one per cluster)
+    @test size(clustered_matrix, 1) == 5
+    
+    # Check that individuals 1 and 2 are in the same cluster
+    # and individuals 3 and 4 are in a different cluster
+    cluster1_idx = findfirst(j -> clustered_matrix[1, j] == 1.0, 1:size(clustered_matrix, 2))
+    cluster2_idx = findfirst(j -> clustered_matrix[3, j] == 1.0, 1:size(clustered_matrix, 2))
+    
+    @test !isnothing(cluster1_idx)
+    @test !isnothing(cluster2_idx)
+    @test cluster1_idx != cluster2_idx
+    
+    # Check that individual 2 is in the same cluster as individual 1
+    @test clustered_matrix[2, cluster1_idx] == 1.0
+    
+    # Check that individual 4 is in the same cluster as individual 3
+    @test clustered_matrix[4, cluster2_idx] == 1.0
+end
+
 #= @testset "numbers game lexicase" begin =#
 #=   n_dims = 2 =#
 #=   n_inds = 100 =#
