@@ -10,6 +10,7 @@ n_pops = 2
 counters = default_counters()
 ng_gc = ng_genotype_creator = Creator(VectorGenotype, (n=n_dims,rng=rng))
 ng_developer = Creator(VectorPhenotype)
+env_creator = Creator(CompareOnOne)
 
 pop_initializer = InitializeAllPopulations()
 
@@ -213,7 +214,43 @@ end
         @test 5 ∉ keys(getonly(x->x isa Jevo.OutcomeCache, s.data).cache[4]) # estimated
 
     end
-    @testset "integration" begin
+    @testset "old_vs_new_matchmaker" begin
+        s = State()
+
+        inds = [Individual(i, 0, Int[], ng_gc(), ng_developer) for i in 1:3]
+        pop = Population("p1", inds)
+        Jevo.initialize_phylogeny!(s, pop) 
+
+        for i in 4:6
+            push!(pop.individuals, Individual(i, 1, [i-3], ng_gc(), ng_developer))
+        end
+
+        
+        @testset "no_cached_matches" begin
+            no_cached_matches = true
+            matches = Jevo.make_old_vs_new_matches(s, [[pop]], no_cached_matches, env_creator=env_creator)
+            @test length(matches) == 18
+            match_ids = [Tuple(ind.id for ind in match.individuals) for match in matches]
+            for i in 1:3, j in 4:6
+                @test (i, j) in match_ids
+                @test (j, i) in match_ids
+            end
+        end
+
+        outcome_cache = Jevo.OutcomeCache(["p1"], Jevo.LRU{Int, Dict{Int, Float64}}(maxsize=100))
+        for i in 1:6
+            outcome_cache.cache[i] = Dict{Int, Float64}()
+            for j in 1:6
+                outcome_cache.cache[i][j] = 1.0
+            end
+        end
+        push!(s.data, outcome_cache)
+
+        @testset "cached_matches" begin
+            no_cached_matches = false
+            matches = Jevo.make_old_vs_new_matches(s, [[pop]], no_cached_matches, env_creator=env_creator)
+            @test length(matches) == 0
+        end
     end
 end
 
