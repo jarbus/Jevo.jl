@@ -125,7 +125,7 @@ end
     
     clustered_matrix = outcome_matrices[1].matrix
     
-    @test size(clustered_matrix) == (5, 2)
+    @test size(clustered_matrix) == (5, 3)
     
     # Check that individuals 1 and 2 are in the same cluster
     # and individuals 3 and 4 are in a different cluster
@@ -141,6 +141,9 @@ end
     
     # Check that individual 4 is in the same cluster as individual 3
     @test clustered_matrix[4, cluster2_idx] == 1.0
+
+    # Check that individual 5 is marked as noise
+    @test clustered_matrix[5, 3] == 1.0
    end
 
 #= @testset "numbers game lexicase" begin =#
