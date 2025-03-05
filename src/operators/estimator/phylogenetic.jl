@@ -1,4 +1,4 @@
-export PhylogeneticEstimator
+export PhylogeneticEstimator, CacheInteractions, RestoreCachedInteractions
 using DataStructures
 
 
@@ -12,10 +12,10 @@ struct NumCached <: AbstractMetric end
 struct NumSamples <: AbstractMetric end
 
 @define_op "PhylogeneticEstimator" "AbstractOperator" 
-PhylogeneticEstimator(speciesa_id::String, speciesb_id::String, k::Int, max_dist::Int, kwargs...) =
+PhylogeneticEstimator(ids::Vector{String}=String[]; k::Int, max_dist::Int, kwargs...) =
     create_op("PhylogeneticEstimator",
-              retriever=PopulationRetriever([speciesa_id, speciesb_id]),
-              operator=map((s,ps)->estimate!(s,ps, k=k, max_dist=max_dist)),)
+              retriever=PopulationRetriever(ids),
+              operator=map((s,ps)->estimate!(s,ps, k, max_dist));kwargs...)
 
 struct OutcomeCache  # LRU
     pop_ids::Vector{String}
@@ -267,9 +267,10 @@ function compute_estimates(
 end
 
 function estimate!(state::State, pops::Vector{Population}, k::Int, max_dist::Int)
-    # TODO handle case with one pop
-    @assert length(pops) == 2 "PhylogeneticEstimator expects two populations"
-    popa, popb = pops
+    # TODO handle case with two pop
+    @assert length(pops) == 1 "PhylogeneticEstimator expects one population, multiple populations are untested"
+
+    popa, popb = pops[1], pops[1]
 
     # get outcome cache for this pair of pops
     outcome_cache = nothing
@@ -279,22 +280,22 @@ function estimate!(state::State, pops::Vector{Population}, k::Int, max_dist::Int
             outcome_cache = d.cache
         end
     end
-    # create if not created
-    if isnothing(outcome_cache)
-        outcome_cache = LRU{Int, Dict{Int, Float64}}(maxsize=10000)
-        push!(state.data, OutcomeCache([popa.id, popb.id], outcome_cache))
-    end
+    @assert !isnothing(outcome_cache) "Outcome cache not found for $(popa.id) vs $(popb.id)"
+   
 
     # get randomly sampled interactions for each pop (this should always exist)
     randomly_sampled_interactions_a = getonly(x->x isa RandomlySampledInteractions, popa.data)
     randomly_sampled_interactions_b = getonly(x->x isa RandomlySampledInteractions, popb.data)
+    popa.data = filter(x->!(x isa RandomlySampledInteractions && x.other_pop_id == popb.id), popa.data)
+    popb.data = filter(x->!(x isa RandomlySampledInteractions && x.other_pop_id == popa.id), popb.data)
+
 
     # get trees for each pop
     treea = getonly(x->x isa PhylogeneticTree, popa.data)
     treeb = getonly(x->x isa PhylogeneticTree, popb.data)
 
     individual_outcomes = Dict{Int, Dict{Int, Float64}}()
-    # todo get individual outcomes
+
     for (i, pop) in enumerate(pops)
         i == 2 && pops[1].id == pops[2].id && continue
         for ind in pop.individuals
@@ -421,8 +422,11 @@ function estimate!(state::State, pops::Vector{Population}, k::Int, max_dist::Int
     for (i, pop) in enumerate(pops)
         # skip duplicate add if we are estimating interactions within the same population
         i == 2 && pops[1].id == pops[2].id && continue
-        for ind in pop.individuals, (other_id, outcome) in estimated_individual_outcomes[ind.id]
-            push!(ind.interactions, EstimatedInteraction(ind.id, [other_id], outcome))
+        for ind in pop.individuals
+            ind.id ∉ keys(estimated_individual_outcomes) && continue
+            for (other_id, outcome) in estimated_individual_outcomes[ind.id]
+                push!(ind.interactions, EstimatedInteraction(ind.id, [other_id], outcome))
+            end
         end
     end
     # for each ind in each pop confirm that they have 
@@ -432,7 +436,7 @@ function estimate!(state::State, pops::Vector{Population}, k::Int, max_dist::Int
         i == 2 && pops[1].id == pops[2].id && continue
         for ind in pop.individuals
             found_other_ids = Set(int.other_ids[1] for int in ind.interactions)
-            other_pop = pop_ids[3-i]
+            other_pop = length(pop_ids) > 1 ? pop_ids[3-i] : pop_ids[1]
             missing_other_ids = setdiff(other_pop, found_other_ids)
             @assert isempty(missing_other_ids) "Individual $(ind.id) is missing interactions with $(missing_other_ids)"
         end
@@ -440,16 +444,15 @@ function estimate!(state::State, pops::Vector{Population}, k::Int, max_dist::Int
 end
 
 @define_op "RestoreCachedInteractions" "AbstractOperator" 
-RestoreCachedInteractions(ids::Vector{String}=String[], kwargs...) =
+RestoreCachedInteractions(ids::Vector{String}=String[]; kwargs...) =
     create_op("RestoreCachedInteractions",
               retriever=PopulationRetriever(ids),
-              operator=restore_cached_outcomes!,
-    )
+              operator=restore_cached_outcomes!; kwargs...)
 
 function restore_cached_outcomes!(state::State, pops::Vector{Vector{Population}})
     length(pops) != 1 && @error "Not implemented"
     pop = pops[1][1]
-    outcome_cache = getonly(x->x isa OutcomeCache && x.pop_ids == [pop.id], state.data).cache
+    outcome_cache = getonly(x->x isa OutcomeCache && x.pop_ids == [pop.id, pop.id], state.data).cache
     ind_ids = Set(ind.id for ind in pop.individuals)
     for ind in pop.individuals
         other_ids = Set(int.other_ids[1] for int in ind.interactions)
@@ -461,3 +464,27 @@ function restore_cached_outcomes!(state::State, pops::Vector{Vector{Population}}
         end
     end
 end
+
+@define_op "CacheInteractions" "AbstractOperator"
+    CacheInteractions(ids::Vector{String}=String[], kwargs...) =
+        create_op("CacheInteractions",
+                  retriever=PopulationRetriever(ids),
+                  operator=cache_outcomes!,
+        )
+
+function cache_outcomes!(state::State, pops::Vector{Vector{Population}})
+    for subpopi in pops, subpopj in pops, popi in subpopi, popj in subpopj
+        outcome_cache = getonly(x->x isa OutcomeCache && x.pop_ids == [popi.id, popj.id], state.data).cache
+        for ind in popi.individuals
+            for int in ind.interactions
+                @assert length(int.other_ids) == 1 "Only one other individual is supported"
+                if ind.id ∉ keys(outcome_cache)
+                    outcome_cache[ind.id] = Dict{Int, Float64}()
+                end
+                outcome_cache[ind.id][int.other_ids[1]] = int.score
+            end
+        end
+
+    end
+end
+

@@ -1,4 +1,4 @@
-export TruncationSelector
+export TruncationSelector, ClusterTruncationSelector
 """
     TruncationSelector <: AbstractSelector
 
@@ -21,4 +21,36 @@ function truncate!(state::AbstractState, pops::Vector{Population}, k::Int)
     end
     pops[1].individuals = pops[1].individuals[sortperm(scores, rev=true)[1:k]]
 
+end
+
+@define_op "ClusterTruncationSelector" "AbstractSelector"
+ClusterTruncationSelector(k::Int, ids::Vector{String}=String[]; radius=nothing, kwargs...) =
+    create_op("ClusterTruncationSelector",
+                    retriever=PopulationRetriever(ids),
+                    updater=map(map((s,p)->cluster_truncate!(s,p,k,radius)))
+                    ;kwargs...)
+
+function cluster_truncate!(state::AbstractState, pop::Population, k::Int, radius)
+    # Find the outcome matrix in the population data
+    outcome_idx = findfirst(x -> x isa OutcomeMatrix, pop.data)
+    @assert !isnothing(outcome_idx) "OutcomeMatrix not found in population $(pop.id)"
+    outcome_matrix = pop.data[outcome_idx].matrix
+    # confirm outcome matrix is only 1.0 or 0.0
+    @assert all(x -> x == 0.0 || x == 1.0, outcome_matrix) "Outcome matrix must be binary"
+
+    # Each row corresponds to an individual in pop.individuals
+    # Each column corresponds to a cluster
+    # For each cluster, select the k individuals with the highest record.fitness
+    selected_individuals = Vector{Individual}()
+    for cluster in 1:size(outcome_matrix, 2)
+        cluster_members = findall(x -> x == 1.0, outcome_matrix[:, cluster])
+        cluster_individuals = [pop.individuals[i] for i in cluster_members]
+        @assert length(cluster_individuals) > 0 "Cluster must have at least one member"
+        @assert all(x -> length(x.records) == 1, cluster_individuals) "Individuals must have exactly one record"
+        cluster_individuals = sort(cluster_individuals, by = x -> x.records[1].fitness, rev = true)
+        append!(selected_individuals, cluster_individuals[1:min(k, length(cluster_individuals))])
+    end
+
+
+    pop.individuals = selected_individuals
 end

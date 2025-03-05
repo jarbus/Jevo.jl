@@ -217,6 +217,8 @@ end
     @testset "old_vs_new_matchmaker" begin
         s = State()
 
+        n_randomly_sampled = 0
+
         inds = [Individual(i, 0, Int[], ng_gc(), ng_developer) for i in 1:3]
         pop = Population("p1", inds)
         Jevo.initialize_phylogeny!(s, pop) 
@@ -228,7 +230,7 @@ end
         
         @testset "no_cached_matches" begin
             no_cached_matches = true
-            matches = Jevo.make_old_vs_new_matches(s, [[pop]], no_cached_matches, env_creator=env_creator)
+            matches = Jevo.make_old_vs_new_matches(s, [[pop]], no_cached_matches, n_randomly_sampled, env_creator=env_creator)
             @test length(matches) == 18
             match_ids = [Tuple(ind.id for ind in match.individuals) for match in matches]
             for i in 1:3, j in 4:6
@@ -248,7 +250,7 @@ end
 
         @testset "cached_matches" begin
             no_cached_matches = false
-            matches = Jevo.make_old_vs_new_matches(s, [[pop]], no_cached_matches, env_creator=env_creator)
+            matches = Jevo.make_old_vs_new_matches(s, [[pop]], no_cached_matches, n_randomly_sampled, env_creator=env_creator)
             @test length(matches) == 0
         end
 

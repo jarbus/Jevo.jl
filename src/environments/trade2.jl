@@ -90,7 +90,7 @@ function log_trade_ratio(state, individuals, h5)
     ratios = [mean(int.trade_ratio for int in ind.interactions if int isa TradeRatioInteraction) for ind in individuals if !isempty(ind.interactions)]
     apples = [mean(int.count for int in ind.interactions if int isa NumApplesInteraction) for ind in individuals if !isempty(ind.interactions)]
     bananas = [mean(int.count for int in ind.interactions if int isa NumBananasInteraction) for ind in individuals if !isempty(ind.interactions)]
-    mins = [maximum(int.min_resource for int in ind.interactions if int isa MinResourceInteraction) for ind in individuals if !isempty(ind.interactions)]
+    mins = [mean(int.min_resource for int in ind.interactions if int isa MinResourceInteraction) for ind in individuals if !isempty(ind.interactions)]
     ratio_m=StatisticalMeasurement(TradeRatio, ratios, generation(state))
     apple_m=StatisticalMeasurement(NumApples, apples, generation(state))
     banana_m=StatisticalMeasurement(NumBananas, bananas, generation(state))
@@ -193,7 +193,6 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
         append!(interactions, make_resource_interactions(env, ids))
         reset_map!(env)
     end
-    observations = make_observations(env, ids, phenotypes)
 
     if !isempty(env.render_filename) 
         push!(env.frames, render(env, 1))  # Always render from player 1's perspective
@@ -213,11 +212,11 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
         end
     end
 
-    actions = get_actions(observations, phenotypes)
     for (i, id) in enumerate(ids)
+        observations = make_observations(env, ids, phenotypes)
         other_id = ids[3-i]
         player = env.players[i]
-        action_values = actions[i]
+        action_values = phenotypes[i](observations[i])
         @assert length(action_values) == 4
         # assert all actions are not nan or inf
         @assert !any(isnan.(action_values)) && !any(isinf.(action_values))
@@ -225,11 +224,9 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
         place_action, pick_action = tanh(place_action), tanh(pick_action)
         movement_weight = abs(dx) + abs(dy)
         if movement_weight > 1
-            dx = dx / movement_weight
-            dy = dy / movement_weight
+            dx = 2.5*dx / movement_weight
+            dy = 2.5*dy / movement_weight
         end
-        dx = 2*dx 
-        dy = 2*dy 
         place_action = place_action * STARTING_RESOURCES
         pick_action = pick_action * STARTING_RESOURCES
         
@@ -297,6 +294,7 @@ function step!(env::TradeGridWorld, ids::Vector{Int}, phenotypes::Vector{P}) whe
             #= end =#
 
         end
+        append!(interactions, make_resource_interactions(env, ids))
     end
     return interactions
 end

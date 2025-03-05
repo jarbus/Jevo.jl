@@ -61,7 +61,7 @@ Parameters:
 - `min_points`: The number of samples in a neighborhood for a point to be considered as a core point
 """
 @define_op "ClusterOutcomeMatrix" "AbstractOperator"
-ClusterOutcomeMatrix(ids::Vector{String}=String[]; radius, kwargs...) =
+ClusterOutcomeMatrix(ids::Vector{String}=String[]; radius=nothing, kwargs...) =
     create_op("ClusterOutcomeMatrix",
             retriever=PopulationRetriever(ids),
             updater=map(map((s, p)  -> cluster_outcome_matrices!(s, p, radius ))),
@@ -77,6 +77,9 @@ function cluster_outcome_matrices!(state::AbstractState, pop::Population, radius
     
     # Each row is a sample for DBScan
     samples = outcome_matrix
+
+    n_samples = size(samples, 1)
+    radius = isnothing(radius) ? n_samples^2 : radius
     
     # Run DBScan clustering
     result = dbscan(samples, radius)
@@ -87,6 +90,7 @@ function cluster_outcome_matrices!(state::AbstractState, pop::Population, radius
         clusters = filter(c -> c != 0, clusters)
     end
     k = length(clusters)
+    @info "Found $k clusters in outcome matrix"
     
     # Create a new outcome matrix based on cluster assignments
     n_rows = size(outcome_matrix, 1)
