@@ -197,11 +197,18 @@ end
         @test estimate_4_5[1].score == 0.5
         @test estimate_5_4[1].score == 0.5
 
+        Jevo.add_outcome_matrices!(s, [pop])
 
+        outcome_matrix = getonly(x->x isa Jevo.OutcomeMatrix, pop.data)
+        @test size(outcome_matrix.matrix) == (6, 6)
+        @test outcome_matrix.matrix[1,1] == 1.0 # non-estimate
+        @test outcome_matrix.matrix[1,2] == 1.0 # non-estimate
+        @test outcome_matrix.matrix[4,5] == 0.5 == outcome_matrix.matrix[5,4] # estimate
+        @test outcome_matrix.matrix[6,6] == 1.0 # estimated from 3,3
 
-        # TODO confirm estimates are correct for single pop
         # TODO multi-pop estimates
-        # TODO add logic to add estimated interactions to outcome matrix
+    end
+    @testset "integration" begin
     end
 end
 

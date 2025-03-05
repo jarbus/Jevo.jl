@@ -39,7 +39,7 @@ function add_outcome_matrices!(::AbstractState,
     # initialize outcomes matrix to avoid repeated dict lookups when lexicasing
     outcomes = zeros(Float64, length(solution_ids), length(test_ids))
     for ind in pop.individuals, int in ind.interactions, test_id in int.other_ids
-        !(int isa Interaction) && continue
+        !(int isa Interaction || int isa EstimatedInteraction) && continue
         sol_idx = solution_idxs[int.individual_id]
         test_idx = test_idxs[test_id]
         outcomes[sol_idx, test_idx] += int.score
