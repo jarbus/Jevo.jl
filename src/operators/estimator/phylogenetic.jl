@@ -281,7 +281,7 @@ function estimate!(state::State, pops::Vector{Population}, k::Int, max_dist::Int
     end
     # create if not created
     if isnothing(outcome_cache)
-        outcome_cache = LRU{Int, Dict{Int, Float64}}(maxsize=1000)
+        outcome_cache = LRU{Int, Dict{Int, Float64}}(maxsize=10000)
         push!(state.data, OutcomeCache([popa.id, popb.id], outcome_cache))
     end
 

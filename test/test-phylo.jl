@@ -206,7 +206,12 @@ end
         @test outcome_matrix.matrix[4,5] == 0.5 == outcome_matrix.matrix[5,4] # estimate
         @test outcome_matrix.matrix[6,6] == 1.0 # estimated from 3,3
 
-        # TODO multi-pop estimates
+        @test 1 ∈ keys(getonly(x->x isa Jevo.OutcomeCache, s.data).cache)
+        @test 1 ∈ keys(getonly(x->x isa Jevo.OutcomeCache, s.data).cache[1])
+        @test 4 ∈ keys(getonly(x->x isa Jevo.OutcomeCache, s.data).cache)
+        @test 4 ∈ keys(getonly(x->x isa Jevo.OutcomeCache, s.data).cache[4])
+        @test 5 ∉ keys(getonly(x->x isa Jevo.OutcomeCache, s.data).cache[4]) # estimated
+
     end
     @testset "integration" begin
     end
