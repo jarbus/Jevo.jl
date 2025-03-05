@@ -1,11 +1,11 @@
 export Measurement, StatisticalMeasurement, measure
 struct Measurement <: AbstractMeasurement
-    metric::Type{<:AbstractMetric}
+    metric::Union{String,Type{<:AbstractMetric}}
     value::Any
     generation::Int
 end
 struct StatisticalMeasurement <: AbstractMeasurement
-    metric::Type{<:AbstractMetric}
+    metric::Union{String, Type{<:AbstractMetric}}
     min::Float64
     mean::Float64
     std::Float64
@@ -14,7 +14,7 @@ struct StatisticalMeasurement <: AbstractMeasurement
     generation::Int
 end
 
-function StatisticalMeasurement(type::Type{<:AbstractMetric}, data::Vector{<:Real}, generation::Int)
+function StatisticalMeasurement(type::Union{String, Type{<:AbstractMetric}}, data::Vector{<:Real}, generation::Int)
     StatisticalMeasurement(type, minimum(data), mean(data), std(data), maximum(data), length(data), generation)
 end
 
