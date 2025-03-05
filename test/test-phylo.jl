@@ -251,6 +251,14 @@ end
             matches = Jevo.make_old_vs_new_matches(s, [[pop]], no_cached_matches, env_creator=env_creator)
             @test length(matches) == 0
         end
+
+        @testset "restore_cached_outcomes" begin
+            Jevo.restore_cached_outcomes!(s, [[pop]])
+            for ind in pop.individuals
+                @test length(ind.interactions) == 6
+                all(i.score == 1.0 for i in ind.interactions)
+            end
+        end
     end
 end
 

@@ -438,3 +438,26 @@ function estimate!(state::State, pops::Vector{Population}, k::Int, max_dist::Int
         end
     end
 end
+
+@define_op "RestoreCachedInteractions" "AbstractOperator" 
+RestoreCachedInteractions(ids::Vector{String}=String[], kwargs...) =
+    create_op("RestoreCachedInteractions",
+              retriever=PopulationRetriever(ids),
+              operator=restore_cached_outcomes!,
+    )
+
+function restore_cached_outcomes!(state::State, pops::Vector{Vector{Population}})
+    length(pops) != 1 && @error "Not implemented"
+    pop = pops[1][1]
+    outcome_cache = getonly(x->x isa OutcomeCache && x.pop_ids == [pop.id], state.data).cache
+    ind_ids = Set(ind.id for ind in pop.individuals)
+    for ind in pop.individuals
+        other_ids = Set(int.other_ids[1] for int in ind.interactions)
+        ind_outcome_cache = outcome_cache[ind.id]
+        for other_id in setdiff(ind_ids, other_ids)
+            if other_id in keys(ind_outcome_cache)
+                push!(ind.interactions, Interaction(ind.id, [other_id], outcome_cache[ind.id][other_id]))
+            end
+        end
+    end
+end
