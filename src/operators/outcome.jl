@@ -38,12 +38,16 @@ function add_outcome_matrices!(::AbstractState,
 
     # initialize outcomes matrix to avoid repeated dict lookups when lexicasing
     outcomes = zeros(Float64, length(solution_ids), length(test_ids))
+
+    outcome_entered = fill(false, length(solution_ids), length(test_ids))
     for ind in pop.individuals, int in ind.interactions, test_id in int.other_ids
         !(int isa Interaction || int isa EstimatedInteraction) && continue
         sol_idx = solution_idxs[int.individual_id]
         test_idx = test_idxs[test_id]
         outcomes[sol_idx, test_idx] += int.score
+        outcome_entered[sol_idx, test_idx] = true
     end
+    @assert all(outcome_entered) "Not all outcomes were entered into the matrix"
     #filter!(x->!isa(x, OutcomeMatrix), pop.data)
     push!(pop.data, OutcomeMatrix(outcomes))
 end

@@ -299,47 +299,48 @@ function estimate!(state::State, pops::Vector{Population}, k::Int, max_dist::Int
     for (i, pop) in enumerate(pops)
         i == 2 && pops[1].id == pops[2].id && continue
         for ind in pop.individuals
-            ind_outcomes = individual_outcomes[ind.id] = Dict{Int, Float64}()
             for interaction in ind.interactions
                 other_id = interaction.other_ids[1]
-                if other_id ∉ keys(ind_outcomes)
-                    ind_outcomes[other_id] = 0
+                if ind.id ∉ keys(individual_outcomes)
+                    individual_outcomes[ind.id] = Dict{Int, Float64}()
                 end
-                ind_outcomes[other_id] += interaction.score
+                if other_id ∉ keys(individual_outcomes[ind.id])
+                    individual_outcomes[ind.id][other_id] = 0
+                end
+                individual_outcomes[ind.id][other_id] += interaction.score
             end
         end
     end
 
+    outcome_cache_interactions = sort(unique([(k1, k2) for k1 in keys(outcome_cache) for k2 in keys(outcome_cache[k1])]))
+    individual_outcomes_interactions = sort(unique([(k1, k2) for k1 in keys(individual_outcomes) for k2 in keys(individual_outcomes[k1])]))
+
     # Merge all interactions into outcome cache
     two_layer_merge!(outcome_cache, individual_outcomes)
 
-    # Do we have sampled interactions?
-    has_sampled_interactions = any(x->x isa RandomlySampledInteractions && x.other_pop_id == popb.id, popa.data) &&
-                               any(x->x isa RandomlySampledInteractions && x.other_pop_id == popa.id, popb.data)
-    # If so, remove them from individual_outcomes and outcome cache
-    if has_sampled_interactions
 
-        sampled_interactions = [randomly_sampled_interactions_a.interactions; randomly_sampled_interactions_b.interactions] |> unique
+    # remove randomly sampled interactions from individual_outcomes and outcome cache
+    sampled_interactions = [randomly_sampled_interactions_a.interactions; randomly_sampled_interactions_b.interactions] |> unique
 
-        sampled_ids = Set(id for i in sampled_interactions for id in i)
+    sampled_ids = Set(id for i in sampled_interactions for id in i)
 
-        sampled_individual_outcomes = Dict(id=>SortedDict{Int,Float64}() for id in sampled_ids)
-        for (id1, id2) in sampled_interactions
-            @assert id1 in keys(individual_outcomes) "id1 $(id1) not in individual_outcomes"
-            @assert id2 in keys(individual_outcomes[id1]) "id2 $(id2) not in individual_outcomes[$(id1)]"
-            sampled_individual_outcomes[id1][id2] = individual_outcomes[id1][id2]
-            sampled_individual_outcomes[id2][id1] = individual_outcomes[id2][id1]
-            delete!(individual_outcomes[id1], id2)
-            delete!(outcome_cache[id1], id2)
-            delete!(individual_outcomes[id2], id1)
-            delete!(outcome_cache[id2], id1)
-        end
+    sampled_individual_outcomes = Dict(id=>SortedDict{Int,Float64}() for id in sampled_ids)
+    for (id1, id2) in sampled_interactions
+        @assert id1 in keys(individual_outcomes) "id1 $(id1) not in individual_outcomes for interaction $(id1),$(id2)"
+        @assert id2 in keys(individual_outcomes[id1]) "id2 $(id2) not in individual_outcomes[$(id1)]"
+        sampled_individual_outcomes[id1][id2] = individual_outcomes[id1][id2]
+        delete!(individual_outcomes[id1], id2)
+        delete!(outcome_cache[id1], id2)
+        #= sampled_individual_outcomes[id2][id1] = individual_outcomes[id2][id1] =#
+        #= delete!(individual_outcomes[id2], id1) =#
+        #= delete!(outcome_cache[id2], id1) =#
     end
 
 
     # Compute all unevaluated interactions between the two species
     unevaluated_interactions = Vector{Tuple{Int64, Int64}}()
     cached_interactions = Vector{Tuple{Int64, Int64}}()
+
 
     # Get all cached interactions and all unevaluated outcomes
     for ind_a in popa.individuals, ind_b in popb.individuals
@@ -352,22 +353,30 @@ function estimate!(state::State, pops::Vector{Population}, k::Int, max_dist::Int
             end
         end
     end
+    unevaluated_interactions = unique(unevaluated_interactions)
+    cached_interactions = unique(cached_interactions)
     
     # Measure the number of cached, estimated, sampled,
     # and evaluated interactions between the two species
     n_cached = length(cached_interactions)
     n_unevaluated = length(unevaluated_interactions)
-    n_sampled = has_sampled_interactions ? length(sampled_interactions) : 0
+    n_sampled = length(sampled_interactions)
     total_number_of_interactions = length(popa.individuals) * length(popb.individuals)
     num_evaluated = total_number_of_interactions - n_unevaluated - n_cached
 
     gen = generation(state)
-    m = Measurement("PhylogeneticEstimator.$(popa.id*"-"*popb.id).NumCached", n_cached, gen)
-    @info m
-    @h5 Measurement("PhylogeneticEstimator.$(popa.id*"-"*popb.id).NumCached", n_cached, gen)
-    @h5 Measurement("PhylogeneticEstimator.$(popa.id*"-"*popb.id).NumEstimated", n_unevaluated, gen)
-    @h5 Measurement("PhylogeneticEstimator.$(popa.id*"-"*popb.id).NumSamples", n_sampled, gen)
-    @h5 Measurement("PhylogeneticEstimator.$(popa.id*"-"*popb.id).NumEvaluated", num_evaluated, gen)
+    m_cached = Measurement("PhylogeneticEstimator.$(popa.id*"-"*popb.id).NumCached", n_cached, gen)
+    m_estimated = Measurement("PhylogeneticEstimator.$(popa.id*"-"*popb.id).NumEstimated", n_unevaluated, gen)
+    m_sampled = Measurement("PhylogeneticEstimator.$(popa.id*"-"*popb.id).NumSamples", n_sampled, gen)
+    m_evaluated = Measurement("PhylogeneticEstimator.$(popa.id*"-"*popb.id).NumEvaluated", num_evaluated, gen)
+    @info m_cached
+    @info m_estimated
+    @info m_sampled
+    @info m_evaluated
+    @h5 m_cached 
+    @h5 m_estimated
+    @h5 m_sampled
+    @h5 m_evaluated
 
     # Skip estimation if there are no unevaluated interactions
     if n_sampled == 0 && n_unevaluated == 0
@@ -379,27 +388,26 @@ function estimate!(state::State, pops::Vector{Population}, k::Int, max_dist::Int
     # estimates in parallel
     nonlocking_cache = Dict{Int,Dict{Int,Float64}}(k=>copy(v) for (k,v) in outcome_cache)
     # Compute estimates for sampled interactions
-    if has_sampled_interactions
-        # Estimate sampled interactions
-        sample_estimates::Vector{EstimatedOutcome} = compute_estimates(
-            sampled_interactions,
-            treea,
-            treeb,
-            nonlocking_cache,
-            k=k, max_dist=max_dist)
 
-        sample_estimated_outcomes = estimates_to_outcomes(sample_estimates)
-        two_layer_merge!(individual_outcomes, sample_estimated_outcomes, warn=true)
+    # Estimate sampled interactions
+    sample_estimates::Vector{EstimatedOutcome} = compute_estimates(
+        sampled_interactions,
+        treea,
+        treeb,
+        nonlocking_cache,
+        k=k, max_dist=max_dist)
 
-        # Compare sample estimates to actual outcomes
-        distances, errs_a, errs_b = measure_estimation_samples(sample_estimates, sampled_individual_outcomes)
+    sample_estimated_outcomes = estimates_to_outcomes(sample_estimates)
+    two_layer_merge!(individual_outcomes, sample_estimated_outcomes, warn=true)
 
-        @h5 StatisticalMeasurement("estimation_distances", distances, gen)
-        @h5 StatisticalMeasurement("estimation_errors_a", errs_a, gen)
-        @h5 StatisticalMeasurement("estimation_errors_b", errs_b, gen)
-        @h5 Measurement("estimation_distance_error_correlation_a", cor(distances, errs_a), gen)
-        @h5 Measurement("estimation_distance_error_correlation_b", cor(distances, errs_b), gen)
-    end
+    # Compare sample estimates to actual outcomes
+    distances, errs_a, errs_b = measure_estimation_samples(sample_estimates, sampled_individual_outcomes)
+
+    @h5 StatisticalMeasurement("estimation_distances", distances, gen)
+    @h5 StatisticalMeasurement("estimation_errors_a", errs_a, gen)
+    @h5 StatisticalMeasurement("estimation_errors_b", errs_b, gen)
+    @h5 Measurement("estimation_distance_error_correlation_a", cor(distances, errs_a), gen)
+    @h5 Measurement("estimation_distance_error_correlation_b", cor(distances, errs_b), gen)
 
     # Compute estimates for all unevaluated interactions
     estimates = compute_estimates(
@@ -428,19 +436,7 @@ function estimate!(state::State, pops::Vector{Population}, k::Int, max_dist::Int
                 push!(ind.interactions, EstimatedInteraction(ind.id, [other_id], outcome))
             end
         end
-    end
-    # for each ind in each pop confirm that they have 
-    # at least one interaction with every member of the other pop
-    pop_ids = [Set(ind.id for ind in pop.individuals) for pop in pops]
-    for (i, pop) in enumerate(pops)
-        i == 2 && pops[1].id == pops[2].id && continue
-        for ind in pop.individuals
-            found_other_ids = Set(int.other_ids[1] for int in ind.interactions)
-            other_pop = length(pop_ids) > 1 ? pop_ids[3-i] : pop_ids[1]
-            missing_other_ids = setdiff(other_pop, found_other_ids)
-            @assert isempty(missing_other_ids) "Individual $(ind.id) is missing interactions with $(missing_other_ids)"
-        end
-    end
+    end 
 end
 
 @define_op "RestoreCachedInteractions" "AbstractOperator" 
@@ -454,11 +450,13 @@ function restore_cached_outcomes!(state::State, pops::Vector{Vector{Population}}
     pop = pops[1][1]
     outcome_cache = getonly(x->x isa OutcomeCache && x.pop_ids == [pop.id, pop.id], state.data).cache
     ind_ids = Set(ind.id for ind in pop.individuals)
+    n_restored = 0
     for ind in pop.individuals
         other_ids = Set(int.other_ids[1] for int in ind.interactions)
         ind_outcome_cache = outcome_cache[ind.id]
         for other_id in setdiff(ind_ids, other_ids)
             if other_id in keys(ind_outcome_cache)
+                n_restored += 1
                 push!(ind.interactions, Interaction(ind.id, [other_id], outcome_cache[ind.id][other_id]))
             end
         end

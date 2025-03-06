@@ -32,8 +32,7 @@ function make_old_vs_new_matches(state::AbstractState, pops::Vector{Vector{Popul
         if use_cached_matches 
             outcome_caches = filter(x->x isa OutcomeCache && x.pop_ids == [pop.id, pop.id] , state.data)
             @assert length(outcome_caches) == 1 "found $(length(outcome_caches)) output caches."
-            outcome_cache = outcome_caches[1]
-            println("Using outcome cache: $(outcome_cache)")
+            outcome_cache = outcome_caches[1].cache
         end
 
         @assert length(inds) >= 1
@@ -45,21 +44,22 @@ function make_old_vs_new_matches(state::AbstractState, pops::Vector{Vector{Popul
                 continue
             end
             if !isnothing(outcome_cache) && 
-                ind_i.id ∈ keys(outcome_cache.cache) &&
-                ind_j.id ∈ keys(outcome_cache.cache) &&
-                ind_j.id ∈ keys(outcome_cache.cache[ind_i.id]) &&
-                ind_i.id ∈ keys(outcome_cache.cache[ind_j.id])
+                ind_i.id ∈ keys(outcome_cache) &&
+                ind_j.id ∈ keys(outcome_cache) &&
+                ind_j.id ∈ keys(outcome_cache[ind_i.id]) &&
+                ind_i.id ∈ keys(outcome_cache[ind_j.id])
                 continue
             end
             push!(matches, Match(inc!(match_counter), [ind_i, ind_j], env_creator))
             push!(matches, Match(inc!(match_counter), [ind_j, ind_i], env_creator))
         end
         # add random candidates
-        shuffle!(random_sample_candidates)
+        random_sample_candidates = shuffle(state.rng, unique(random_sample_candidates))
         random_interactions = Tuple{Int, Int}[]
         for i in 1:min(n_randomly_sampled, length(random_sample_candidates))
             ind_i, ind_j = random_sample_candidates[i]
             push!(random_interactions, (ind_i.id, ind_j.id))
+            ind_i.id != ind_j.id && push!(random_interactions, (ind_j.id, ind_i.id))
             push!(matches, Match(inc!(match_counter), [ind_i, ind_j], env_creator))
         end
         push!(pop.data, RandomlySampledInteractions(pop.id, random_interactions))
