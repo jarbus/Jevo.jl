@@ -36,7 +36,7 @@ function make_all_v_all_matches(state::AbstractState, pops::Vector{Vector{Popula
         pop_ids = [pop.id, pop.id]
         outcome_caches = filter(x->x isa OutcomeCache && x.pop_ids == pop_ids , state.data)
         if length(outcome_caches) == 0
-            push!(state.data, OutcomeCache(pop_ids, LRU{Int, Dict{Int, Float64}}(maxsize=100_000)))
+            push!(state.data, OutcomeCache(pop_ids, LRU{Int, Dict{Int, Float64}}(maxsize=10_000)))
         else
             @assert length(outcome_caches) == 1 "There should be exactly one outcome cache for the time being, found $(length(outcome_caches))."
         end

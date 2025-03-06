@@ -37,9 +37,8 @@ function make_old_vs_new_matches(state::AbstractState, pops::Vector{Vector{Popul
 
         @assert length(inds) >= 1
         for ind_i in inds, ind_j in inds
-            ind_i.generation != newest_gen && continue
             # randomly sample new vs new candidates
-            if ind_i.generation == ind_j.generation 
+            if ind_i.generation == ind_j.generation == newest_gen
                 push!(random_sample_candidates, [ind_i, ind_j])
                 continue
             end
@@ -51,7 +50,6 @@ function make_old_vs_new_matches(state::AbstractState, pops::Vector{Vector{Popul
                 continue
             end
             push!(matches, Match(inc!(match_counter), [ind_i, ind_j], env_creator))
-            push!(matches, Match(inc!(match_counter), [ind_j, ind_i], env_creator))
         end
         # add random candidates
         random_sample_candidates = shuffle(state.rng, unique(random_sample_candidates))

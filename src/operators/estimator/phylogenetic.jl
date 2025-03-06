@@ -312,9 +312,6 @@ function estimate!(state::State, pops::Vector{Population}, k::Int, max_dist::Int
         end
     end
 
-    outcome_cache_interactions = sort(unique([(k1, k2) for k1 in keys(outcome_cache) for k2 in keys(outcome_cache[k1])]))
-    individual_outcomes_interactions = sort(unique([(k1, k2) for k1 in keys(individual_outcomes) for k2 in keys(individual_outcomes[k1])]))
-
     # Merge all interactions into outcome cache
     two_layer_merge!(outcome_cache, individual_outcomes)
 
@@ -386,6 +383,7 @@ function estimate!(state::State, pops::Vector{Population}, k::Int, max_dist::Int
     # We create a copy of the cached outcomes for use in parallel threads
     # This is because we don't want to lock the cache while we are computing
     # estimates in parallel
+    @info "Cache size: $(length(outcome_cache))"
     nonlocking_cache = Dict{Int,Dict{Int,Float64}}(k=>copy(v) for (k,v) in outcome_cache)
     # Compute estimates for sampled interactions
 

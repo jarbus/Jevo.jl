@@ -1,6 +1,6 @@
 using Jevo: Interaction, EstimatedInteraction, PhylogeneticTree, add_child!, RandomlySampledInteractions, find_k_nearest_interactions, weighted_average_outcome, estimate!, RelatedOutcome
 using DataStructures: SortedDict
-using LRUCache
+using Jevo.LRUCache: LRU
 
 @testset "phylo" begin
 
@@ -236,8 +236,11 @@ end
         @testset "no_cached_matches" begin
             no_cached_matches = true
             matches = Jevo.make_old_vs_new_matches(s, [[pop]], no_cached_matches, n_randomly_sampled, env_creator=env_creator)
-            @test length(matches) == 18
+            @test length(matches) == 27
             match_ids = [Tuple(ind.id for ind in match.individuals) for match in matches]
+            for i in 1:3, j in 1:3
+                @test (i, j) in match_ids
+            end
             for i in 1:3, j in 4:6
                 @test (i, j) in match_ids
                 @test (j, i) in match_ids
