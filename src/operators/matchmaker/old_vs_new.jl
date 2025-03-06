@@ -28,10 +28,12 @@ function make_old_vs_new_matches(state::AbstractState, pops::Vector{Vector{Popul
 
 
         outcome_cache = nothing
-        if no_cached_matches 
+        use_cached_matches = !no_cached_matches
+        if use_cached_matches 
             outcome_caches = filter(x->x isa OutcomeCache && x.pop_ids == [pop.id, pop.id] , state.data)
             @assert length(outcome_caches) == 1 "found $(length(outcome_caches)) output caches."
             outcome_cache = outcome_caches[1]
+            println("Using outcome cache: $(outcome_cache)")
         end
 
         @assert length(inds) >= 1

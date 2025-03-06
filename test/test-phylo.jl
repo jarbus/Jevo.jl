@@ -1,5 +1,6 @@
 using Jevo: Interaction, EstimatedInteraction, PhylogeneticTree, add_child!, RandomlySampledInteractions, find_k_nearest_interactions, weighted_average_outcome, estimate!, RelatedOutcome
 using DataStructures: SortedDict
+using LRUCache
 
 @testset "phylo" begin
 
@@ -170,6 +171,7 @@ end
 
         inds = [Individual(i, 0, Int[], ng_gc(), ng_developer) for i in 1:3]
         pop = Population("p1", inds)
+        push!(s.data, Jevo.OutcomeCache(["p1", "p1"], LRU{Int, Dict{Int, Float64}}(maxsize=100)))
         Jevo.initialize_phylogeny!(s, pop) 
 
         push!(pop.data, Jevo.RandomlySampledInteractions("p1", [(4,4), (5,5)]))
@@ -190,7 +192,7 @@ end
 
         k, max_dist=2, 10
 
-        Jevo.estimate!(s, [pop, pop], k, max_dist)
+        Jevo.estimate!(s, [pop], k, max_dist)
 
         estimate_4_5 =filter(i->i isa EstimatedInteraction && i.other_ids[1] == 5, ind[4].interactions)
         estimate_5_4 =filter(i->i isa EstimatedInteraction && i.other_ids[1] == 4, ind[5].interactions)
@@ -228,6 +230,9 @@ end
         end
 
         
+        outcome_cache = Jevo.OutcomeCache(["p1", "p1"], Jevo.LRU{Int, Dict{Int, Float64}}(maxsize=100))
+        push!(s.data, outcome_cache)
+
         @testset "no_cached_matches" begin
             no_cached_matches = true
             matches = Jevo.make_old_vs_new_matches(s, [[pop]], no_cached_matches, n_randomly_sampled, env_creator=env_creator)
@@ -239,15 +244,14 @@ end
             end
         end
 
-        outcome_cache = Jevo.OutcomeCache(["p1"], Jevo.LRU{Int, Dict{Int, Float64}}(maxsize=100))
         for i in 1:6
             outcome_cache.cache[i] = Dict{Int, Float64}()
             for j in 1:6
                 outcome_cache.cache[i][j] = 1.0
             end
         end
-        push!(s.data, outcome_cache)
 
+        println("testing cached matches")
         @testset "cached_matches" begin
             no_cached_matches = false
             matches = Jevo.make_old_vs_new_matches(s, [[pop]], no_cached_matches, n_randomly_sampled, env_creator=env_creator)
