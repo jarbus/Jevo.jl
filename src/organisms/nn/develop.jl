@@ -13,7 +13,6 @@ function get_earliest_cached_weight(dims::NTuple{N, Int}, genes::Vector{NetworkG
     if sizeof(weight_cache) > weight_cache.maxsize / 2
         @error "Failed to find cache entry, but cache is more than half full. This is likely an error; consider increasing cache size."
     end
-    @info "[" * Dates.format(Dates.now(), "yy-mm-dd HH:MM:SS") * "] No cached weights found for any genes. Returning zero tensor."
     zeros(Float32, dims), 0
 end
 """
@@ -43,8 +42,9 @@ function tensor(w::Weights; weight_cache::_WeightCache=nothing)
             weight_cache[gene_id] = arr |> deepcopy
         end
     end
-    CUDA.synchronize()
-    gpu(arr)
+    #CUDA.synchronize()
+    #gpu(arr)
+    arr
 end
 function tensor(fw::FactorWeight; weight_cache::_WeightCache=nothing)
     A = @inline tensor(fw.A, weight_cache=weight_cache)
@@ -176,11 +176,11 @@ create_layer(f::Function; kwargs...) = f
 
 function develop(::Creator{Flux.Chain}, chain::JevoChain)
     weight_cache = get_weight_cache()
-    Flux.Chain((create_layer(l, weight_cache=weight_cache) for l in chain.layers)...) |> gpu
+    Flux.Chain((create_layer(l, weight_cache=weight_cache) for l in chain.layers)...)
 end
 
 function develop(::Creator{Model}, chain::JevoChain)
-    Model(develop(Creator(Flux.Chain), chain)) |> gpu
+    develop(Creator(Flux.Chain), chain) |> Model
 end
 function (m::Model)(x...)
     Transformers.ChainRulesCore.ignore_derivatives() do

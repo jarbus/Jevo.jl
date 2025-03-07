@@ -71,16 +71,11 @@ function step!(env::CarRacingV3, ids::Vector{Int}, phenotypes::Vector)
 
     obs = env.prev_obs
     frames = [obs[i, :, :, :] for i in 1:env.n_stack]
-    obs = cat(frames..., dims=3) |> gpu
-    CUDA.synchronize()
+    obs = cat(frames..., dims=3)
     obs = obs ./ 255f0
     obs = reshape(obs, 64, 64, 3*env.n_stack, 1)
-    CUDA.synchronize()
     action = phenotypes[1].chain(obs)
-    CUDA.synchronize()
     action = action[:,1]
-    CUDA.synchronize()
-    action = cpu(action)
     action = env.np.array(action).T
 
     obs, reward, terminated, truncated, info = env.env.step(action)

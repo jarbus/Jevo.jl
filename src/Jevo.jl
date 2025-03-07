@@ -20,12 +20,7 @@ using Logging
 using LoggingExtras
 using FileWatching
 using PhylogeneticTrees
-# For MNIST
-using OneHotArrays
-using Reexport
-using XPlot
 using ClusterManagers
-@reexport using XPlot
 
 import Base: show
 

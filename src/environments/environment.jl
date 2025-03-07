@@ -16,7 +16,7 @@ end
 
 function play(env::E, ids::Vector{Int}, phenotypes::Vector{P}) where {E <: AbstractEnvironment, P<:AbstractPhenotype}
     is_done = false
-    interactions = Vector{Interaction}()
+    interactions = []
     while !is_done
         new_interactions = step!(env, ids, phenotypes)
         append!(interactions, new_interactions)

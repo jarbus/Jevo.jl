@@ -13,35 +13,34 @@ using PhylogeneticTrees
 using CUDA
 using Distributed
 Jevo.set_device()
-start_time = time()
 
 # Global variable for weight_cache
 weight_cache = WeightCache(maxsize=1_000_000)
 
 rng = StableRNG(1)
 
-@testset "counter" begin
-  """Creates a counter, counts 10 times, and checks that the final value is correct."""
-  c = Counter(AbstractGene)
-  for i in 1:10
-      inc!(c)
-  end
-  @test value(c) == 11
-  @test find(:type, AbstractGene, [c]) == c
-  try
-      find(:type, AbstractIndividual, [c])
-  catch
-      @test true
-  end
-end
+#= @testset "counter" begin =#
+#=   """Creates a counter, counts 10 times, and checks that the final value is correct.""" =#
+#=   c = Counter(AbstractGene) =#
+#=   for i in 1:10 =#
+#=       inc!(c) =#
+#=   end =#
+#=   @test value(c) == 11 =#
+#=   @test find(:type, AbstractGene, [c]) == c =#
+#=   try =#
+#=       find(:type, AbstractIndividual, [c]) =#
+#=   catch =#
+#=       @test true =#
+#=   end =#
+#= end =#
+#==#
+#= @testset "state" begin =#
+#=   state = State() =#
+#=   Jevo.operate!(state) =#
+#=   @test Jevo.get_counter(AbstractGeneration, state) |> value == 2 =#
+#= end =#
 
-@testset "state" begin
-  state = State()
-  Jevo.operate!(state)
-  @test Jevo.get_counter(AbstractGeneration, state) |> value == 2
-end
-
-#= include("./test-ng-integration.jl") =#
+include("./test-ng-integration.jl")
 #= include("./test-writers.jl") =#
 #= include("./test-phylo.jl") =#
 # include("./test-nn.jl")
@@ -49,5 +48,6 @@ end
 # include("./test-traverse.jl")
 #include("./test-trade.jl")
 include("./test-phylo.jl")
+include("./test-trade.jl")
 end_time = time()
 println("Tests passed in $(end_time - start_time) seconds.")

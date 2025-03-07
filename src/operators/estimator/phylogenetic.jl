@@ -94,7 +94,6 @@ function measure_estimation_samples(estimates::Vector{EstimatedOutcome},
     avg_distances = [mean(e.distances) for e in estimates]
     errorsa = [abs(outcomes[e.ida][e.idb] - e.est_outcomea) for e in estimates]
     errorsb = [abs(outcomes[e.idb][e.ida] - e.est_outcomeb) for e in estimates]
-
     avg_distances, errorsa, errorsb
 end
 
