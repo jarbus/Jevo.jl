@@ -1,11 +1,17 @@
 export UpdateParentsAcrossAllWorkers
 GPID_PID_PD = Tuple{Int, Int, Union{Delta, Nothing}}
 MISSING_PARENTS_PER_WORKER = Dict{Int, Vector{Int}}  # worker_id: [pids]
+
 @define_op "UpdateParentsAcrossAllWorkers"
 
 UpdateParentsAcrossAllWorkers(ids::Vector{String}=String[];kwargs...) = create_op("UpdateParentsAcrossAllWorkers",
     retriever=PopulationRetriever(ids),
     updater=(s, ps)->update_parents_across_all_workers!(s, ps); kwargs...)
+
+@define_op "SerializePhenotypes"
+SerializePhenotypes(directory::String; kwargs...) = create_op("SerializePhenotypes",
+    retriever=get_individuals,
+    updater=map((_, ind)->serialize_phenotype(directory, ind)); kwargs...)
 
 function update_parents_across_all_workers!(s::State, pops::Vector{Vector{Population}})
     # all these functions run on master, and make calls to workers

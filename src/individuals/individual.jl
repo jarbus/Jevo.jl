@@ -102,3 +102,9 @@ function Base.show(io::IO, ind::Individual)
         end
     end
 end
+
+function serialize_phenotype(path::String, ind::Individual)
+    phenotype = develop(ind)
+    filepath = joinpath(path, "$(ind.id).jls")
+    serialize(filepath, phenotype)
+end
