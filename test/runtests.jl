@@ -45,7 +45,9 @@ end
 #= include("./test-writers.jl") =#
 #= include("./test-phylo.jl") =#
 # include("./test-nn.jl")
-include("./test-text-environments.jl")
+# include("./test-text-environments.jl")
 # include("./test-traverse.jl")
+#include("./test-trade.jl")
+include("./test-phylo.jl")
 end_time = time()
 println("Tests passed in $(end_time - start_time) seconds.")
