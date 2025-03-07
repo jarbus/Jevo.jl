@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Index Page</title>
+</head>
+<body>
+  <h1>Select an ID</h1>
+  <button onclick="selectID(1)">Button 1 (ID 1)</button>
+  <button onclick="selectID(2)">Button 2 (ID 2)</button>
+  <script>
+    function selectID(id) {
+      // Redirect to /setid with the chosen id as a query parameter
+      window.location.href = "/setid?id=" + id;
+    }
+  </script>
+</body>
+</html>

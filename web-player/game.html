@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Game Page</title>
+</head>
+<body>
+  <h1>Game Page</h1>
+  <div id="display">Waiting for ID...</div>
+  <script>
+    // Connect to the WebSocket server on port 8081
+    var ws = new WebSocket("ws://" + window.location.hostname + ":8081");
+    ws.onmessage = function(event) {
+      document.getElementById("display").innerText = "Selected ID: " + event.data;
+    };
+
+    // When the user presses Enter, send an "increment" message to the server
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        ws.send("increment");
+      }
+    });
+  </script>
+</body>
+</html>
