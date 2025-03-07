@@ -456,7 +456,7 @@ end
 
 function save_gif(frames::Vector{Array{Float32,3}}, filename::String)
     rgb_frames = [permutedims(frame, (3, 1, 2)) for frame in frames]
-    rgb_frames = [Array(colorview(RGB, frame)) for frame in rgb_frames]
+    rgb_frames = [imresize(Array(colorview(RGB, frame)), (768,768)) for frame in rgb_frames]
     rgb_frames = cat(rgb_frames..., dims=3)
     FileIO.save(filename, rgb_frames)
 end

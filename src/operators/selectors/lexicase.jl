@@ -61,7 +61,7 @@ Updates the population with selected individuals using (ϵ)-lexicase selection[1
 [1] A probabilistic and multi-objective analysis of lexicase selection and ε-lexicase selection. La Cava et al (2019)
 """
 @define_op "LexicaseSelectorAndReproducer" "AbstractOperator"
-LexicaseSelectorAndReproducer(pop_size::Int, ids::Vector{String}=String[]; ϵ::Bool=false, elitism::Bool=false, selection_only::Bool=false, keep_all_parents::Bool=false, kwargs...) =
+LexicaseSelectorAndReproducer(pop_size::Int, ids::Vector{String}=String[]; ϵ::Bool=false, elitism::Bool=false, selection_only::Bool=false, keep_all_parents::Bool=false, h5::Bool=false, kwargs...) =
     create_op("LexicaseSelectorAndReproducer",
                     retriever=PopulationRetriever(ids),
                     updater=map(map((s,p)->lexicase_select!(s,p,pop_size,ϵ, elitism, selection_only, keep_all_parents))),
@@ -108,6 +108,7 @@ function lexicase_select!(state::AbstractState, pop::Population, pop_size::Int, 
         @assert length(elites) < pop_size "ElitistLexicaseSelector found $(length(elites)) elites for a pop_size=$(pop_size) . This probably shouldn't happen, and you need to change the algorithm if this is."
         #= @info "selected elites $elites with parents $parents" =#
         @info "selected $(length(elites)) elites"
+        h5 && @h5 Measurement("n_elites", length(elites), generation(state))
     end
     pop.individuals = new_pop
 end
