@@ -3,8 +3,8 @@ using Images.ImageCore: colorview, RGB
 
 export TradeGridWorld, render, LogTradeRatios, ClearTradeRatios 
 
-const SELF_COLOR = [0.67f0, 0.87f0, 0.73f0]
-const OTHER_COLOR = [0.47f0, 0.60f0, 0.54f0]
+const SELF_COLOR = [0.2f0, 0.2f0, 0.2f0]
+const OTHER_COLOR = [0.2f0, 0.2f0, 0.2f0]
 const PLAYER_RADIUS = 3
 const STARTING_RESOURCES = 10f0
 const POOL_REWARD = 1.0f0  # Reward for standing in water pool
@@ -423,10 +423,10 @@ function render(env::TradeGridWorld, perspective::Int=1)
             img[x, y, :] .= 0.0f0
         end
         if env.grid_apples[x, y] > 0
-            img[x, y, :] += APPLE_COLOR .* (0.5f0 + env.grid_apples[x,y]/(2*STARTING_RESOURCES))
+            img[x, y, :] += APPLE_COLOR .* (0.25f0 + env.grid_apples[x,y]/(1.4*STARTING_RESOURCES))
         end
         if env.grid_bananas[x, y] > 0
-            img[x, y, :] += BANANA_COLOR .* (0.5f0 + env.grid_bananas[x,y]/(2*STARTING_RESOURCES))
+            img[x, y, :] += BANANA_COLOR .* (0.25f0 + env.grid_bananas[x,y]/(1.4*STARTING_RESOURCES))
         end
     end
     @assert all(0.0f0 .<= img .<= 1.0f0)
