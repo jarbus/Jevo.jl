@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+
+        <title>Jevo</title>
+        <style>
+            body {
+                background-color: black;
+                color: white;
+            }
+            a {
+                color: #4da6ff;
+            }
+        </style>
+    </head>
+    <body>
+        <div style="width:100%">
+            <div style="text-align: center;">
+                <p>refreshed: <span id="last-loaded"></span> ago</p>
+            </div>
+            <div id="png-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%;"></div>
+            <div id="right"></div>
+        </div>
+
+        <!-- phylogeny visualization -->
+        <div>
+            <svg id="viz" width=5000 height=800></svg>
+        </div>
+
+        <!-- <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script> -->
+        <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script> -->
+        <!-- <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.2/js/bootstrap.min.js" integrity="sha384-o+RDsa0aLu++PJvFqy8fFScvbHFLtbvScb8AjopnFD+iEQ7wo/CG0xlczd+2O/em" crossorigin="anonymous"></script> -->
+        <script src="https://d3js.org/d3.v5.min.js"></script>
+        <script src="standards_viz.js"></script>
+
+        <script>
+        const pageLoadTime = new Date();
+        function updateLastLoaded() {
+            const now = new Date();
+            const diffMs = now - pageLoadTime;
+            const diffSec = Math.floor(diffMs / 1000);
+            const minutes = Math.floor(diffSec / 60);
+            const seconds = diffSec % 60;
+            document.getElementById('last-loaded').textContent = `${minutes}m ${seconds}s`;
+        }
+        updateLastLoaded();
+        setInterval(updateLastLoaded, 1000);
+        setInterval(function() { location.reload(); }, 600000); // Reload every 10 minutes
+
+        window.onload = function() {
+            fetch('p-phylo.csv')
+                .then(response => response.text())
+                .then(contents => make_viz(contents))
+                .catch(error => console.error('Error loading CSV:', error));
+        };
+        async function loadPngs() {
+            try {
+                // Fetch the directory listing
+                const response = await fetch('media/');
+                const text = await response.text();
+
+                // Parse the returned HTML for file links
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, 'text/html');
+                const links = Array.from(doc.querySelectorAll('a'));
+
+                // Filter for PNG files
+                const pngFiles = links
+                .map(link => link.getAttribute('href'))
+                .filter(href => href && href.endsWith('.png') && href !== '../');
+
+                const container = document.getElementById('png-grid');
+
+                // Append each PNG to the grid
+                pngFiles.forEach(png => {
+                    const img = document.createElement('img');
+                    img.src = 'media/' + png;
+                    img.alt = png;
+                    img.title = png;
+                    img.style.width = '100%';
+                    img.style.height = 'auto';
+                    container.appendChild(img);
+                });
+            } catch (error) {
+                console.error('Error loading PNGs:', error);
+            }
+        }
+
+        loadPngs();
+
+        async function loadGifs() {
+            try {
+                // Fetch the directory listing (assumes directory listing is enabled)
+                const response = await fetch('media/render/');
+                const text = await response.text();
+
+                // Parse the returned HTML for file links
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, 'text/html');
+                const links = Array.from(doc.querySelectorAll('a'));
+
+                // Filter for GIF files (ignore parent directory links)
+                let gifFiles = links
+                .map(link => link.getAttribute('href'))
+                .filter(href => href && href.endsWith('.gif') && href !== '../');
+
+                // Newer files are lexically later
+                gifFiles.sort();
+
+                // Use the 500 most recent GIFs (or all if there are fewer)
+                var recentGifs = gifFiles.slice(-500);
+                // sample 32 of these gifs randomly
+                recentGifs.sort(() => Math.random() - 0.5);
+                recentGifs = recentGifs.slice(0, 24);
+
+                const container = document.getElementById('right');
+
+                // Update container style to use flexbox for multiple items per row
+                container.style.display = 'flex';
+                container.style.flexWrap = 'wrap';
+                container.style.gap = '10px';
+                container.style.justifyContent = 'flex-start';
+
+                // Append all GIFs to the container, letting HTML handle the layout
+                recentGifs.forEach(gif => {
+                    const img = document.createElement('img');
+                    img.src = 'media/render/' + gif;
+                    img.alt = gif;
+                    img.title = gif; // Hover displays the file name
+                    img.style.maxWidth = '240px';
+                    img.style.width = 'auto';
+                    img.style.height = 'auto';
+                    container.appendChild(img);
+                });
+            } catch (error) {
+                console.error('Error loading GIFs:', error);
+            }
+        }
+
+        loadGifs();
+        </script>
+    </body>
+</html>
