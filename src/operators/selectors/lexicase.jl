@@ -64,9 +64,9 @@ Updates the population with selected individuals using (ϵ)-lexicase selection[1
 LexicaseSelectorAndReproducer(pop_size::Int, ids::Vector{String}=String[]; ϵ::Bool=false, elitism::Bool=false, selection_only::Bool=false, keep_all_parents::Bool=false, h5::Bool=false, kwargs...) =
     create_op("LexicaseSelectorAndReproducer",
                     retriever=PopulationRetriever(ids),
-                    updater=map(map((s,p)->lexicase_select!(s,p,pop_size,ϵ, elitism, selection_only, keep_all_parents))),
+                    updater=map(map((s,p)->lexicase_select!(s,p,pop_size,ϵ, elitism, selection_only, keep_all_parents, h5))),
                     ;kwargs...)
-function lexicase_select!(state::AbstractState, pop::Population, pop_size::Int, ϵ::Bool, elitism::Bool, selection_only::Bool, keep_all_parents::Bool)
+function lexicase_select!(state::AbstractState, pop::Population, pop_size::Int, ϵ::Bool, elitism::Bool, selection_only::Bool, keep_all_parents::Bool, h5::Bool)
     @assert !selection_only || elitism "You probably don't want to use selection_only without elitism"
     @assert !(selection_only && keep_all_parents) "You probably don't want to use selection_only and keep_all_parents"
     @assert pop_size > 0                           "pop_size must be greater than 0"

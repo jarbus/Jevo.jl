@@ -300,6 +300,7 @@ function estimate!(state::State, pops::Vector{Population}, k::Int, max_dist::Int
         i == 2 && pops[1].id == pops[2].id && continue
         for ind in pop.individuals
             for interaction in ind.interactions
+                !(interaction isa Interaction) && continue
                 other_id = interaction.other_ids[1]
                 if ind.id ∉ keys(individual_outcomes)
                     individual_outcomes[ind.id] = Dict{Int, Float64}()
@@ -383,7 +384,6 @@ function estimate!(state::State, pops::Vector{Population}, k::Int, max_dist::Int
     # We create a copy of the cached outcomes for use in parallel threads
     # This is because we don't want to lock the cache while we are computing
     # estimates in parallel
-    @info "Cache size: $(length(outcome_cache))"
     nonlocking_cache = Dict{Int,Dict{Int,Float64}}(k=>copy(v) for (k,v) in outcome_cache)
     # Compute estimates for sampled interactions
 
@@ -454,7 +454,7 @@ function restore_cached_outcomes!(state::State, pops::Vector{Vector{Population}}
     ind_ids = Set(ind.id for ind in pop.individuals)
     n_restored = 0
     for ind in pop.individuals
-        other_ids = Set(int.other_ids[1] for int in ind.interactions)
+        other_ids = Set(int.other_ids[1] for int in ind.interactions if int isa EstimatedInteraction || int isa Interaction)
         ind_outcome_cache = outcome_cache[ind.id]
         for other_id in setdiff(ind_ids, other_ids)
             if other_id in keys(ind_outcome_cache)
@@ -477,6 +477,7 @@ function cache_outcomes!(state::State, pops::Vector{Vector{Population}})
         outcome_cache = getonly(x->x isa OutcomeCache && x.pop_ids == [popi.id, popj.id], state.data).cache
         for ind in popi.individuals
             for int in ind.interactions
+                !(int isa Interaction) && continue
                 @assert length(int.other_ids) == 1 "Only one other individual is supported"
                 if ind.id ∉ keys(outcome_cache)
                     outcome_cache[ind.id] = Dict{Int, Float64}()

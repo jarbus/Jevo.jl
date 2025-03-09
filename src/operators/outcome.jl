@@ -27,7 +27,7 @@ function add_outcome_matrices!(::AbstractState,
 
     # First, we create a mapping from id (which can be arbitrarily large) to idx
     test_ids = [test_id for ind in pop.individuals 
-                           for int in ind.interactions
+                            for int in ind.interactions if (int isa Interaction || int isa EstimatedInteraction)
                            for test_id in int.other_ids]|> unique
 
     solution_ids = [ind.id for ind in pop.individuals]
@@ -47,7 +47,7 @@ function add_outcome_matrices!(::AbstractState,
         outcomes[sol_idx, test_idx] += int.score
         outcome_entered[sol_idx, test_idx] = true
     end
-    @assert all(outcome_entered) "Not all outcomes were entered into the matrix"
+    @assert all(outcome_entered) "Not all outcomes were entered into the matrix $outcome_entered"
     #filter!(x->!isa(x, OutcomeMatrix), pop.data)
     push!(pop.data, OutcomeMatrix(outcomes))
 end
