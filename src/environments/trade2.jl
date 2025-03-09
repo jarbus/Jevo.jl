@@ -8,7 +8,7 @@ const OTHER_COLOR = [0.2f0, 0.2f0, 0.2f0]
 const PLAYER_RADIUS = 3
 const STARTING_RESOURCES = 10f0
 const POOL_REWARD = 1.0f0  # Reward for standing in water pool
-const POOL_COLOR = [0.4f0, 0.8f0, 1.0f0]  # Blue color for water
+const POOL_COLOR = [0.0f0, 0.0f0, 1.0f0]  # Blue color for water
 const FOOD_BONUS_EPSILON = 0.1
 const APPLE_COLOR = [1.0f0, 0.0f0, 0.0f0]  # Red color for apples
 const BANANA_COLOR = [0.0f0, 1.0f0, 0.0f0]  # Green color for bananas
@@ -87,14 +87,36 @@ end
 
 function log_trade_ratio(state, individuals, h5)
     # extract all trade ratio interactions
-    ratios = [mean(int.trade_ratio for int in ind.interactions if int isa TradeRatioInteraction) for ind in individuals if !isempty(ind.interactions)]
-    apples = [mean(int.count for int in ind.interactions if int isa NumApplesInteraction) for ind in individuals if !isempty(ind.interactions)]
-    bananas = [mean(int.count for int in ind.interactions if int isa NumBananasInteraction) for ind in individuals if !isempty(ind.interactions)]
-    mins = [mean(int.min_resource for int in ind.interactions if int isa MinResourceInteraction) for ind in individuals if !isempty(ind.interactions)]
-    ratio_m=StatisticalMeasurement(TradeRatio, ratios, generation(state))
-    apple_m=StatisticalMeasurement(NumApples, apples, generation(state))
-    banana_m=StatisticalMeasurement(NumBananas, bananas, generation(state))
-    min_m=StatisticalMeasurement(MinResource, mins, generation(state))
+    pop_ratios, pop_apples, pop_bananas, pop_mins = Float64[], Float64[], Float64[], Float64[]
+    for ind in individuals
+        isempty(ind.interactions) && continue
+        ind_ratios, ind_apples, ind_bananas, ind_mins = Float64[], Float64[], Float64[], Float64[]
+        for int in ind.interactions
+            if int isa TradeRatioInteraction
+                push!(ind_ratios, int.trade_ratio)
+            elseif int isa NumApplesInteraction
+                push!(ind_apples, int.count)
+            elseif int isa NumBananasInteraction
+                push!(ind_bananas, int.count)
+            elseif int isa MinResourceInteraction
+                push!(ind_mins, int.min_resource)
+            end
+        end
+        !isempty(ind_ratios) && push!(pop_ratios, mean(ind_ratios))
+        !isempty(ind_apples) && push!(pop_apples, mean(ind_apples))
+        !isempty(ind_bananas) && push!(pop_bananas, mean(ind_bananas))
+        !isempty(ind_mins) && push!(pop_mins, mean(ind_mins))
+    end
+    # if any pop-level metrics are empty, set them to NaN
+    isempty(pop_ratios) && push!(pop_ratios, NaN)
+    isempty(pop_apples) && push!(pop_apples, NaN)
+    isempty(pop_bananas) && push!(pop_bananas, NaN)
+    isempty(pop_mins) && push!(pop_mins, NaN)
+
+    ratio_m=StatisticalMeasurement(TradeRatio, pop_ratios, generation(state))
+    apple_m=StatisticalMeasurement(NumApples, pop_apples, generation(state))
+    banana_m=StatisticalMeasurement(NumBananas, pop_bananas, generation(state))
+    min_m=StatisticalMeasurement(MinResource, pop_mins, generation(state))
     @info(ratio_m)
     @info(apple_m)
     @info(banana_m)
@@ -106,9 +128,11 @@ function log_trade_ratio(state, individuals, h5)
     individuals
 end
 
+isa_trade_interaction(int::AbstractInteraction) = int isa TradeRatioInteraction || int isa NumApplesInteraction || int isa NumBananasInteraction || int isa MinResourceInteraction
+
 function remove_trade_ratios!(state, individuals)
     for ind in individuals
-        filter!(interaction->interaction isa Interaction, ind.interactions)
+        filter!(!isa_trade_interaction, ind.interactions)
     end
 end
 
