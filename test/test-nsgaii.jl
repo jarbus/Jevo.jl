@@ -43,11 +43,11 @@
         
         # When selecting fewer parents than individuals, the extreme individuals (rows 1 and 5)
         # should always be chosen due to their crowding distance.
-        selected = nsga2(outcomes, 2)
+        selected = Jevo.nsga2(outcomes, 2)
         @test 1 in selected && 5 in selected
 
         # Also, for p=3, the extreme individuals should be included.
-        selected = nsga2(outcomes, 3)
+        selected = Jevo.nsga2(outcomes, 3)
         @test 1 in selected && 5 in selected
     end
 end

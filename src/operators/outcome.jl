@@ -52,6 +52,22 @@ function add_outcome_matrices!(::AbstractState,
     push!(pop.data, OutcomeMatrix(outcomes))
 end
 
+
+
+@define_op "ClearOutcomeMatrix" "AbstractOperator"
+ClearOutcomeMatrix(ids::Vector{String}=String[]; kwargs...) =
+    create_op("ClearOutcomeMatrix",
+                    retriever=PopulationRetriever(ids),
+                    updater=map(map((s,p)->filter!(x->!isa(x, OutcomeMatrix), p.data))),
+                    ;kwargs...)
+
+@define_op "ClearMissingInteractions" "AbstractOperator"
+ClearMissingInteractions(ids::Vector{String}=String[]; kwargs...) =
+    create_op("ClearMissingInteractions",
+                    retriever=PopulationRetriever(ids),
+                    updater=map(map((s,p)->clear_missing_interactions!(s,p))),
+                    ;kwargs...)
+
 """
     ClusterOutcomeMatrix(ids::Vector{String}=String[]; eps=0.5, min_points=5, kwargs...)
 
@@ -65,13 +81,13 @@ Parameters:
 - `min_points`: The number of samples in a neighborhood for a point to be considered as a core point
 """
 @define_op "ClusterOutcomeMatrix" "AbstractOperator"
-ClusterOutcomeMatrix(ids::Vector{String}=String[]; radius=nothing, kwargs...) =
+ClusterOutcomeMatrix(ids::Vector{String}=String[]; k::Int, kwargs...) =
     create_op("ClusterOutcomeMatrix",
             retriever=PopulationRetriever(ids),
-            updater=map(map((s, p)  -> cluster_outcome_matrices!(s, p, radius ))),
+            updater=map(map((s, p)  -> cluster_outcome_matrices!(s, p, k ))),
             ; kwargs...)
 
-function cluster_outcome_matrices!(state::AbstractState, pop::Population, radius)
+function cluster_outcome_matrices!(state::AbstractState, pop::Population, k)
     
     # Find the outcome matrix in the population data
     outcome_idx = findfirst(x -> x isa OutcomeMatrix, pop.data)
@@ -84,16 +100,11 @@ function cluster_outcome_matrices!(state::AbstractState, pop::Population, radius
 
     n_samples = size(samples, 1)
     n_tests = size(samples, 2)
-    radius = isnothing(radius) ? n_samples^2 : radius
     
-    # Run DBScan clustering
-    result = dbscan(samples, radius)
+    result = kmeans(samples, k)
     
-    @info "DBScan result: $(result)"
-    @info "DBScan assignments: $(result.assignments)"
     # Get the number of clusters (excluding noise points marked as 0)
     clusters = unique(result.assignments)
-    @info "DBScan found $(length(clusters)) clusters: $clusters"
     if 0 in clusters  # Remove noise cluster (marked as 0)
         clusters = filter(c -> c != 0, clusters)
     end

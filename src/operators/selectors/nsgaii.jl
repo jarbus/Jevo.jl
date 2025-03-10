@@ -1,4 +1,4 @@
-export nsga2, dominates
+export NSGAIISelector
 
 
 @define_op "NSGAIISelector" "AbstractEvaluator"
@@ -10,14 +10,9 @@ NSGAIISelector(n_parents::Int, ids::Vector{String}=String[]; kwargs...) =
 
 
 function choose_nsgaii_parents!(::AbstractState, pop::Population, n_parents::Int)
-    # Get the outcomes matrix
-    outcome_idx = getonly(x->x isa OutcomeMatrix, pop.data)
-    @assert !isnothing(outcome_idx) "OutcomeMatrix not found in population $(pop.id)"
-    outcomes = pop.data[outcome_idx].matrix
-    # Select parents using NSGA-II
+    outcomes = getonly(x->x isa OutcomeMatrix, pop.data).matrix
     selected_indices = nsga2(outcomes, n_parents)
     selected_parents = pop.individuals[selected_indices]
-    # Update the population with selected parents
     pop.individuals = selected_parents
 end
 

@@ -114,18 +114,6 @@ function lexicase_select!(state::AbstractState, pop::Population, pop_size::Int, 
 end
 
 
-ClearOutcomeMatrix(ids::Vector{String}=String[]; kwargs...) =
-    create_op("LexicaseSelectorAndReproducer",
-                    retriever=PopulationRetriever(ids),
-                    updater=map(map((s,p)->filter!(x->!isa(x, OutcomeMatrix), p.data))),
-                    ;kwargs...)
-
-ClearMissingInteractions(ids::Vector{String}=String[]; kwargs...) =
-    create_op("LexicaseSelectorAndReproducer",
-                    retriever=PopulationRetriever(ids),
-                    updater=map(map((s,p)->clear_missing_interactions!(s,p))),
-                    ;kwargs...)
-
 function clear_missing_interactions!(state, pop)
     # confirm all invidivudals have at least one interaction
     @assert all(length(ind.interactions) > 0 for ind in pop.individuals)
