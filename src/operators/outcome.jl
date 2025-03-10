@@ -80,16 +80,20 @@ function cluster_outcome_matrices!(state::AbstractState, pop::Population, radius
     deleteat!(pop.data, outcome_idx)
     
     # Each row is a sample for DBScan
-    samples = outcome_matrix
+    samples = outcome_matrix |> transpose # transpose to get samples as columns
 
     n_samples = size(samples, 1)
+    n_tests = size(samples, 2)
     radius = isnothing(radius) ? n_samples^2 : radius
     
     # Run DBScan clustering
     result = dbscan(samples, radius)
     
+    @info "DBScan result: $(result)"
+    @info "DBScan assignments: $(result.assignments)"
     # Get the number of clusters (excluding noise points marked as 0)
     clusters = unique(result.assignments)
+    @info "DBScan found $(length(clusters)) clusters: $clusters"
     if 0 in clusters  # Remove noise cluster (marked as 0)
         clusters = filter(c -> c != 0, clusters)
     end
@@ -97,17 +101,24 @@ function cluster_outcome_matrices!(state::AbstractState, pop::Population, radius
     @info "Found $k clusters in outcome matrix"
     
     # Create a new outcome matrix based on cluster assignments
+    # Each point corresponds to the sum of all tests within each cluster
     n_rows = size(outcome_matrix, 1)
     cluster_matrix = zeros(Float64, n_rows, k)
     
     for i in 1:n_rows
-        cluster_id = result.assignments[i]
-        if cluster_id > 0  # Skip noise points (cluster 0)
-            # Find the index of this cluster in our filtered list
-            cluster_idx = findfirst(c -> c == cluster_id, clusters)
-            if !isnothing(cluster_idx)
-                cluster_matrix[i, cluster_idx] = 1.0
+        for j in 1:n_tests
+            cluster_idx = result.assignments[j]
+            if cluster_idx != 0  # Exclude noise points
+                cluster_matrix[i, cluster_idx] += outcome_matrix[i, j]
             end
+        end
+    end
+    
+    # Normalize the cluster matrix by the number of points in each cluster
+    for j in 1:k
+        cluster_size = count(x -> x == j, result.assignments)
+        if cluster_size > 0
+            cluster_matrix[:, j] ./= cluster_size
         end
     end
     

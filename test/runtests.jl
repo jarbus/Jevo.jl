@@ -12,7 +12,7 @@ using Transformers.Datasets: batched
 using PhylogeneticTrees
 using CUDA
 using Distributed
-Jevo.set_device()
+#Jevo.set_device()
 
 # Global variable for weight_cache
 weight_cache = WeightCache(maxsize=1_000_000)
@@ -40,14 +40,16 @@ rng = StableRNG(1)
 #=   @test Jevo.get_counter(AbstractGeneration, state) |> value == 2 =#
 #= end =#
 
-include("./test-ng-integration.jl")
-#= include("./test-writers.jl") =#
-#= include("./test-phylo.jl") =#
-# include("./test-nn.jl")
-# include("./test-text-environments.jl")
-# include("./test-traverse.jl")
+#include("./test-ng-integration.jl")
+#include("./test-writers.jl")
+#include("./test-phylo.jl")
+#include("./test-nn.jl")
+#include("./test-text-environments.jl")
+#include("./test-traverse.jl")
 #include("./test-trade.jl")
-include("./test-phylo.jl")
-include("./test-trade.jl")
+#include("./test-phylo.jl")
+#include("./test-trade.jl")
+include("./test-clustering.jl")
+include("./test-nsgaii.jl")
 end_time = time()
 println("Tests passed in $(end_time - start_time) seconds.")
