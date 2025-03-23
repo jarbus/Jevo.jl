@@ -1,0 +1,4 @@
+#!/bin/bash
+python plot-series.py
+python plot-last-gen.py
+kitten icat media/*.png
