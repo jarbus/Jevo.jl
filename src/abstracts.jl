@@ -24,8 +24,8 @@ abstract type AbstractEvaluator     <: AbstractOperator end
 abstract type AbstractSelector      <: AbstractOperator end
 abstract type AbstractReproducer    <: AbstractOperator end
 abstract type AbstractMutator       <: AbstractOperator end
-# abstract type AbstractMetric        <: AbstractData     end
-# abstract type AbstractMeasurement   <: AbstractData     end
+abstract type AbstractMetric        <: AbstractData     end
+abstract type AbstractMeasurement   <: AbstractData     end
 abstract type AbstractCheckpointer  <: AbstractOperator end
 abstract type AbstractReporter      <: AbstractOperator end
 abstract type AbstractAssertor      <: AbstractOperator end # Can apply assertions to objects in state

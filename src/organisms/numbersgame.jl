@@ -1,5 +1,5 @@
 export VectorGenotype, VectorPhenotype, develop, mutate, GenotypeSum, measure
-struct GenotypeSum <: XPlot.AbstractMetric end
+struct GenotypeSum <: AbstractMetric end
 mutable struct VectorGenotype <: AbstractGenotype
     numbers::Vector{Float32}
 end
