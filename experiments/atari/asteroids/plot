@@ -1,0 +1,4 @@
+#!/bin/bash
+#srun python last-gen.py 
+srun python plot-series.py 
+kitten icat media/*.png

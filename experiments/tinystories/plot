@@ -1,0 +1,4 @@
+#!/bin/bash
+#srun python p-values.py
+srun python plot.py
+#kitten icat media/*.png
