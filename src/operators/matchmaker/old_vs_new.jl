@@ -42,13 +42,7 @@ function make_old_vs_new_matches(state::AbstractState, pops::Vector{Vector{Popul
                 push!(random_sample_candidates, [ind_i, ind_j])
                 continue
             end
-            if !isnothing(outcome_cache) && 
-                ind_i.id ∈ keys(outcome_cache) &&
-                ind_j.id ∈ keys(outcome_cache) &&
-                ind_j.id ∈ keys(outcome_cache[ind_i.id]) &&
-                ind_i.id ∈ keys(outcome_cache[ind_j.id])
-                continue
-            end
+            check_if_outcome_in_cache(outcome_cache, ind_i.id, ind_j.id) && continue
             push!(matches, Match(inc!(match_counter), [ind_i, ind_j], env_creator))
         end
         # add random candidates

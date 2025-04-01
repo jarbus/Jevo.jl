@@ -1,4 +1,5 @@
 using Clustering
+using Plots
 
 struct OutcomeMatrix
     matrix::Matrix{Float64}
@@ -61,11 +62,23 @@ ClearOutcomeMatrix(ids::Vector{String}=String[]; kwargs...) =
                     updater=map(map((s,p)->filter!(x->!isa(x, OutcomeMatrix), p.data))),
                     ;kwargs...)
 
+function clear_missing_interactions!(state, pops)
+    @assert length(pops) == 1 && length(pops[1]) == 1 "Only one population with one subpopulation is supported for ClearMissingInteractions"
+    pop = pops[1][1]
+    # confirm all invidivudals have at least one interaction
+    #@assert all(length(ind.interactions) > 0 for ind in pop.individuals)
+    ind_ids = Set(ind.id for ind in pop.individuals)
+    # remove any interaction where all ids in interation.other_ids is not in ind_ids
+    for ind in pop.individuals 
+        filter!(int->all(id->id in ind_ids, int.other_ids), ind.interactions)
+    end
+end
+
 @define_op "ClearMissingInteractions" "AbstractOperator"
 ClearMissingInteractions(ids::Vector{String}=String[]; kwargs...) =
     create_op("ClearMissingInteractions",
                     retriever=PopulationRetriever(ids),
-                    updater=map(map((s,p)->clear_missing_interactions!(s,p))),
+                    updater=(s,p)->clear_missing_interactions!(s,p),
                     ;kwargs...)
 
 """
@@ -94,22 +107,51 @@ function cluster_outcome_matrices!(state::AbstractState, pop::Population, k)
     @assert !isnothing(outcome_idx) "OutcomeMatrix not found in population $(pop.id)"
     outcome_matrix = pop.data[outcome_idx].matrix
     deleteat!(pop.data, outcome_idx)
-    
-    # Each row is a sample for DBScan
-    samples = outcome_matrix |> transpose # transpose to get samples as columns
+    # outcomes are solutions x tests
+    # transpose to get samples as columns
+    #samples = outcome_matrix |> transpose 
+    samples = outcome_matrix
+    # samples are tests x solutions
+
+    # min-max normalization along each row, handle division by zero
+    #samples .-= minimum(samples, dims=2)
+    #samples ./= maximum(samples, dims=2) .+ 1e-6
+
+    # save as heatmap before clustering
+    if generation(state) % 100 == 0
+        heatmap(samples, aspect_ratio=1, title="Outcome Matrix Before Clustering", xlabel="Individual", ylabel="Test")
+        savefig("media/outcome_matrix_before_clustering.png")
+    end
 
     n_samples = size(samples, 1)
     n_tests = size(samples, 2)
     
-    result = kmeans(samples, k)
+    n_k_means = 256
+    results = Vector{Clustering.KmeansResult}(undef, n_k_means)
+    Threads.@threads for i in 1:n_k_means
+        results[i] = kmeans(samples, k, init=:rand)
+    end
+    # Find the best clustering result
+   result = argmin(x -> x.totalcost, results)
     
     # Get the number of clusters (excluding noise points marked as 0)
     clusters = unique(result.assignments)
     if 0 in clusters  # Remove noise cluster (marked as 0)
         clusters = filter(c -> c != 0, clusters)
     end
-    k = length(clusters)
-    @info "Found $k clusters in outcome matrix"
+    # print number of points in each cluster
+    max_cluster_size = 0
+    for j in 1:k
+        cluster_size = count(x -> x == j, result.assignments)
+        max_cluster_size = max(max_cluster_size, cluster_size)
+        if cluster_size > 1
+            @info "Cluster $j: $cluster_size points"
+        end
+    end
+
+    m =  Measurement("max_cluster_size", max_cluster_size, generation(state))
+    @info m
+    @h5 m
     
     # Create a new outcome matrix based on cluster assignments
     # Each point corresponds to the sum of all tests within each cluster
@@ -131,6 +173,12 @@ function cluster_outcome_matrices!(state::AbstractState, pop::Population, k)
         if cluster_size > 0
             cluster_matrix[:, j] ./= cluster_size
         end
+    end
+
+    # save as heatmap after clustering
+    if generation(state) % 100 == 0
+        heatmap(cluster_matrix, aspect_ratio=1, title="Clustered Outcome Matrix", xlabel="Cluster", ylabel="Individual")
+        savefig("media/clustered_outcome_matrix.png")
     end
     
     # Add the clustered outcome matrix to population data

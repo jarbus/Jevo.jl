@@ -107,20 +107,11 @@ function lexicase_select!(state::AbstractState, pop::Population, pop_size::Int, 
         length(elites) <= 2 && @info "WARNING: Found <= 2 elites: $(elites)"
         @assert length(elites) < pop_size "ElitistLexicaseSelector found $(length(elites)) elites for a pop_size=$(pop_size) . This probably shouldn't happen, and you need to change the algorithm if this is."
         #= @info "selected elites $elites with parents $parents" =#
-        @info "selected $(length(elites)) elites"
-        h5 && @h5 Measurement("n_elites", length(elites), generation(state))
+        m = Measurement("n_lexi_elites", length(elites), generation(state))
+        @info m
+        h5 && @h5 m
     end
     pop.individuals = new_pop
 end
 
 
-function clear_missing_interactions!(state, pop)
-    # confirm all invidivudals have at least one interaction
-    @assert all(length(ind.interactions) > 0 for ind in pop.individuals)
-    ind_ids = Set(ind.id for ind in pop.individuals)
-    # remove any interaction where all ids in interation.other_ids is not in ind_ids
-    for ind in pop.individuals 
-        filter!(int->all(id->id in ind_ids, int.other_ids), ind.interactions)
-    end
-    @assert all(length(ind.interactions) > 0 for ind in pop.individuals) "This is only supported for one population right now"
-end
