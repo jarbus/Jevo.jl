@@ -1,4 +1,4 @@
-export PhylogeneticEstimator, CacheInteractions, RestoreCachedInteractions
+export PhylogeneticEstimator, CacheInteractions, RestoreCachedInteractions, RemoveRandomlySampledInteractions
 using DataStructures
 
 
@@ -500,3 +500,8 @@ function cache_outcomes!(state::State, pops::Vector{Vector{Population}})
     end
 end
 
+@define_op "RemoveRandomlySampledInteractions" "AbstractOperator"
+RemoveRandomlySampledInteractions(ids::Vector{String}=String[], kwargs...) =
+    create_op("RemoveRandomlySampledInteractions",
+              retriever=PopulationRetriever(ids),
+              operator=map(map((_,p) -> filter!(x->!(x isa RandomlySampledInteractions), p.data))); kwargs...)

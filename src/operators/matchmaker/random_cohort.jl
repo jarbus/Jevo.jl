@@ -72,7 +72,16 @@ function make_random_cohort_matches(state::AbstractState, pops::Vector{Vector{Po
             ind_i.id != ind_j.id && push!(random_interactions, (ind_j.id, ind_i.id))
             push!(matches, Match(inc!(match_counter), [ind_i, ind_j], env_creator))
         end
-        push!(pop.data, RandomlySampledInteractions(pop.id, random_interactions))
+
+
+        previous_random_interactions = [d for d in pop.data if d isa RandomlySampledInteractions && d.other_pop_id == pop.id]
+        if length(previous_random_interactions) > 1
+            @error "Found more than one RandomlySampledInteractions for population $(pop.id)."
+        elseif length(previous_random_interactions) == 0
+            push!(pop.data, RandomlySampledInteractions(pop.id, random_interactions))
+        else
+            append!(previous_random_interactions[1].interactions, random_interactions)
+        end
 
         return matches
     end
