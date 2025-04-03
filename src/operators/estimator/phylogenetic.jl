@@ -401,15 +401,18 @@ function estimate!(state::State, pops::Vector{Population}, k::Int, max_dist::Int
     # Compare sample estimates to actual outcomes
     distances, errs_a, errs_b = measure_estimation_samples(sample_estimates, sampled_individual_outcomes)
 
-    m_est_dist = StatisticalMeasurement("estimation_distances", distances, gen)
-    m_est_err_a = StatisticalMeasurement("estimation_errors_a", errs_a, gen)
-    m_est_err_b = StatisticalMeasurement("estimation_errors_b", errs_b, gen)
-    m_dist_err_cor_a = Measurement("estimation_distance_error_correlation_a", cor(distances, errs_a), gen)
-    m_dist_err_cor_b = Measurement("estimation_distance_error_correlation_b", cor(distances, errs_b), gen)
-    for m in (m_est_dist, m_est_err_a, m_est_err_b, m_dist_err_cor_a, m_dist_err_cor_b)
-        @info m
-        @h5 m
+    if !isempty(distances) && !isempty(errs_a) && !isempty(errs_b)
+        m_est_dist = StatisticalMeasurement("estimation_distances", distances, gen)
+        m_est_err_a = StatisticalMeasurement("estimation_errors_a", errs_a, gen)
+        m_est_err_b = StatisticalMeasurement("estimation_errors_b", errs_b, gen)
+        m_dist_err_cor_a = Measurement("estimation_distance_error_correlation_a", cor(distances, errs_a), gen)
+        m_dist_err_cor_b = Measurement("estimation_distance_error_correlation_b", cor(distances, errs_b), gen)
+        for m in (m_est_dist, m_est_err_a, m_est_err_b, m_dist_err_cor_a, m_dist_err_cor_b)
+            @info m
+            @h5 m
+        end
     end
+
 
     # Compute estimates for all unevaluated interactions
     estimates = compute_estimates(
