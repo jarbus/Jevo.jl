@@ -9,9 +9,9 @@ NSGAIISelector(n_parents::Int, ids::Vector{String}=String[]; kwargs...) =
     ;kwargs...)
 
 
-function choose_nsgaii_parents!(::AbstractState, pop::Population, n_parents::Int)
+function choose_nsgaii_parents!(s::AbstractState, pop::Population, n_parents::Int)
     outcomes = getonly(x->x isa OutcomeMatrix, pop.data).matrix
-    selected_indices = nsga2(outcomes, n_parents)
+    selected_indices = nsga2(outcomes, n_parents, generation(s))
     selected_parents = pop.individuals[selected_indices]
     pop.individuals = selected_parents
 end
@@ -21,13 +21,7 @@ function dominates(a::AbstractVector, b::AbstractVector)
     return all(a .>= b) && any(a .> b)
 end
 
-"""
-    nsga2(outcomes::Matrix{Float64}, p::Int)
-
-Performs NSGA-II selection for maximization on a matrix of outcomes (each row is an individual,
-each column is an objective). Returns the indices of the selected `p` parents.
-"""
-function nsga2(outcomes::Matrix{Float64}, p::Int)
+function nsga2(outcomes::Matrix{Float64}, p::Int, gen=nothing)
     N, n_obj = size(outcomes)
     
     # Initialize domination sets and counts.
@@ -39,6 +33,7 @@ function nsga2(outcomes::Matrix{Float64}, p::Int)
     
     # Compute domination relationships.
     for i in 1:N
+        equal = Vector{Int}()
         for j in 1:N
             if i == j
                 continue
@@ -47,13 +42,25 @@ function nsga2(outcomes::Matrix{Float64}, p::Int)
                 push!(S[i], j)
             elseif dominates(outcomes[j, :], outcomes[i, :])
                 n[i] += 1
+            elseif outcomes[i, :] == outcomes[j, :]
+                push!(equal, j)
             end
         end
-        if n[i] == 0
+        if n[i] == 0 && (isempty(equal) || i < minimum(equal))
             rank[i] = 1
             push!(fronts[1], i)
         end
     end
+    @assert length(fronts[1]) > 0 "No individuals found in the first front"
+    if !isnothing(gen) 
+        m = Measurement("n_pareto_elites", length(fronts[1]), gen)
+        @info m
+        @h5 m
+    end
+    if length(fronts[1]) <= p
+        return fronts[1]
+    end
+    return fronts[1][1:p]
     
     # Generate subsequent fronts.
     currentFront = 1
@@ -104,6 +111,8 @@ function nsga2(outcomes::Matrix{Float64}, p::Int)
     end
 
     # Sort individuals by increasing rank and, within same rank, by descending crowding distance.
-    sorted_indices = sort(1:N, by = i -> (rank[i], -distances[i]))
-    return sorted_indices[1:p]
+    # sorted_indices = sort(1:N, by = i -> (rank[i], -distances[i]))
+    # return the individuals on the first pareto front
+    
+    #return sorted_indices[1:p]
 end

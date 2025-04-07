@@ -1,15 +1,15 @@
-export OldVsNewMatchMaker
+export RandomCohortMatchMaker
 
-@define_op "OldVsNewMatchMaker" "AbstractMatchMaker"
-OldVsNewMatchMaker(ids::Vector{String}=String[]; no_cached_matches::Bool=false, n_randomly_sampled::Int=10, env_creator=nothing, kwargs...) =
-    create_op("OldVsNewMatchMaker",
+@define_op "RandomCohortMatchMaker" "AbstractMatchMaker"
+RandomCohortMatchMaker(cohort_size::Int, ids::Vector{String}=String[]; no_cached_matches::Bool=false, n_randomly_sampled::Int=10, env_creator=nothing, kwargs...) =
+    create_op("RandomCohortMatchMaker",
           condition=always,
           retriever=PopulationRetriever(ids),
-          operator=(s,ps)->make_old_vs_new_matches(s, ps, no_cached_matches, n_randomly_sampled; env_creator=env_creator),
+          operator=(s,ps)->make_random_cohort_matches(s, ps, cohort_size, no_cached_matches, n_randomly_sampled; env_creator=env_creator),
           updater=add_matches!;kwargs...)
 
 
-function make_old_vs_new_matches(state::AbstractState, pops::Vector{Vector{Population}}, no_cached_matches::Bool, n_randomly_sampled::Int; env_creator=nothing)
+function make_random_cohort_matches(state::AbstractState, pops::Vector{Vector{Population}}, cohort_size::Int, no_cached_matches::Bool, n_randomly_sampled::Int; env_creator=nothing)
     match_counter = get_counter(AbstractMatch, state)
     if isnothing(env_creator)
         env_creators = get_creators(AbstractEnvironment, state)
@@ -22,10 +22,11 @@ function make_old_vs_new_matches(state::AbstractState, pops::Vector{Vector{Popul
     
     if length(pops) == 1 && length(pops[1]) == 1
 
-        newest_gen = maximum(ind.generation for ind in pops[1][1].individuals)
         pop = pops[1][1]
         inds = pop.individuals
-
+        @assert length(inds) >= 1
+        @assert cohort_size <= length(inds) "Cohort size $(cohort_size) is larger than the number of individuals $(length(inds))."
+        @assert length(inds) % cohort_size == 0 "Cohort size $(cohort_size) is not a divisor of the number of individuals $(length(inds))."
 
         outcome_cache = nothing
         use_cached_matches = !no_cached_matches
@@ -35,17 +36,34 @@ function make_old_vs_new_matches(state::AbstractState, pops::Vector{Vector{Popul
             outcome_cache = outcome_caches[1].cache
         end
 
-        @assert length(inds) >= 1
-        for ind_i in inds, ind_j in inds
-            # randomly sample new vs new candidates
-            if ind_i.generation == ind_j.generation == newest_gen
-                push!(random_sample_candidates, [ind_i, ind_j])
-                continue
+        # split into cohorts
+        cohort_indices = shuffle(state.rng, 1:length(inds))
+        cohorts = [cohort_indices[i:i+cohort_size-1] for i in 1:cohort_size:length(cohort_indices)]
+
+        # all vs all within cohort
+        for cohort in cohorts
+            for ind_i_idx in cohort, ind_j_idx in cohort
+                ind_i, ind_j = inds[ind_i_idx], inds[ind_j_idx]
+                # check if we have already sampled this interaction
+                if !isnothing(outcome_cache) && 
+                    ind_i.id ∈ keys(outcome_cache) &&
+                    ind_j.id ∈ keys(outcome_cache[ind_i.id]) &&
+                    ind_i.id ∈ keys(outcome_cache[ind_j.id])
+                    continue
+                end
+                push!(matches, Match(inc!(match_counter), [ind_i, ind_j], env_creator))
             end
-            check_if_outcome_in_cache(outcome_cache, ind_i.id, ind_j.id) && continue
-            push!(matches, Match(inc!(match_counter), [ind_i, ind_j], env_creator))
         end
-        # add random candidates
+
+        # add random candidates between cohorts
+        for i in eachindex(cohorts)
+            for j in i+1:length(cohorts)
+                for ind_i_idx in cohorts[i], ind_j_idx in cohorts[j]
+                    ind_i, ind_j = inds[ind_i_idx], inds[ind_j_idx]
+                    push!(random_sample_candidates, (ind_i, ind_j))
+                end
+            end
+        end
         random_sample_candidates = shuffle(state.rng, unique(random_sample_candidates))
         random_interactions = Tuple{Int, Int}[]
         for i in 1:min(n_randomly_sampled, length(random_sample_candidates))
@@ -54,6 +72,7 @@ function make_old_vs_new_matches(state::AbstractState, pops::Vector{Vector{Popul
             ind_i.id != ind_j.id && push!(random_interactions, (ind_j.id, ind_i.id))
             push!(matches, Match(inc!(match_counter), [ind_i, ind_j], env_creator))
         end
+
 
         previous_random_interactions = [d for d in pop.data if d isa RandomlySampledInteractions && d.other_pop_id == pop.id]
         if length(previous_random_interactions) > 1

@@ -1,4 +1,4 @@
-export PhylogeneticEstimator, CacheInteractions, RestoreCachedInteractions
+export PhylogeneticEstimator, CacheInteractions, RestoreCachedInteractions, RemoveRandomlySampledInteractions
 using DataStructures
 
 
@@ -401,15 +401,18 @@ function estimate!(state::State, pops::Vector{Population}, k::Int, max_dist::Int
     # Compare sample estimates to actual outcomes
     distances, errs_a, errs_b = measure_estimation_samples(sample_estimates, sampled_individual_outcomes)
 
-    m_est_dist = StatisticalMeasurement("estimation_distances", distances, gen)
-    m_est_err_a = StatisticalMeasurement("estimation_errors_a", errs_a, gen)
-    m_est_err_b = StatisticalMeasurement("estimation_errors_b", errs_b, gen)
-    m_dist_err_cor_a = Measurement("estimation_distance_error_correlation_a", cor(distances, errs_a), gen)
-    m_dist_err_cor_b = Measurement("estimation_distance_error_correlation_b", cor(distances, errs_b), gen)
-    for m in (m_est_dist, m_est_err_a, m_est_err_b, m_dist_err_cor_a, m_dist_err_cor_b)
-        @info m
-        @h5 m
+    if !isempty(distances) && !isempty(errs_a) && !isempty(errs_b)
+        m_est_dist = StatisticalMeasurement("estimation_distances", distances, gen)
+        m_est_err_a = StatisticalMeasurement("estimation_errors_a", errs_a, gen)
+        m_est_err_b = StatisticalMeasurement("estimation_errors_b", errs_b, gen)
+        m_dist_err_cor_a = Measurement("estimation_distance_error_correlation_a", cor(distances, errs_a), gen)
+        m_dist_err_cor_b = Measurement("estimation_distance_error_correlation_b", cor(distances, errs_b), gen)
+        for m in (m_est_dist, m_est_err_a, m_est_err_b, m_dist_err_cor_a, m_dist_err_cor_b)
+            @info m
+            @h5 m
+        end
     end
+
 
     # Compute estimates for all unevaluated interactions
     estimates = compute_estimates(
@@ -453,16 +456,21 @@ function restore_cached_outcomes!(state::State, pops::Vector{Vector{Population}}
     outcome_cache = getonly(x->x isa OutcomeCache && x.pop_ids == [pop.id, pop.id], state.data).cache
     ind_ids = Set(ind.id for ind in pop.individuals)
     n_restored = 0
+    avg_restored = 0
     for ind in pop.individuals
         other_ids = Set(int.other_ids[1] for int in ind.interactions if int isa EstimatedInteraction || int isa Interaction)
         ind_outcome_cache = outcome_cache[ind.id]
         for other_id in setdiff(ind_ids, other_ids)
             if other_id in keys(ind_outcome_cache)
                 n_restored += 1
-                push!(ind.interactions, Interaction(ind.id, [other_id], outcome_cache[ind.id][other_id]))
+                outcome = ind_outcome_cache[other_id]
+                avg_restored += outcome
+                push!(ind.interactions, Interaction(ind.id, [other_id], outcome))
             end
         end
     end
+    @info "Restored $n_restored cached interactions for population $(pop.id), average outcome: $(avg_restored/n_restored)"
+    return
 end
 
 @define_op "CacheInteractions" "AbstractOperator"
@@ -476,16 +484,27 @@ function cache_outcomes!(state::State, pops::Vector{Vector{Population}})
     for subpopi in pops, subpopj in pops, popi in subpopi, popj in subpopj
         outcome_cache = getonly(x->x isa OutcomeCache && x.pop_ids == [popi.id, popj.id], state.data).cache
         for ind in popi.individuals
+            if ind.id ∉ keys(outcome_cache)
+                outcome_cache[ind.id] = Dict{Int, Float64}()
+            end
+            new_outcome_dict = Dict{Int, Float64}()
+
             for int in ind.interactions
                 !(int isa Interaction) && continue
                 @assert length(int.other_ids) == 1 "Only one other individual is supported"
-                if ind.id ∉ keys(outcome_cache)
-                    outcome_cache[ind.id] = Dict{Int, Float64}()
+                if int.other_ids[1] ∉ keys(new_outcome_dict)
+                    new_outcome_dict[int.other_ids[1]] = 0
                 end
-                outcome_cache[ind.id][int.other_ids[1]] = int.score
+                new_outcome_dict[int.other_ids[1]] += int.score
             end
+            merge!(outcome_cache[ind.id], new_outcome_dict)
         end
 
     end
 end
 
+@define_op "RemoveRandomlySampledInteractions" "AbstractOperator"
+RemoveRandomlySampledInteractions(ids::Vector{String}=String[], kwargs...) =
+    create_op("RemoveRandomlySampledInteractions",
+              retriever=PopulationRetriever(ids),
+              operator=map(map((_,p) -> filter!(x->!(x isa RandomlySampledInteractions), p.data))); kwargs...)

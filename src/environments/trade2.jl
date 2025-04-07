@@ -73,10 +73,11 @@ function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30,
     grid_bananas = zeros(n, n)
     players = PlayerState[]
     # start player 1 in top left corner, player 2 in bottom right corner
-    player_offsets = Float32[6, n-6]
+    positions = [(6,6), (n-6, n-6), (6, n-6), (n-6, 6)]
+    shuffle!(positions)
     for i in 1:p
         # Players start with 10 of one resource and zero of the other
-        position = (player_offsets[i], player_offsets[i])
+        position = positions[i]
         push!(players, PlayerState(i, position, 0.0, 0.0))
     end
 
@@ -105,7 +106,7 @@ function log_trade_ratio(state, individuals, h5)
         !isempty(ind_ratios) && push!(pop_ratios, mean(ind_ratios))
         !isempty(ind_apples) && push!(pop_apples, mean(ind_apples))
         !isempty(ind_bananas) && push!(pop_bananas, mean(ind_bananas))
-        !isempty(ind_mins) && push!(pop_mins, mean(ind_mins))
+        !isempty(ind_mins) && push!(pop_mins, maximum(ind_mins))
     end
     # if any pop-level metrics are empty, set them to NaN
     isempty(pop_ratios) && push!(pop_ratios, NaN)
@@ -190,7 +191,7 @@ function too_close_to_others(pos::Tuple{Float64,Float64}, current_player::Int, p
         if i != current_player
             dx = pos[1] - other.position[1]
             dy = pos[2] - other.position[2]
-            if sqrt(dx^2 + dy^2) < (PLAYER_RADIUS)+1
+            if sqrt(dx^2 + dy^2) < 2*(PLAYER_RADIUS)
                 return true
             end
         end

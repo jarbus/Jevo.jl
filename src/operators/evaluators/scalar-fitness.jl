@@ -27,7 +27,7 @@ function make_scalar_fitness_records(::AbstractState,
         for ind in subpop.individuals
             num_inds += 1
             @assert length(ind.interactions) > 0 "Individual $(ind.id) must have interactions"
-            score = sum(interaction.score for interaction in ind.interactions)
+            score = sum(interaction.score for interaction in ind.interactions if interaction isa Interaction || interaction isa EstimatedInteraction)
             #= @assert -Inf < score < Inf =#
             push!(scores[end], score)
             min_score = min(min_score, score)
