@@ -1,0 +1,5 @@
+#!/bin/bash
+
+touch run.{log,err,out}
+rm check.jls statistics.h5
+sbatch --job-name $(basename $(dirname $(pwd))) batch.sh
