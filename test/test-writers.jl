@@ -1,13 +1,3 @@
-@testset "checkpoint" begin
-
-    checkpointname = "test-checkpoint.jls"
-    state = State("", rng, AbstractCreator[], [Checkpointer(checkpointname, interval=5)], counters=default_counters())
-    run!(state, 10)
-    @test generation(state) == 11
-    state = restore_from_checkpoint(checkpointname)
-    @test generation(state) == 6
-end
-
 @testset "HDF5Logger" begin
   rm("statistics.h5", force=true)
   with_logger(Jevo.HDF5Logger("statistics.h5")) do

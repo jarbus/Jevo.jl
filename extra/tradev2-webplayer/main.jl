@@ -1,11 +1,14 @@
-using HTTP, Sockets, Images, FileIO, Colors, Random
+using HTTP, Sockets, Images, FileIO, Colors, Random, Serialization
 
-const pic_path = "picture.jpg"
+const pic_path = "observation.jls"
 
-# Create picture.jpg with random data if it doesn't exist on startup
+# Create observation.jls with serialized random data if it doesn't exist on startup
 if !isfile(pic_path)
-    img = rand(RGB{N0f8}, 200, 200)
-    save(pic_path, img)
+    # Generate random Float32 values between 0 and 1
+    raw_data = rand(Float32, 200, 200, 3)
+    open(pic_path, "w") do io
+        serialize(io, raw_data)
+    end
 end
 
 # Helper function to parse URL-encoded form data
@@ -24,7 +27,25 @@ function request_handler(req)
     # Serve picture if the target starts with "/picture.jpg" (to handle query parameters)
     if startswith(req.target, "/picture.jpg")
         if isfile(pic_path)
-            content = read(pic_path)
+            # Deserialize the Float32 data from observation.jls
+            raw_data = open(deserialize, pic_path)
+            
+            # Convert Float32 data to RGB image
+            img = Array{RGB{Float32}}(undef, size(raw_data, 1), size(raw_data, 2))
+            for i in 1:size(raw_data, 1)
+                for j in 1:size(raw_data, 2)
+                    r = raw_data[i, j, 1]
+                    g = raw_data[i, j, 2]
+                    b = raw_data[i, j, 3]
+                    img[i, j] = RGB{Float32}(r, g, b)
+                end
+            end
+            
+            # Convert to JPEG and send to client
+            io = IOBuffer()
+            save(Stream(format"JPEG", io), img)
+            content = take!(io)
+            
             return HTTP.Response(200, [
                 "Content-Type" => "image/jpeg",
                 "Cache-Control" => "no-store, no-cache, must-revalidate, max-age=0",
@@ -45,13 +66,19 @@ function request_handler(req)
         try   pick_val = parse(Int, get(params, "pick", "0")); catch; end
         try   place_val = parse(Int, get(params, "place", "0")); catch; end
 
-        # Delete the current picture, wait one second, then generate a new random picture.
+        # Delete the current serialized data, wait one second, then generate new random data.
         if isfile(pic_path)
             rm(pic_path)
         end
         sleep(1)
-        img = fill(rand(RGB{N0f8}), 200, 200)
-        save(pic_path, img)
+        
+        # Generate random Float32 values between 0 and 1
+        raw_data = rand(Float32, 200, 200, 3)
+        
+        # Serialize the Float32 data to observation.jls
+        open(pic_path, "w") do io
+            serialize(io, raw_data)
+        end
     end
 
     # Poll until the picture file exists
