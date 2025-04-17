@@ -97,7 +97,6 @@ function make_filesystem_match(state::AbstractState, individuals::Vector{I}, mat
 
         @assert all(inserted)
         @assert count(ind->ind.id == -1, inds) == 1
-        @info
         push!(matches, Match(inc!(match_counter), inds, env_creator))
     end
     matches
