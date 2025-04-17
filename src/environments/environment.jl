@@ -6,7 +6,7 @@ play(match::Match) = play(match.environment_creator, match.individuals)
 
 
 function play(c::Creator{E}, inds::Vector{I}) where {E<:AbstractEnvironment, I<:AbstractIndividual}
-    isdefined(Jevo, :jevo_device_id) &&  device!(Jevo.jevo_device_id)
+    # isdefined(Jevo, :jevo_device_id) &&  device!(Jevo.jevo_device_id)
     lock(Jevo.get_env_lock()) do
         phenotypes = develop.(inds) .|> gpu
         ids = [ind.id for ind in inds]
