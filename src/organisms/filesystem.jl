@@ -77,7 +77,7 @@ function make_filesystem_match(state::AbstractState, individuals::Vector{I}, mat
 
     # make matches
     for match in matches
-        inds = Vector(undef, length(match))
+        inds = Vector{I}(undef, length(match))
         inserted = fill(false, length(match))
         @info "Making Match"
         for ind in individuals, (idx, id) in enumerate(match)
