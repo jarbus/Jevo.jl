@@ -95,20 +95,20 @@ All operator structs should be defined with the [`@define_op`](@ref) macro, and 
 
 Create an [Operator](@ref) of type `type` with the specified fields. All fields are optional. The retriever, operator, and updater fields default to [`noop`](@ref).
 """
-function create_op(type::Type{<:AbstractOperator};
+function create_op(type::Type{<:AbstractOperator}, additional_fields...;
         condition=always,
         retriever=noop,
         operator=noop,
         updater=noop,
         data=AbstractData[],
-        time=false,
-        additional_fields...)
+                   time=false,)
+        #additional_fields...)
     # Convert symbol to type
     @assert type <: AbstractOperator
-    type(condition, retriever, operator, updater, data, time; additional_fields...)
+    type(condition, retriever, operator, updater, data, time, additional_fields...)
 end
 
-create_op(name::String; kwargs...) = create_op(eval(Symbol(name)); kwargs...)
+create_op(name::String, additional_fields...; kwargs...) = create_op(eval(Symbol(name)), additional_fields...; kwargs...)
 
 """
     ClearInteractionsAndRecords(;kwargs...)

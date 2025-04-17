@@ -19,7 +19,7 @@ end
 
 function checkpoint(state::State, checkpointname::String)
     checkroot, ext = splitext(checkpointname)
-    dash_gen = @sprintf "%05d" generation(state)
+    dash_gen = @sprintf "%05d" (generation(state)-1)
     checkname_withgen = checkroot * "-" * dash_gen * ext
 
     data_to_save = Dict(
@@ -34,14 +34,13 @@ function checkpoint(state::State, checkpointname::String)
 end
 
 @define_op "Checkpoint"
-Checkpoint(checkpointname::String="./state.jls"; interval::Int,kwargs...) = create_op("Checkpoint",
-    condition=(state)->first_gen(state) || generation(state) % interval == 0,
+Checkpoint(checkpointname::String="./check.jls"; interval::Int,kwargs...) = create_op("Checkpoint",
+    condition=(state)-> (generation(state)-1) % interval == 0,
     operator=(state,_)->checkpoint(state, checkpointname))
 
 
-@define_op "LoadCheckpoint"
-LoadCheckpoint(checkpointname::String="./state.jls"; kwargs...) = 
-    create_op("LoadCheckpoint",
+@define_op "LoadCheckpoint" "AbstractOperator" "checkpointname:String"
+LoadCheckpoint(checkpointname::String="./check.jls"; kwargs...) = 
+    create_op("LoadCheckpoint",checkpointname,
         condition=first_gen,
-        updater =(state, _)->restore_from_checkpoint!(state, checkpointname); kwargs...
-    )
+        updater =(state, _)->restore_from_checkpoint!(state, checkpointname),)

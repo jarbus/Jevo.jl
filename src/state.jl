@@ -82,8 +82,7 @@ Use [`generation(state)`](@ref) to get the current generation number, initialize
 function State(id::String, rng::AbstractRNG, creators::Vector{<:AbstractCreator}, operators::Vector{<:AbstractOperator}; counters::Vector{<:AbstractCounter}, populations::Vector{<:AbstractPopulation}=AbstractPopulation[], matches::Vector{<:AbstractMatch}=AbstractMatch[], data::Vector=[], checkpoint_interval::Int=-1)
     operators = AbstractOperator[operators..., GenerationIncrementer()]
     if checkpoint_interval > 0
-        pushfirst!(operators, LoadCheckpoint("./checkpoint.jls"))
-        push!(operators,  Checkpoint("./checkpoint.jls", interval=checkpoint_interval))
+        push!(operators,  Checkpoint(interval=checkpoint_interval))
     end
     State(id, rng, creators, operators, populations, counters, matches, data)
 end
@@ -99,9 +98,9 @@ function operate!(state::AbstractState)
         try
             if i > 1 && state.operators[i] isa LoadCheckpoint
                 @error "Encountered LoadCheckpoint after the first operator; terminating"
-            elseif i == 1 && state.operators[1] isa LoadCheckpoint
+            elseif i == 1 && state.operators[1] isa LoadCheckpoint && first_gen(state) && isfile(state.operators[1].checkpointname)
                 operate!(state, state.operators[i]) # load checkpoint
-                return
+                return -1
             end
             operate!(state, state.operators[i])
         catch e
@@ -128,10 +127,10 @@ Begin/continue evolution until generation `max_generations`
 """
 function run!(state::State, max_generations::Int) 
     for i in generation(state):max_generations
-        operate!(state)
-    end
-    for i in generation(state):max_generations
-        operate!(state)
+        if operate!(state) == -1
+            @info "Checkpoint loaded, exiting operate!"
+            return
+        end
     end
 end
 

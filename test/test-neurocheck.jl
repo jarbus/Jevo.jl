@@ -27,28 +27,27 @@ PrintInteractions(;kwargs...) = create_op("Reporter";
 
   developer = Creator(Model)
   pop_creator = Creator(Population, ("p", n_inds, PassThrough(gc), PassThrough(developer), counters))
-  for i in 1:2
-      state = State("", rng, [pop_creator, env_creator], 
-                    [ InitializeAllPopulations(),
-                      InitializePhylogeny(),
-                      InitializeDeltaCache(),
-                      SoloMatchMaker(),
-                      Performer(), 
-                      PrintInteractions(),
-                      ScalarFitnessEvaluator(),
-                      TruncationSelector(k),
-                      CloneUniformReproducer(n_inds),
+  state = State("", rng, [pop_creator, env_creator], 
+                [ 
+                  LoadCheckpoint(),
+                  InitializeAllPopulations(),
+                  InitializePhylogeny(),
+                  InitializeDeltaCache(),
+                  SoloMatchMaker(),
+                  Performer(), 
+                  PrintInteractions(),
+                  ScalarFitnessEvaluator(),
+                  TruncationSelector(k),
+                  CloneUniformReproducer(n_inds),
 
-                      UpdatePhylogeny(),
-                      UpdateParentsAcrossAllWorkers(),
-                      ClearCurrentGenWeights(),
+                  UpdatePhylogeny(),
+                  UpdateParentsAcrossAllWorkers(),
+                  ClearCurrentGenWeights(),
 
-                      NBackMutator(n_back=1000, mrs=mrs),
-                      UpdateDeltaCache(),
-                      ClearInteractionsAndRecords(),
-                  ], counters=counters, checkpoint_interval = 5)
-      run!(state, 5*i)
-      run!(state, 5*i)
-      counters = default_counters()
-  end
+                  NBackMutator(n_back=1000, mrs=mrs),
+                  UpdateDeltaCache(),
+                  ClearInteractionsAndRecords(),
+              ], counters=counters, checkpoint_interval = 5)
+  run!(state, 10)
+  run!(state, 10)
 end
