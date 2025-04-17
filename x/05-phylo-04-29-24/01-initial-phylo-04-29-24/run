@@ -1,5 +1,0 @@
-#!/bin/bash
-
-rm check.jls statistics.h5
-sbatch batch.sh
-tail -f run.log run.err run.out
