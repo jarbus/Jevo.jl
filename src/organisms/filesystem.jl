@@ -90,7 +90,7 @@ function make_filesystem_match(state::AbstractState, individuals::Vector{I}, mat
         for (idx, id) in enumerate(match)
             if id == -1
                 @info "Found FileSystemPlayer"
-		        inds[idx] = Individual(-1, generation(state), Int[], Creator(FSGenotype, (dirpath=match_queue_dir, null_action_space=null_action_space)), Creator(FSPhenotype))
+		        inds[idx] = Individual(-1, generation(state), Int[], Creator(FileSystemGenotype, (dirpath=match_queue_dir, null_action_space=null_action_space)), Creator(FileSystemPhenotype))
                 inserted[idx] = true
             end
         end
