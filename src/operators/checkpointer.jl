@@ -24,7 +24,7 @@ function checkpoint(state::State, checkpointname::String)
 
     data_to_save = Dict(
         :state => state,
-        :weight_cache => weight_cache,
+        :weight_cache => fetch(@spawnat workers()[1] weight_cache),
         :genotype_cache => genotype_cache
     )
     Serialization.serialize(checkname_withgen, data_to_save)
