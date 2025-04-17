@@ -71,12 +71,12 @@ function make_filesystem_match(state::AbstractState, individuals::Vector{I}, mat
         sleep(1)
     end
     @info "$matches_file found"
-    matches = deserialize(matches_file)
+    match_queue = deserialize(matches_file)
     # remove match_queue_dir/queue
     isfile(matches_file) && rm(matches_file)
 
     # make matches
-    for match in matches
+    for match in match_queue
         inds = Vector{I}(undef, length(match))
         inserted = fill(false, length(match))
         @info "Making Match"
