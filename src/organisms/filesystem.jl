@@ -41,15 +41,15 @@ end
 
 
 @define_op "FileSystemMatchMaker" "AbstractMatchMaker"
-FileSystemMatchMaker(match_queue_dir::String, ids::Vector{String}=String[]; env_creator=nothing, null_action_space::Tuple{Vararg{Int}}, kwargs...) =
+FileSystemMatchMaker(match_queue_dir::String; env_creator=nothing, null_action_space::Tuple{Vararg{Int}}, kwargs...) =
     create_op("FileSystemMatchMaker",
           condition=always,
-          retriever=get_individuals(ids),
-          operator=(s,ps)->make_filesystem_match(s, ps, match_queue_dir, env_creator, null_action_space),
+          retriever=get_individuals,
+          operator=(s,is)->make_filesystem_match(s, is, match_queue_dir, env_creator, null_action_space),
           updater=add_matches!;kwargs...)
 
 
-function make_filesystem_match(state::AbstractState, individuals::Vector{Individual}, match_queue_dir::String, env_creator, null_action_space::Tuple{Vararg{Int}})
+function make_filesystem_match(state::AbstractState, individuals::Vector{I}, match_queue_dir::String, env_creator, null_action_space::Tuple{Vararg{Int}}) where {I<:AbstractIndividual}
     match_counter = get_counter(AbstractMatch, state)
     if isnothing(env_creator)
         env_creators = get_creators(AbstractEnvironment, state)
@@ -79,15 +79,18 @@ function make_filesystem_match(state::AbstractState, individuals::Vector{Individ
     for match in matches
         inds = Vector(undef, length(match))
         inserted = fill(false, length(match))
+        @info "Making Match"
         for ind in individuals, (idx, id) in enumerate(match)
             if id == ind.id
+                @info "Found $id in match"
                 inds[idx] = ind
                 inserted[idx] = true
             end
         end
         for (idx, id) in enumerate(match)
             if id == -1
-		    inds[idx] = Individual(-1, generation(state), Int[], Creator(FSGenotype, (dirpath=match_queue_dir, null_action_space=null_action_space)), Creator(FSPhenotype))
+                @info "Found FileSystemPlayer"
+		        inds[idx] = Individual(-1, generation(state), Int[], Creator(FSGenotype, (dirpath=match_queue_dir, null_action_space=null_action_space)), Creator(FSPhenotype))
                 inserted[idx] = true
             end
         end
