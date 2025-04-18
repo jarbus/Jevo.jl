@@ -38,7 +38,7 @@ end
 # ————————————————————————————————————————————————————————————————
 
 function make_handler(obs_ch, act_ch, id_ch, match_ch)
-    return HTTP.HandlerFunction() do req::HTTP.Request
+    return function(req::HTTP.Request)
         if req.method == "GET" && req.target == "/ids"
             ids = take!(id_ch)
             return HTTP.Response(200, JSON.json(ids))
