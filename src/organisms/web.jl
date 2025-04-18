@@ -39,6 +39,7 @@ end
 
 function make_handler(obs_ch, act_ch, id_ch, match_ch)
     return function(req::HTTP.Request)
+        @info "HTTP $(req.method) $(req.target)"
         if req.method == "GET" && req.target == "/ids"
             ids = take!(id_ch)
             return HTTP.Response(200, JSON.json(ids))
@@ -95,10 +96,13 @@ function make_web_match(state::AbstractState,
     end
 
     # send available IDs to client
+    @info "Putting ids"
     put!(id_ch, [ind.id for ind in individuals])
+    @info "Waiting for match"
 
     # wait for match queue from client
     match_list = take!(match_ch)
+    @info "rec matchlist $match_list"
 
     matches = Match[]
     ctr = get_counter(AbstractMatch, state)
