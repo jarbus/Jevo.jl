@@ -68,8 +68,8 @@ function WebMatchMaker(host::String, port::Int;
                        kwargs...)
     obs_ch   = Channel{Any}(1)
     act_ch   = Channel{Any}(1)
-    id_ch    = Channel{Vector{Int}}(1)
-    match_ch = Channel{Vector{Vector{Int}}}(1)
+    id_ch    = Channel{Any}(1)
+    match_ch = Channel{Any}(1)
 
     # start background HTTP server
     @async HTTP.serve(make_handler(obs_ch, act_ch, id_ch, match_ch), host, port)
