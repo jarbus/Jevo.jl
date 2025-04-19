@@ -23,8 +23,6 @@ function flatten_obs(obs)
     # encode PNG into buffer
     buf = IOBuffer()
     save(Stream{format"PNG"}(buf), img)
-    # Also save as test.png
-    save("test.png", img)
     return base64encode(take!(buf))         # return base64 string
 end
 
@@ -69,7 +67,7 @@ function observation_html(; inline_image::String, x::Int=0, y::Int=0, pick::Int=
   <head><meta charset=\"utf-8\"><title>Interact</title>
     <style>
       .container { text-align: center; margin-top: 20px; }
-      #obs-img { width: 800px; height: auto; }
+      #obs-img { width: 400px; height: auto; }
       .vector-container { display: flex; justify-content: center; margin-top: 20px; }
       .vector-box { width: 60px; height: 60px; border: 1px solid #000; display: flex;
                      align-items: center; justify-content: center; margin: 0 2px;
@@ -81,12 +79,14 @@ function observation_html(; inline_image::String, x::Int=0, y::Int=0, pick::Int=
   <body>
     <div class=\"container\">
       <img id=\"obs-img\" src=\"data:image/png;base64,$inline_image\" alt=\"Observation\">
+      red
       <div class=\"vector-container\">
         <div class=\"vector-box\" id=\"xbox\">$x</div>
         <div class=\"vector-box\" id=\"ybox\">$y</div>
         <div class=\"vector-box\" id=\"pickbox\">$pick</div>
         <div class=\"vector-box\" id=\"placebox\">$place</div>
       </div>
+      green
       <div class=\"controls\"><button id=\"enter\">Enter</button></div>
     </div>
     <script>
@@ -99,10 +99,10 @@ function observation_html(; inline_image::String, x::Int=0, y::Int=0, pick::Int=
       document.addEventListener('keydown', e => {
         let x = parseInt(xbox.textContent);
         let y = parseInt(ybox.textContent);
-        if (e.key === 'w')      { y = clamp(y + 1); ybox.textContent = y; }
-        else if (e.key === 's') { y = clamp(y - 1); ybox.textContent = y; }
-        else if (e.key === 'd') { x = clamp(x + 1); xbox.textContent = x; }
-        else if (e.key === 'a') { x = clamp(x - 1); xbox.textContent = x; }
+        if (e.key === 'd')      { y = clamp(y + 1); ybox.textContent = y; }
+        else if (e.key === 'a') { y = clamp(y - 1); ybox.textContent = y; }
+        else if (e.key === 'w') { x = clamp(x - 1); xbox.textContent = x; }
+        else if (e.key === 's') { x = clamp(x + 1); xbox.textContent = x; }
       });
 
       [pickbox, placebox].forEach(box => {
