@@ -46,7 +46,8 @@ function make_handler(obs_ch, act_ch, id_ch, match_ch)
         elseif req.method == "POST" && req.target == "/match"
             matches = JSON.parse(String(req.body))
             put!(match_ch, matches)
-            return HTTP.Response(200, "ok")
+            obs = take!(obs_ch)
+            return HTTP.Response(200, JSON.json(obs))
         elseif req.method == "POST" && req.target == "/action"
             action = JSON.parse(String(req.body))
             put!(act_ch, action)
