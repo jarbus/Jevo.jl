@@ -1,198 +1,187 @@
-using HTTP, Sockets, Images, FileIO, Colors, Random, Serialization
+module InteractServer
 
-const pic_path = "observation.jls"
+using HTTP, HTTP.URIs, Sockets, JSON
+using Images, ColorTypes, FileIO
+using Base64: base64encode
 
-# Create observation.jls with serialized random data if it doesn't exist on startup
-if !isfile(pic_path)
-    # Generate random Float32 values between 0 and 1
-    raw_data = rand(Float32, 200, 200, 3)
-    open(pic_path, "w") do io
-        serialize(io, raw_data)
+# === Utility ===
+function flatten_obs(obs)
+    # obs is nested W×H×3×1 Vec{Any} of floats in [0,1]
+    W = length(obs[1][1][1])
+    H = length(obs[1][1])
+    # build direct Float32 array W×H×3
+    arr = Array{Float32}(undef, W, H, 3)
+    for x in 1:W, y in 1:H, c in 1:3
+        arr[x, y, c] = Float32(obs[1][c][y][x])
     end
+    # permute to channel-first (3×W×H) for colorview
+    arr_perm = permutedims(arr, (3,1,2))    # 3×W×H
+    # create an RGB image
+    img = colorview(RGB, arr_perm)          # W×H RGB image
+    # reshape back to W×H×3
+    arr3 = permutedims(channelview(img), (2,3,1))  # W×H×3
+    # encode PNG into buffer
+    buf = IOBuffer()
+    save(Stream{format"PNG"}(buf), img)
+    # Also save as test.png
+    save("test.png", img)
+    return base64encode(take!(buf))         # return base64 string
 end
 
-# Helper function to parse URL-encoded form data
-function parse_form_data(body::String)
-    params = Dict{String, String}()
-    for pair in split(body, "&")
-        kv = split(pair, "=")
-        if length(kv) == 2
-            params[kv[1]] = kv[2]
-        end
-    end
-    return params
+# === HTML Generators ===
+function chooser_html(ids)
+    items = ["<li><button onclick='choose($i)'>$i</button></li>" for i in ids]
+    list  = join(items)
+    return """
+<!doctype html>
+<html>
+  <head><meta charset=\"utf-8\"><title>Select ID</title>
+    <style>
+      body { font-family: sans-serif; text-align: center }
+      button { font-size: 1.2rem; padding: .4rem .8rem; margin: .2rem }
+    </style>
+  </head>
+  <body>
+    <h2>Select an ID to interact with</h2>
+    <ul style=\"list-style:none; padding:0\">$list</ul>
+    <script>
+      let sent = false;
+      function choose(id) {
+        if (sent) return;
+        sent = true;
+        fetch('/match', {
+          method: 'POST',
+          headers: {'Content-Type':'application/x-www-form-urlencoded'},
+          body: new URLSearchParams({selected_id: id})
+        })
+        .then(r => r.text())
+        .then(html => { document.open(); document.write(html); document.close(); });
+      }
+    </script>
+  </body>
+</html>"""
 end
 
-function request_handler(req)
-    # Serve picture if the target starts with "/picture.jpg" (to handle query parameters)
-    if startswith(req.target, "/picture.jpg")
-        if isfile(pic_path)
-            # Deserialize the Float32 data from observation.jls
-            raw_data = open(deserialize, pic_path)
-            
-            # Convert Float32 data to RGB image
-            img = Array{RGB{Float32}}(undef, size(raw_data, 1), size(raw_data, 2))
-            for i in 1:size(raw_data, 1)
-                for j in 1:size(raw_data, 2)
-                    r = raw_data[i, j, 1]
-                    g = raw_data[i, j, 2]
-                    b = raw_data[i, j, 3]
-                    img[i, j] = RGB{Float32}(r, g, b)
-                end
-            end
-            
-            # Convert to JPEG and send to client
-            io = IOBuffer()
-            save(Stream(format"JPEG", io), img)
-            content = take!(io)
-            
-            return HTTP.Response(200, [
-                "Content-Type" => "image/jpeg",
-                "Cache-Control" => "no-store, no-cache, must-revalidate, max-age=0",
-                "Pragma" => "no-cache"
-            ], content)
-        else
-            return HTTP.Response(404, ["Content-Type" => "text/plain"], "Picture not found")
-        end
-    end
-
-    # Default values
-    x_val = 0; y_val = 0; pick_val = 0; place_val = 0
-    if req.method == "POST"
-        body_str = String(req.body)
-        params = parse_form_data(body_str)
-        try   x_val = parse(Int, get(params, "x", "0")); catch; end
-        try   y_val = parse(Int, get(params, "y", "0")); catch; end
-        try   pick_val = parse(Int, get(params, "pick", "0")); catch; end
-        try   place_val = parse(Int, get(params, "place", "0")); catch; end
-
-        # Delete the current serialized data, wait one second, then generate new random data.
-        if isfile(pic_path)
-            rm(pic_path)
-        end
-        sleep(1)
-        
-        # Generate random Float32 values between 0 and 1
-        raw_data = rand(Float32, 200, 200, 3)
-        
-        # Serialize the Float32 data to observation.jls
-        open(pic_path, "w") do io
-            serialize(io, raw_data)
-        end
-    end
-
-    # Poll until the picture file exists
-    while !isfile(pic_path)
-        sleep(0.5)
-    end
-
-    # Build the HTML page with inline JavaScript.
-    # Notice that we use string interpolation (e.g. $(x_val)) and
-    # the response is returned with headers before the body.
-    html = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>Julia Web Server</title>
-      <style>
-        .container { text-align: center; margin-top: 50px; }
-        .vector-container { display: flex; justify-content: center; margin-top: 20px; }
-        .vector-box { width: 50px; height: 50px; border: 1px solid #000; margin: 0; padding: 0; box-sizing: border-box; }
-        .controls { display: flex; justify-content: center; align-items: center; margin-top: 20px; }
-        .controls button { margin: 0 10px; padding: 10px 20px; font-size: 16px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <img src="/picture.jpg?t=$(rand())" alt="Picture">
-        <div class="vector-container">
-          <div class="vector-box" id="xbox"></div>
-          <div class="vector-box" id="ybox"></div>
-          <div class="vector-box" id="pickbox"></div>
-          <div class="vector-box" id="placebox"></div>
-        </div>
-        <div class="controls">
-          <button id="enter">Enter</button>
-          <button id="done">Done</button>
-        </div>
+function observation_html(; inline_image::String, x::Int=0, y::Int=0, pick::Int=0, place::Int=0)
+    return """
+<!doctype html>
+<html>
+  <head><meta charset=\"utf-8\"><title>Interact</title>
+    <style>
+      .container { text-align: center; margin-top: 20px; }
+      #obs-img { width: 800px; height: auto; }
+      .vector-container { display: flex; justify-content: center; margin-top: 20px; }
+      .vector-box { width: 60px; height: 60px; border: 1px solid #000; display: flex;
+                     align-items: center; justify-content: center; margin: 0 2px;
+                     font-size: 22px; font-weight: bold; user-select: none; }
+      .controls { display: flex; justify-content: center; margin-top: 20px; }
+      .controls button { margin: 0 10px; padding: 10px 20px; font-size: 16px; }
+    </style>
+  </head>
+  <body>
+    <div class=\"container\">
+      <img id=\"obs-img\" src=\"data:image/png;base64,$inline_image\" alt=\"Observation\">
+      <div class=\"vector-container\">
+        <div class=\"vector-box\" id=\"xbox\">$x</div>
+        <div class=\"vector-box\" id=\"ybox\">$y</div>
+        <div class=\"vector-box\" id=\"pickbox\">$pick</div>
+        <div class=\"vector-box\" id=\"placebox\">$place</div>
       </div>
-      <script>
-        // Initialize variables using server-provided values
-        var x = $(x_val);
-        var y = $(y_val);
-        var pick = $(pick_val);
-        var place = $(place_val);
+      <div class=\"controls\"><button id=\"enter\">Enter</button></div>
+    </div>
+    <script>
+      const xbox = document.getElementById('xbox');
+      const ybox = document.getElementById('ybox');
+      const pickbox = document.getElementById('pickbox');
+      const placebox = document.getElementById('placebox');
+      const clamp = v => Math.max(-1, Math.min(1, v));
 
-        function clamp(val, min, max) {
-          return Math.max(min, Math.min(val, max));
-        }
+      document.addEventListener('keydown', e => {
+        let x = parseInt(xbox.textContent);
+        let y = parseInt(ybox.textContent);
+        if (e.key === 'w')      { y = clamp(y + 1); ybox.textContent = y; }
+        else if (e.key === 's') { y = clamp(y - 1); ybox.textContent = y; }
+        else if (e.key === 'd') { x = clamp(x + 1); xbox.textContent = x; }
+        else if (e.key === 'a') { x = clamp(x - 1); xbox.textContent = x; }
+      });
 
-        function updateDisplay() {
-          let xText = x === 1 ? "Right" : x === -1 ? "Left" : "Neutral";
-          let yText = y === 1 ? "Up" : y === -1 ? "Down" : "Neutral";
-          document.getElementById("xbox").innerText = "X: " + xText;
-          document.getElementById("ybox").innerText = "Y: " + yText;
-          document.getElementById("pickbox").innerText = "Pick: " + pick;
-          document.getElementById("placebox").innerText = "Place: " + place;
-        }
-
-        // WASD keys update X and Y; Enter sends POST
-        document.addEventListener("keydown", function(e) {
-          if(e.key === "Enter") {
-            e.preventDefault();
-            sendFrame();
-            return;
-          }
-          switch(e.key.toLowerCase()) {
-            case "w": y = clamp(y + 1, -1, 1); break;
-            case "s": y = clamp(y - 1, -1, 1); break;
-            case "a": x = clamp(x - 1, -1, 1); break;
-            case "d": x = clamp(x + 1, -1, 1); break;
-          }
-          updateDisplay();
-        });
-
-        // Scroll wheel updates for 'pick' and 'place'
-        document.getElementById("pickbox").addEventListener("wheel", function(e) {
+      [pickbox, placebox].forEach(box => {
+        box.addEventListener('wheel', e => {
           e.preventDefault();
-          if(e.deltaY < 0) { pick = clamp(pick + 1, -10, 10); }
-          else if(e.deltaY > 0) { pick = clamp(pick - 1, -10, 10); }
-          updateDisplay();
+          let v = parseInt(box.textContent);
+          v += (e.deltaY < 0 ? 1 : -1);
+          box.textContent = v;
         });
-        document.getElementById("placebox").addEventListener("wheel", function(e) {
-          e.preventDefault();
-          if(e.deltaY < 0) { place = clamp(place + 1, -10, 10); }
-          else if(e.deltaY > 0) { place = clamp(place - 1, -10, 10); }
-          updateDisplay();
-        });
+      });
 
-        // Function to send a POST request with the current frame values
-        function sendFrame() {
-          let data = new URLSearchParams();
-          data.append("x", x);
-          data.append("y", y);
-          data.append("pick", pick);
-          data.append("place", place);
-          fetch("/", {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: data.toString()
-          })
-          .then(response => response.text())
-          .then(html => {
-            document.open();
-            document.write(html);
-            document.close();
-          });
-        }
-        document.getElementById("enter").addEventListener("click", sendFrame);
-        window.onload = updateDisplay;
-      </script>
-    </body>
-    </html>
-    """
-    return HTTP.Response(200, ["Content-Type" => "text/html"], html)
+      document.getElementById('enter').addEventListener('click', () => {
+        const params = new URLSearchParams({ x: xbox.textContent, y: ybox.textContent,
+                                           pick: pickbox.textContent, place: placebox.textContent });
+        fetch('/action', {
+          method: 'POST',
+          headers: {'Content-Type':'application/x-www-form-urlencoded'},
+          body: params
+        })
+        .then(r => r.json())
+        .then(obj => { document.getElementById('obs-img').src =
+                        'data:image/png;base64,' + obj['image']; });
+      });
+    </script>
+</html>"""
 end
 
-HTTP.serve(request_handler, Sockets.localhost, 8080)
+# === Request Handler ===
+function handler(req::HTTP.Request)
+    if req.method == "POST" && req.target == "/match"
+        params = URIs.queryparams(String(req.body))
+        id     = parse(Int, params["selected_id"])
+        remote = HTTP.request("POST", "http://localhost:8081/match",
+                              ["Content-Type"=>"application/json"],
+                              JSON.json([[id, -1]]))
+        parsed = JSON.parse(String(remote.body))
+        b64    = flatten_obs(parsed)
+        return HTTP.Response(200, ["Content-Type"=>"text/html"],
+                              observation_html(inline_image=b64))
+
+    elseif req.method == "POST" && req.target == "/action"
+        params        = URIs.queryparams(String(req.body))
+        x, y, pick, place = parse.(Int,
+                          [params["x"], params["y"], params["pick"], params["place"]])
+        remote        = HTTP.request("POST", "http://localhost:8081/action",
+                              ["Content-Type"=>"application/json"],
+                              JSON.json(Float32[x, y, pick, place]))
+        parsed        = JSON.parse(String(remote.body))
+        b64           = flatten_obs(parsed)
+        return HTTP.Response(200, ["Content-Type"=>"application/json"],
+                              JSON.json(Dict("image"=>b64)))
+
+    elseif req.method == "GET" && req.target == "/"
+        resp = try HTTP.get("http://localhost:8081/ids") catch e
+            return HTTP.Response(500, "Error fetching IDs: $(e)")
+        end
+        ids  = JSON.parse(String(resp.body))
+        if !isempty(ids)
+            return HTTP.Response(200, ["Content-Type"=>"text/html"], chooser_html(ids))
+        else
+            remote = HTTP.request("POST", "http://localhost:8081/action",
+                                  ["Content-Type"=>"application/json"],
+                                  JSON.json(Float32[]))
+            parsed = JSON.parse(String(remote.body))
+            b64    = flatten_obs(parsed)
+            return HTTP.Response(200, ["Content-Type"=>"text/html"],
+                                  observation_html(inline_image=b64))
+        end       
+    else
+        return HTTP.Response(404, "Not found")
+    end
+end
+
+function main()
+    HTTP.serve(handler, Sockets.localhost, 8080)
+end
+
+if abspath(PROGRAM_FILE) == @__FILE__
+    main()
+end
+
+end # module
