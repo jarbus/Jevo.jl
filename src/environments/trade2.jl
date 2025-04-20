@@ -73,9 +73,9 @@ function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30,
     grid_bananas = zeros(n, n)
     players = PlayerState[]
     for i in 1:p
-        position = Float32.( (rand(6:(n-6)), rand(6:(n-6))) )
+        position = Float64.( (rand(6:(n-6)), rand(6:(n-6))) )
         while too_close_to_others(position, i, players)
-            position = Float32.( (rand(6:(n-6)), rand(6:(n-6))) )
+            position = Float64.( (rand(6:(n-6)), rand(6:(n-6))) )
         end
         push!(players, PlayerState(i, position, 0.0, 0.0))
     end
