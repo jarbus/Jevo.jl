@@ -72,12 +72,11 @@ function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30,
     grid_apples = zeros(n, n)
     grid_bananas = zeros(n, n)
     players = PlayerState[]
-    # start player 1 in top left corner, player 2 in bottom right corner
-    positions = [(6,6), (n-6, n-6), (6, n-6), (n-6, 6)]
-    shuffle!(positions)
     for i in 1:p
-        # Players start with 10 of one resource and zero of the other
-        position = positions[i]
+        position = rand(6:(n-6)), rand(6:(n-6)) 
+        while too_close_to_others(position, i, players)
+            position = rand(6:(n-6)), rand(6:(n-6)) 
+        end
         push!(players, PlayerState(i, position, 0.0, 0.0))
     end
 
