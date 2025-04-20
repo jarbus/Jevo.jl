@@ -77,7 +77,7 @@ function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30,
         while too_close_to_others(position, i, players)
             position = rand(6:(n-6)), rand(6:(n-6)) 
         end
-        push!(players, PlayerState(i, position, 0.0, 0.0))
+        push!(players, PlayerState(i, Float32.(position), 0.0, 0.0))
     end
 
     env = TradeGridWorld(n, p, grid_apples, grid_bananas, players, 1, max_steps, view_radius, reset_interval, pool_radius, render_filename, Array{Float32, 3}[], [Array{Float32, 3}[] for i in 1:p])
