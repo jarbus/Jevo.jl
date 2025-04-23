@@ -30,6 +30,7 @@ There are two functions central to development of phenotypes: [Jevo.create_layer
 
 * [Dense](@ref)
 * [Chain](@ref)
+* [Conv](@ref)
 * [SelfAttention](@ref)
 * [LayerNorm](@ref)
 * [Embed](@ref)

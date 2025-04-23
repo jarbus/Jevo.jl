@@ -52,8 +52,9 @@ env_creator = Creator(CompareOnOne)
 # a list of operators (order does matter). Operators will look for creators by
 # type when needed to generate new objects when appropriate.
 state = State("ng_phylogeny", rng,[comp_pop_creator, env_creator],
-    [InitializeAllPopulations(),
-     InitializePhylogeny(),
+    [LoadCheckpointer(),
+    InitializeAllPopulations(),
+    InitializePhylogeny(),
     AllVsAllMatchMaker(),
     Performer(),
     ScalarFitnessEvaluator(),
@@ -62,7 +63,7 @@ state = State("ng_phylogeny", rng,[comp_pop_creator, env_creator],
     Mutator(),
     PopSizeAssertor(n_inds),
     ClearInteractionsAndRecords(),
-    Reporter(GenotypeSum, console=true)], counters=counters)
+    Reporter(GenotypeSum, console=true)], counters=counters, checkpoint_interval=25)
 
 # We run the state for n_gens generations.
 run!(state, n_gens)

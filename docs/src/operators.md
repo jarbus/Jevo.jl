@@ -55,10 +55,6 @@ Assertors are operators that you can add at any point in the pipeline to check t
 
 * [Reporter](@ref), can log data if [`Jevo.measure`](@ref) for a specified [Jevo.AbstractMetric](@ref) as its `.operator`.
 
-### Checkpointer
-
-* [Checkpointer](@ref)
-
 ### Initializers
 
 * [InitializeAllPopulations](@ref), uses [Jevo.create](@ref) as its `.operator`.
