@@ -107,10 +107,11 @@ function log_trade_ratio(state, pops, h5)
                 push!(ind_bananas, int.count)
             elseif int isa MinResourceInteraction
                 push!(ind_mins, int.min_resource)
-                idx1, idx2 = idx_map[int.individual_id], idx_map[int.other_ids[1]]
+                id1, id2 = int.individual_id, int.other_ids[1]
+                idx1, idx2 = idx_map[id1], idx_map[id2]
                 trade_matrix_updated[idx1, idx2] = true
                 trade_matrix[idx1,idx2] = max(trade_matrix[idx1,idx2], int.min_resource)
-                distance_matrix[idx1,idx2] = distances[(idx1, idx2)]
+                distance_matrix[idx1,idx2] = distances[(id1, id2)]
 
             end
         end
