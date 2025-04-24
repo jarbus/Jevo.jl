@@ -88,6 +88,9 @@ end
 function log_trade_ratio(state, individuals, h5)
     # extract all trade ratio interactions
     pop_ratios, pop_apples, pop_bananas, pop_mins = Float64[], Float64[], Float64[], Float64[]
+    idx_map = Dict(ind.id=>idx for (idx, ind) in enumerate(individuals))
+    trade_matrix = zeros(Float32, length(idx_map), length(idx_map))
+    trade_matrix_updated = fill(false, length(idx_map), length(idx_map))
     for ind in individuals
         isempty(ind.interactions) && continue
         ind_ratios, ind_apples, ind_bananas, ind_mins = Float64[], Float64[], Float64[], Float64[]
@@ -100,6 +103,9 @@ function log_trade_ratio(state, individuals, h5)
                 push!(ind_bananas, int.count)
             elseif int isa MinResourceInteraction
                 push!(ind_mins, int.min_resource)
+                idx1, idx2 = idx_map[int.individual_id], idx_map[int.other_ids[1]]
+                trade_matrix_updated[idx1, idx2] = true
+                trade_matrix[idx1,idx2] = max(trade_matrix[idx1,idx2], int.min_resource)
             end
         end
         !isempty(ind_ratios) && push!(pop_ratios, mean(ind_ratios))
@@ -107,6 +113,7 @@ function log_trade_ratio(state, individuals, h5)
         !isempty(ind_bananas) && push!(pop_bananas, mean(ind_bananas))
         !isempty(ind_mins) && push!(pop_mins, maximum(ind_mins))
     end
+    @assert all(trade_matrix_updated)
     # if any pop-level metrics are empty, set them to NaN
     isempty(pop_ratios) && push!(pop_ratios, NaN)
     isempty(pop_apples) && push!(pop_apples, NaN)
@@ -125,6 +132,17 @@ function log_trade_ratio(state, individuals, h5)
     h5 && @h5(apple_m)
     h5 && @h5(banana_m)
     h5 && @h5(min_m)
+
+    # get order of trade_matrix rows by decreasing row sum, then sort the rows and columns by that same permutation
+    row_sums = vec(sum(trade_matrix, dims=2))
+    perm = sortperm(row_sums, rev=true)
+    sorted_trade_matrix = trade_matrix[perm, perm]
+
+    if generation(state) % 100 == 0
+        heatmap(sorted_trade_matrix, aspect_ratio=1, title="Max MinResource Matrix", xlabel="Individual", ylabel="Test")
+        savefig("media/max_minresource_matrix.png")
+    end
+
     individuals
 end
 
