@@ -85,12 +85,16 @@ function TradeGridWorld(n::Int, p::Int, max_steps::Int=100, view_radius::Int=30,
     env
 end
 
-function log_trade_ratio(state, individuals, h5)
+function log_trade_ratio(state, pops, h5)
+    @assert length(pops) == 1 && length(pops[1]) == 1
     # extract all trade ratio interactions
+    individuals = pops[1][1].individuals
     pop_ratios, pop_apples, pop_bananas, pop_mins = Float64[], Float64[], Float64[], Float64[]
     idx_map = Dict(ind.id=>idx for (idx, ind) in enumerate(individuals))
+    distances = compute_pairwise_distances!(get_tree(pops[1][1]), idx_map |> keys |> collect |> Set)[2]
     trade_matrix = zeros(Float32, length(idx_map), length(idx_map))
     trade_matrix_updated = fill(false, length(idx_map), length(idx_map))
+    distance_matrix = fill(-1f0, length(idx_map), length(idx_map))
     for ind in individuals
         isempty(ind.interactions) && continue
         ind_ratios, ind_apples, ind_bananas, ind_mins = Float64[], Float64[], Float64[], Float64[]
@@ -106,6 +110,8 @@ function log_trade_ratio(state, individuals, h5)
                 idx1, idx2 = idx_map[int.individual_id], idx_map[int.other_ids[1]]
                 trade_matrix_updated[idx1, idx2] = true
                 trade_matrix[idx1,idx2] = max(trade_matrix[idx1,idx2], int.min_resource)
+                distance_matrix[idx1,idx2] = distances[(idx1, idx2)]
+
             end
         end
         !isempty(ind_ratios) && push!(pop_ratios, mean(ind_ratios))
@@ -133,14 +139,16 @@ function log_trade_ratio(state, individuals, h5)
     h5 && @h5(banana_m)
     h5 && @h5(min_m)
 
-    # get order of trade_matrix rows by decreasing row sum, then sort the rows and columns by that same permutation
-    row_sums = vec(sum(trade_matrix, dims=2))
-    perm = sortperm(row_sums, rev=true)
-    sorted_trade_matrix = trade_matrix[perm, perm]
-
     if generation(state) % 100 == 0
+        # get order of trade_matrix rows by decreasing row sum, then sort the rows and columns by that same permutation
+        row_sums = vec(sum(trade_matrix, dims=2))
+        perm = sortperm(row_sums, rev=true)
+        sorted_trade_matrix = trade_matrix[perm, perm]
         heatmap(sorted_trade_matrix, aspect_ratio=1, title="Max MinResource Matrix", xlabel="Individual", ylabel="Test")
         savefig("media/max_minresource_matrix.png")
+        scatter(vec(distance_matrix), vec(trade_matrix), legend=false, title="Distance vs Max MinResource", xlabel="Phylogenetic Distance", ylabel="Max MinResource")
+        savefig("media/distance_vs_minresource.png")
+
     end
 
     individuals
@@ -155,8 +163,8 @@ function remove_trade_ratios!(state, individuals)
 end
 
 LogTradeRatios(;h5=true, kwargs...) = create_op("Reporter";
-    retriever=get_individuals,
-    operator=(s,is)->log_trade_ratio(s,is, h5),
+    retriever=PopulationRetriever(),
+    operator=(s,ps)->log_trade_ratio(s,ps, h5),
     updater=remove_trade_ratios!,kwargs...)
 
 ClearTradeRatios(;kwargs...) = create_op("Reporter";
