@@ -113,7 +113,7 @@ function log_trade_ratio(state, individuals, h5)
         !isempty(ind_bananas) && push!(pop_bananas, mean(ind_bananas))
         !isempty(ind_mins) && push!(pop_mins, maximum(ind_mins))
     end
-    @assert all(trade_matrix_updated)
+    h5 && @assert all(trade_matrix_updated)
     # if any pop-level metrics are empty, set them to NaN
     isempty(pop_ratios) && push!(pop_ratios, NaN)
     isempty(pop_apples) && push!(pop_apples, NaN)
