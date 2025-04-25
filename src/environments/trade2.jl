@@ -111,8 +111,9 @@ function log_trade_ratio(state, pops, h5)
                 idx1, idx2 = idx_map[id1], idx_map[id2]
                 trade_matrix_updated[idx1, idx2] = true
                 trade_matrix[idx1,idx2] = max(trade_matrix[idx1,idx2], int.min_resource)
-                if (id1, id2) in keys(distances) || (id2, id1) in keys(distances)
-                    distance_matrix[idx1,idx2] = distances[(id1, id2)]
+                min_max_ids = min(id1, id2), max(id1, id2)
+                if min_max_ids in keys(distances)
+                    distance_matrix[idx1,idx2] = distances[min_max_ids]
                 end
             end
         end
