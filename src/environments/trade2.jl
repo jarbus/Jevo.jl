@@ -148,9 +148,9 @@ function log_trade_ratio(state, pops, h5)
         perm = sortperm(row_sums, rev=true)
         sorted_trade_matrix = trade_matrix[perm, perm]
         heatmap(sorted_trade_matrix, aspect_ratio=1, title="Max MinResource Matrix", xlabel="Individual", ylabel="Test")
-        savefig("media/max_minresource_matrix.png")
+        savefig("media/max_minresource_matrix_$(lpad(generation(state), 4, "0")).png")
         scatter(vec(distance_matrix), vec(trade_matrix), legend=false, title="Distance vs Max MinResource", xlabel="Phylogenetic Distance", ylabel="Max MinResource")
-        savefig("media/distance_vs_minresource.png")
+        savefig("media/distance_vs_minresource_$(lpad(generation(state), 4, "0")).png")
 
     end
 
