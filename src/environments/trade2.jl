@@ -17,6 +17,8 @@ struct TradeRatio <: AbstractMetric end
 struct NumApples <: AbstractMetric end
 struct NumBananas <: AbstractMetric end
 struct MinResource <: AbstractMetric end
+struct SecondMinResource <: AbstractMetric end
+
 
 abstract type AbstractGridworld <: Jevo.AbstractEnvironment end
 
@@ -38,6 +40,13 @@ struct MinResourceInteraction <: AbstractInteraction
     other_ids::Vector{Int}
     min_resource::Float64
 end
+
+struct SecondMinResourceInteraction <: AbstractInteraction
+    individual_id::Int
+    other_ids::Vector{Int}
+    second_min_resource::Float64
+end
+
 
 struct NumApplesInteraction <: AbstractInteraction
     individual_id::Int
@@ -89,15 +98,16 @@ function log_trade_ratio(state, pops, h5)
     @assert length(pops) == 1 && length(pops[1]) == 1
     # extract all trade ratio interactions
     individuals = pops[1][1].individuals
-    pop_ratios, pop_apples, pop_bananas, pop_mins = Float64[], Float64[], Float64[], Float64[]
+    pop_ratios, pop_apples, pop_bananas, pop_mins, pop_second_mins = Float64[], Float64[], Float64[], Float64[], Float64[]
     idx_map = Dict(ind.id=>idx for (idx, ind) in enumerate(individuals))
     distances = compute_pairwise_distances!(get_tree(pops[1][1]), idx_map |> keys |> collect |> Set)[2]
     trade_matrix = zeros(Float32, length(idx_map), length(idx_map))
+    second_minresource_matrix = zeros(Float32, length(idx_map), length(idx_map))
     trade_matrix_updated = fill(false, length(idx_map), length(idx_map))
     distance_matrix = fill(-1f0, length(idx_map), length(idx_map))
     for ind in individuals
         isempty(ind.interactions) && continue
-        ind_ratios, ind_apples, ind_bananas, ind_mins = Float64[], Float64[], Float64[], Float64[]
+        ind_ratios, ind_apples, ind_bananas, ind_mins, ind_second_mins = Float64[], Float64[], Float64[], Float64[], Float64[]
         for int in ind.interactions
             if int isa TradeRatioInteraction
                 push!(ind_ratios, int.trade_ratio)
@@ -115,12 +125,17 @@ function log_trade_ratio(state, pops, h5)
                 if min_max_ids in keys(distances)
                     distance_matrix[idx1,idx2] = distances[min_max_ids]
                 end
+            elseif int isa SecondMinResourceInteraction
+                push!(ind_second_mins, int.second_min_resource)
+                second_minresource_matrix[idx1,idx2] = max(second_minresource_matrix[idx1,idx2], int.second_min_resource)
             end
+
         end
         !isempty(ind_ratios) && push!(pop_ratios, mean(ind_ratios))
         !isempty(ind_apples) && push!(pop_apples, mean(ind_apples))
         !isempty(ind_bananas) && push!(pop_bananas, mean(ind_bananas))
         !isempty(ind_mins) && push!(pop_mins, maximum(ind_mins))
+        !isempty(ind_mins) && push!(pop_second_mins, maximum(ind_second_mins))
     end
     h5 && @assert all(trade_matrix_updated)
     # if any pop-level metrics are empty, set them to NaN
@@ -133,14 +148,17 @@ function log_trade_ratio(state, pops, h5)
     apple_m=StatisticalMeasurement(NumApples, pop_apples, generation(state))
     banana_m=StatisticalMeasurement(NumBananas, pop_bananas, generation(state))
     min_m=StatisticalMeasurement(MinResource, pop_mins, generation(state))
+    second_min_m=StatisticalMeasurement(SecondMinResource, pop_mins, generation(state))
     @info(ratio_m)
     @info(apple_m)
     @info(banana_m)
     @info(min_m)
+    @info(second_min_m)
     h5 && @h5(ratio_m)
     h5 && @h5(apple_m)
     h5 && @h5(banana_m)
     h5 && @h5(min_m)
+    h5 && @h5(second_min_m)
 
     if generation(state) % 100 == 0
         # get order of trade_matrix rows by decreasing row sum, then sort the rows and columns by that same permutation
@@ -151,6 +169,9 @@ function log_trade_ratio(state, pops, h5)
         savefig("media/max_minresource_matrix_$(lpad(generation(state), 4, "0")).png")
         scatter(vec(distance_matrix), vec(trade_matrix), legend=false, title="Distance vs Max MinResource", xlabel="Phylogenetic Distance", ylabel="Max MinResource")
         savefig("media/distance_vs_minresource_$(lpad(generation(state), 4, "0")).png")
+
+        scatter(vec(distance_matrix), vec(second_minresource_matrix), legend=false, title="Distance vs Max SecondMinResource", xlabel="Phylogenetic Distance", ylabel="Max SecondMinResource")
+        savefig("media/distance_vs_secondminresource_$(lpad(generation(state), 4, "0")).png")
 
     end
 
@@ -190,6 +211,17 @@ function min_resource(players::Vector{PlayerState})
         min_resource = min(min_resource, player.resource_apples, player.resource_bananas)
     end
     return min_resource
+end
+
+function second_min_resource(players::Vector{PlayerState})
+    values = Float64[]
+    for player in players
+        push!(values, player.resource_apples)
+        push!(values, player.resource_bananas)
+    end
+    
+    sort!(values)
+    return values[2]  # Return the second smallest value
 end
 
 function collect_nearby_resources(grid::Array{Float64, 2}, player::PlayerState, amount)
@@ -360,10 +392,15 @@ function make_resource_interactions(env::TradeGridWorld, ids::Vector{Int})
     for i in 1:env.p, j in (i+1):env.p
 
         min_resource_value = min_resource(env.players)
+        second_min_resource_value = second_min_resource(env.players)
 
         push!(interactions, 
             MinResourceInteraction(ids[i], [ids[j]], min_resource_value),
             MinResourceInteraction(ids[j], [ids[i]], min_resource_value))
+
+        push!(interactions, 
+            SecondMinResourceInteraction(ids[i], [ids[j]], second_min_resource_value),
+            SecondMinResourceInteraction(ids[j], [ids[i]], second_min_resource_value))
 
         push!(interactions, 
             TradeRatioInteraction(ids[i], [ids[j]], inverse_absolute_difference(env.players[i])),
