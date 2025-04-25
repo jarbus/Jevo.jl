@@ -109,6 +109,14 @@ function log_trade_ratio(state, pops, h5)
         isempty(ind.interactions) && continue
         ind_ratios, ind_apples, ind_bananas, ind_mins, ind_second_mins = Float64[], Float64[], Float64[], Float64[], Float64[]
         for int in ind.interactions
+            id1, id2 = int.individual_id, int.other_ids[1]
+            idx1, idx2 = idx_map[id1], idx_map[id2]
+
+            min_max_ids = min(id1, id2), max(id1, id2)
+            if min_max_ids in keys(distances)
+                distance_matrix[idx1,idx2] = distances[min_max_ids]
+            end
+
             if int isa TradeRatioInteraction
                 push!(ind_ratios, int.trade_ratio)
             elseif int isa NumApplesInteraction
@@ -117,14 +125,8 @@ function log_trade_ratio(state, pops, h5)
                 push!(ind_bananas, int.count)
             elseif int isa MinResourceInteraction
                 push!(ind_mins, int.min_resource)
-                id1, id2 = int.individual_id, int.other_ids[1]
-                idx1, idx2 = idx_map[id1], idx_map[id2]
                 trade_matrix_updated[idx1, idx2] = true
                 trade_matrix[idx1,idx2] = max(trade_matrix[idx1,idx2], int.min_resource)
-                min_max_ids = min(id1, id2), max(id1, id2)
-                if min_max_ids in keys(distances)
-                    distance_matrix[idx1,idx2] = distances[min_max_ids]
-                end
             elseif int isa SecondMinResourceInteraction
                 push!(ind_second_mins, int.second_min_resource)
                 second_minresource_matrix[idx1,idx2] = max(second_minresource_matrix[idx1,idx2], int.second_min_resource)
