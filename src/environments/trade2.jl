@@ -227,18 +227,32 @@ function log_trade_ratio(state, pops, h5)
             "media/max_env_minresource_matrix_$(gen_padded).png"
         )
         
+        # Calculate correlation between distance and env_min_matrix
+        valid_indices = .!isnan.(vec(distance_matrix)) .& .!isnan.(vec(env_min_matrix)) .& (vec(distance_matrix) .>= 0)
+        correlation = cor(vec(distance_matrix)[valid_indices], vec(env_min_matrix)[valid_indices])
+        
         log_scatter(
             vec(distance_matrix), vec(env_min_matrix),
-            "Distance vs Max EnvMinResource", "Phylogenetic Distance", "Max EnvMinResource",
+            "Distance vs Max EnvMinResource (r=$(round(correlation, digits=3)))", 
+            "Phylogenetic Distance", "Max EnvMinResource",
             "media/distance_vs_env_minresource_$(gen_padded).png"
         )
+        
+        log_measurement(Measurement("DistanceEnvMinCorrelation", correlation, generation(state)), h5)
 
         # Environment second min resource visualizations
+        # Calculate correlation between distance and env_second_min_matrix
+        valid_indices = .!isnan.(vec(distance_matrix)) .& .!isnan.(vec(env_second_min_matrix)) .& (vec(distance_matrix) .>= 0)
+        correlation = cor(vec(distance_matrix)[valid_indices], vec(env_second_min_matrix)[valid_indices])
+        
         log_scatter(
             vec(distance_matrix), vec(env_second_min_matrix),
-            "Distance vs Max EnvSecondMinResource", "Phylogenetic Distance", "Max EnvSecondMinResource",
+            "Distance vs Max EnvSecondMinResource (r=$(round(correlation, digits=3)))", 
+            "Phylogenetic Distance", "Max EnvSecondMinResource",
             "media/distance_vs_env_secondminresource_$(gen_padded).png"
         )
+        
+        log_measurement(Measurement("DistanceEnvSecondMinCorrelation", correlation, generation(state)), h5)
         
         # Player min resource visualizations
         row_sums = vec(sum(player_min_matrix, dims=2))
@@ -250,11 +264,18 @@ function log_trade_ratio(state, pops, h5)
             "media/max_player_minresource_matrix_$(gen_padded).png"
         )
         
+        # Calculate correlation between distance and player_min_matrix
+        valid_indices = .!isnan.(vec(distance_matrix)) .& .!isnan.(vec(player_min_matrix)) .& (vec(distance_matrix) .>= 0)
+        correlation = cor(vec(distance_matrix)[valid_indices], vec(player_min_matrix)[valid_indices])
+        
         log_scatter(
             vec(distance_matrix), vec(player_min_matrix),
-            "Distance vs Max PlayerMinResource", "Phylogenetic Distance", "Max PlayerMinResource",
+            "Distance vs Max PlayerMinResource (r=$(round(correlation, digits=3)))", 
+            "Phylogenetic Distance", "Max PlayerMinResource",
             "media/distance_vs_player_minresource_$(gen_padded).png"
         )
+        
+        log_measurement(Measurement("DistancePlayerMinCorrelation", correlation, generation(state)), h5)
         
         # Player max resource visualizations
         row_sums = vec(sum(player_max_matrix, dims=2))
@@ -266,11 +287,18 @@ function log_trade_ratio(state, pops, h5)
             "media/max_player_maxresource_matrix_$(gen_padded).png"
         )
         
+        # Calculate correlation between distance and player_max_matrix
+        valid_indices = .!isnan.(vec(distance_matrix)) .& .!isnan.(vec(player_max_matrix)) .& (vec(distance_matrix) .>= 0)
+        correlation = cor(vec(distance_matrix)[valid_indices], vec(player_max_matrix)[valid_indices])
+        
         log_scatter(
             vec(distance_matrix), vec(player_max_matrix),
-            "Distance vs Max PlayerMaxResource", "Phylogenetic Distance", "Max PlayerMaxResource",
+            "Distance vs Max PlayerMaxResource (r=$(round(correlation, digits=3)))", 
+            "Phylogenetic Distance", "Max PlayerMaxResource",
             "media/distance_vs_player_maxresource_$(gen_padded).png"
         )
+        
+        log_measurement(Measurement("DistancePlayerMaxCorrelation", correlation, generation(state)), h5)
     end
 
     individuals
