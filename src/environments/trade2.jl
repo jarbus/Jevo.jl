@@ -112,16 +112,25 @@ function log_trade_ratio(state, pops, h5)
     @assert length(pops) == 1 && length(pops[1]) == 1
     # extract all trade ratio interactions
     individuals = pops[1][1].individuals
-    pop_ratios, pop_apples, pop_bananas, pop_mins, pop_second_mins = Float64[], Float64[], Float64[], Float64[], Float64[]
+    pop_ratios, pop_apples, pop_bananas = Float64[], Float64[], Float64[]
+    pop_env_mins, pop_env_second_mins = Float64[], Float64[]
+    pop_player_mins, pop_player_maxs = Float64[], Float64[]
+    
     idx_map = Dict(ind.id=>idx for (idx, ind) in enumerate(individuals))
     distances = compute_pairwise_distances!(get_tree(pops[1][1]), idx_map |> keys |> collect |> Set)[2]
-    trade_matrix = zeros(Float32, length(idx_map), length(idx_map))
-    second_minresource_matrix = zeros(Float32, length(idx_map), length(idx_map))
+    env_min_matrix = zeros(Float32, length(idx_map), length(idx_map))
+    env_second_min_matrix = zeros(Float32, length(idx_map), length(idx_map))
+    player_min_matrix = zeros(Float32, length(idx_map), length(idx_map))
+    player_max_matrix = zeros(Float32, length(idx_map), length(idx_map))
     trade_matrix_updated = fill(false, length(idx_map), length(idx_map))
     distance_matrix = fill(-1f0, length(idx_map), length(idx_map))
+    
     for ind in individuals
         isempty(ind.interactions) && continue
-        ind_ratios, ind_apples, ind_bananas, ind_mins, ind_second_mins = Float64[], Float64[], Float64[], Float64[], Float64[]
+        ind_ratios, ind_apples, ind_bananas = Float64[], Float64[], Float64[]
+        ind_env_mins, ind_env_second_mins = Float64[], Float64[]
+        ind_player_mins, ind_player_maxs = Float64[], Float64[]
+        
         for int in ind.interactions
             id1, id2 = int.individual_id, int.other_ids[1]
             idx1, idx2 = idx_map[id1], idx_map[id2]
@@ -137,58 +146,95 @@ function log_trade_ratio(state, pops, h5)
                 push!(ind_apples, int.count)
             elseif int isa NumBananasInteraction
                 push!(ind_bananas, int.count)
-            elseif int isa MinResourceInteraction
-                push!(ind_mins, int.min_resource)
+            elseif int isa EnvMinResourceInteraction
+                push!(ind_env_mins, int.min_resource)
                 trade_matrix_updated[idx1, idx2] = true
-                trade_matrix[idx1,idx2] = max(trade_matrix[idx1,idx2], int.min_resource)
-            elseif int isa SecondMinResourceInteraction
-                push!(ind_second_mins, int.second_min_resource)
-                second_minresource_matrix[idx1,idx2] = max(second_minresource_matrix[idx1,idx2], int.second_min_resource)
+                env_min_matrix[idx1,idx2] = max(env_min_matrix[idx1,idx2], int.min_resource)
+            elseif int isa EnvSecondMinResourceInteraction
+                push!(ind_env_second_mins, int.second_min_resource)
+                env_second_min_matrix[idx1,idx2] = max(env_second_min_matrix[idx1,idx2], int.second_min_resource)
+            elseif int isa PlayerMinResourceInteraction
+                push!(ind_player_mins, int.min_resource)
+                player_min_matrix[idx1,idx2] = max(player_min_matrix[idx1,idx2], int.min_resource)
+            elseif int isa PlayerMaxResourceInteraction
+                push!(ind_player_maxs, int.max_resource)
+                player_max_matrix[idx1,idx2] = max(player_max_matrix[idx1,idx2], int.max_resource)
             end
-
         end
+        
         !isempty(ind_ratios) && push!(pop_ratios, mean(ind_ratios))
         !isempty(ind_apples) && push!(pop_apples, mean(ind_apples))
         !isempty(ind_bananas) && push!(pop_bananas, mean(ind_bananas))
-        !isempty(ind_mins) && push!(pop_mins, maximum(ind_mins))
-        !isempty(ind_mins) && push!(pop_second_mins, maximum(ind_second_mins))
+        !isempty(ind_env_mins) && push!(pop_env_mins, maximum(ind_env_mins))
+        !isempty(ind_env_second_mins) && push!(pop_env_second_mins, maximum(ind_env_second_mins))
+        !isempty(ind_player_mins) && push!(pop_player_mins, maximum(ind_player_mins))
+        !isempty(ind_player_maxs) && push!(pop_player_maxs, maximum(ind_player_maxs))
     end
     h5 && @assert all(trade_matrix_updated)
     # if any pop-level metrics are empty, set them to NaN
     isempty(pop_ratios) && push!(pop_ratios, NaN)
     isempty(pop_apples) && push!(pop_apples, NaN)
     isempty(pop_bananas) && push!(pop_bananas, NaN)
-    isempty(pop_mins) && push!(pop_mins, NaN)
+    isempty(pop_env_mins) && push!(pop_env_mins, NaN)
+    isempty(pop_env_second_mins) && push!(pop_env_second_mins, NaN)
+    isempty(pop_player_mins) && push!(pop_player_mins, NaN)
+    isempty(pop_player_maxs) && push!(pop_player_maxs, NaN)
 
     ratio_m=StatisticalMeasurement(TradeRatio, pop_ratios, generation(state))
     apple_m=StatisticalMeasurement(NumApples, pop_apples, generation(state))
     banana_m=StatisticalMeasurement(NumBananas, pop_bananas, generation(state))
-    env_min_m=StatisticalMeasurement(EnvMinResource, pop_mins, generation(state))
-    env_second_min_m=StatisticalMeasurement(EnvSecondMinResource, pop_mins, generation(state))
+    env_min_m=StatisticalMeasurement(EnvMinResource, pop_env_mins, generation(state))
+    env_second_min_m=StatisticalMeasurement(EnvSecondMinResource, pop_env_second_mins, generation(state))
+    player_min_m=StatisticalMeasurement(PlayerMinResource, pop_player_mins, generation(state))
+    player_max_m=StatisticalMeasurement(PlayerMaxResource, pop_player_maxs, generation(state))
+    
     @info(ratio_m)
     @info(apple_m)
     @info(banana_m)
     @info(env_min_m)
     @info(env_second_min_m)
+    @info(player_min_m)
+    @info(player_max_m)
+    
     h5 && @h5(ratio_m)
     h5 && @h5(apple_m)
     h5 && @h5(banana_m)
     h5 && @h5(env_min_m)
     h5 && @h5(env_second_min_m)
+    h5 && @h5(player_min_m)
+    h5 && @h5(player_max_m)
 
     if generation(state) % 100 == 0
-        # get order of trade_matrix rows by decreasing row sum, then sort the rows and columns by that same permutation
-        row_sums = vec(sum(trade_matrix, dims=2))
+        # Environment min resource visualizations
+        row_sums = vec(sum(env_min_matrix, dims=2))
         perm = sortperm(row_sums, rev=true)
-        sorted_trade_matrix = trade_matrix[perm, perm]
-        heatmap(sorted_trade_matrix, aspect_ratio=1, title="Max MinResource Matrix", xlabel="Individual", ylabel="Test")
-        savefig("media/max_minresource_matrix_$(lpad(generation(state), 4, "0")).png")
-        scatter(vec(distance_matrix), vec(trade_matrix), legend=false, title="Distance vs Max MinResource", xlabel="Phylogenetic Distance", ylabel="Max MinResource")
-        savefig("media/distance_vs_minresource_$(lpad(generation(state), 4, "0")).png")
+        sorted_env_min_matrix = env_min_matrix[perm, perm]
+        heatmap(sorted_env_min_matrix, aspect_ratio=1, title="Max EnvMinResource Matrix", xlabel="Individual", ylabel="Test")
+        savefig("media/max_env_minresource_matrix_$(lpad(generation(state), 4, "0")).png")
+        scatter(vec(distance_matrix), vec(env_min_matrix), legend=false, title="Distance vs Max EnvMinResource", xlabel="Phylogenetic Distance", ylabel="Max EnvMinResource")
+        savefig("media/distance_vs_env_minresource_$(lpad(generation(state), 4, "0")).png")
 
-        scatter(vec(distance_matrix), vec(second_minresource_matrix), legend=false, title="Distance vs Max SecondMinResource", xlabel="Phylogenetic Distance", ylabel="Max SecondMinResource")
-        savefig("media/distance_vs_secondminresource_$(lpad(generation(state), 4, "0")).png")
-
+        # Environment second min resource visualizations
+        scatter(vec(distance_matrix), vec(env_second_min_matrix), legend=false, title="Distance vs Max EnvSecondMinResource", xlabel="Phylogenetic Distance", ylabel="Max EnvSecondMinResource")
+        savefig("media/distance_vs_env_secondminresource_$(lpad(generation(state), 4, "0")).png")
+        
+        # Player min resource visualizations
+        row_sums = vec(sum(player_min_matrix, dims=2))
+        perm = sortperm(row_sums, rev=true)
+        sorted_player_min_matrix = player_min_matrix[perm, perm]
+        heatmap(sorted_player_min_matrix, aspect_ratio=1, title="Max PlayerMinResource Matrix", xlabel="Individual", ylabel="Test")
+        savefig("media/max_player_minresource_matrix_$(lpad(generation(state), 4, "0")).png")
+        scatter(vec(distance_matrix), vec(player_min_matrix), legend=false, title="Distance vs Max PlayerMinResource", xlabel="Phylogenetic Distance", ylabel="Max PlayerMinResource")
+        savefig("media/distance_vs_player_minresource_$(lpad(generation(state), 4, "0")).png")
+        
+        # Player max resource visualizations
+        row_sums = vec(sum(player_max_matrix, dims=2))
+        perm = sortperm(row_sums, rev=true)
+        sorted_player_max_matrix = player_max_matrix[perm, perm]
+        heatmap(sorted_player_max_matrix, aspect_ratio=1, title="Max PlayerMaxResource Matrix", xlabel="Individual", ylabel="Test")
+        savefig("media/max_player_maxresource_matrix_$(lpad(generation(state), 4, "0")).png")
+        scatter(vec(distance_matrix), vec(player_max_matrix), legend=false, title="Distance vs Max PlayerMaxResource", xlabel="Phylogenetic Distance", ylabel="Max PlayerMaxResource")
+        savefig("media/distance_vs_player_maxresource_$(lpad(generation(state), 4, "0")).png")
     end
 
     individuals
