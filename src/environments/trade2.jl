@@ -3,6 +3,23 @@ using Images.ImageCore: colorview, RGB
 
 export TradeGridWorld, render, LogTradeRatios, ClearTradeRatios 
 
+# Helper functions for visualization and logging
+function log_heatmap(matrix, perm, title, xlabel, ylabel, filename)
+    sorted_matrix = matrix[perm, perm]
+    heatmap(sorted_matrix, aspect_ratio=1, title=title, xlabel=xlabel, ylabel=ylabel)
+    savefig(filename)
+end
+
+function log_scatter(x_values, y_values, title, xlabel, ylabel, filename)
+    scatter(x_values, y_values, legend=false, title=title, xlabel=xlabel, ylabel=ylabel)
+    savefig(filename)
+end
+
+function log_measurement(measurement, h5=true)
+    @info(measurement)
+    h5 && @h5(measurement)
+end
+
 const SELF_COLOR = [0.2f0, 0.2f0, 0.2f0]
 const OTHER_COLOR = [0.2f0, 0.2f0, 0.2f0]
 const PLAYER_RADIUS = 3
@@ -188,53 +205,72 @@ function log_trade_ratio(state, pops, h5)
     player_min_m=StatisticalMeasurement(PlayerMinResource, pop_player_mins, generation(state))
     player_max_m=StatisticalMeasurement(PlayerMaxResource, pop_player_maxs, generation(state))
     
-    @info(ratio_m)
-    @info(apple_m)
-    @info(banana_m)
-    @info(env_min_m)
-    @info(env_second_min_m)
-    @info(player_min_m)
-    @info(player_max_m)
-    
-    h5 && @h5(ratio_m)
-    h5 && @h5(apple_m)
-    h5 && @h5(banana_m)
-    h5 && @h5(env_min_m)
-    h5 && @h5(env_second_min_m)
-    h5 && @h5(player_min_m)
-    h5 && @h5(player_max_m)
+    # Log all measurements using the helper function
+    log_measurement(ratio_m, h5)
+    log_measurement(apple_m, h5)
+    log_measurement(banana_m, h5)
+    log_measurement(env_min_m, h5)
+    log_measurement(env_second_min_m, h5)
+    log_measurement(player_min_m, h5)
+    log_measurement(player_max_m, h5)
 
     if generation(state) % 100 == 0
+        gen_padded = lpad(generation(state), 4, "0")
+        
         # Environment min resource visualizations
         row_sums = vec(sum(env_min_matrix, dims=2))
         perm = sortperm(row_sums, rev=true)
-        sorted_env_min_matrix = env_min_matrix[perm, perm]
-        heatmap(sorted_env_min_matrix, aspect_ratio=1, title="Max EnvMinResource Matrix", xlabel="Individual", ylabel="Test")
-        savefig("media/max_env_minresource_matrix_$(lpad(generation(state), 4, "0")).png")
-        scatter(vec(distance_matrix), vec(env_min_matrix), legend=false, title="Distance vs Max EnvMinResource", xlabel="Phylogenetic Distance", ylabel="Max EnvMinResource")
-        savefig("media/distance_vs_env_minresource_$(lpad(generation(state), 4, "0")).png")
+        
+        log_heatmap(
+            env_min_matrix, perm,
+            "Max EnvMinResource Matrix", "Individual", "Test",
+            "media/max_env_minresource_matrix_$(gen_padded).png"
+        )
+        
+        log_scatter(
+            vec(distance_matrix), vec(env_min_matrix),
+            "Distance vs Max EnvMinResource", "Phylogenetic Distance", "Max EnvMinResource",
+            "media/distance_vs_env_minresource_$(gen_padded).png"
+        )
 
         # Environment second min resource visualizations
-        scatter(vec(distance_matrix), vec(env_second_min_matrix), legend=false, title="Distance vs Max EnvSecondMinResource", xlabel="Phylogenetic Distance", ylabel="Max EnvSecondMinResource")
-        savefig("media/distance_vs_env_secondminresource_$(lpad(generation(state), 4, "0")).png")
+        log_scatter(
+            vec(distance_matrix), vec(env_second_min_matrix),
+            "Distance vs Max EnvSecondMinResource", "Phylogenetic Distance", "Max EnvSecondMinResource",
+            "media/distance_vs_env_secondminresource_$(gen_padded).png"
+        )
         
         # Player min resource visualizations
         row_sums = vec(sum(player_min_matrix, dims=2))
         perm = sortperm(row_sums, rev=true)
-        sorted_player_min_matrix = player_min_matrix[perm, perm]
-        heatmap(sorted_player_min_matrix, aspect_ratio=1, title="Max PlayerMinResource Matrix", xlabel="Individual", ylabel="Test")
-        savefig("media/max_player_minresource_matrix_$(lpad(generation(state), 4, "0")).png")
-        scatter(vec(distance_matrix), vec(player_min_matrix), legend=false, title="Distance vs Max PlayerMinResource", xlabel="Phylogenetic Distance", ylabel="Max PlayerMinResource")
-        savefig("media/distance_vs_player_minresource_$(lpad(generation(state), 4, "0")).png")
+        
+        log_heatmap(
+            player_min_matrix, perm,
+            "Max PlayerMinResource Matrix", "Individual", "Test",
+            "media/max_player_minresource_matrix_$(gen_padded).png"
+        )
+        
+        log_scatter(
+            vec(distance_matrix), vec(player_min_matrix),
+            "Distance vs Max PlayerMinResource", "Phylogenetic Distance", "Max PlayerMinResource",
+            "media/distance_vs_player_minresource_$(gen_padded).png"
+        )
         
         # Player max resource visualizations
         row_sums = vec(sum(player_max_matrix, dims=2))
         perm = sortperm(row_sums, rev=true)
-        sorted_player_max_matrix = player_max_matrix[perm, perm]
-        heatmap(sorted_player_max_matrix, aspect_ratio=1, title="Max PlayerMaxResource Matrix", xlabel="Individual", ylabel="Test")
-        savefig("media/max_player_maxresource_matrix_$(lpad(generation(state), 4, "0")).png")
-        scatter(vec(distance_matrix), vec(player_max_matrix), legend=false, title="Distance vs Max PlayerMaxResource", xlabel="Phylogenetic Distance", ylabel="Max PlayerMaxResource")
-        savefig("media/distance_vs_player_maxresource_$(lpad(generation(state), 4, "0")).png")
+        
+        log_heatmap(
+            player_max_matrix, perm,
+            "Max PlayerMaxResource Matrix", "Individual", "Test",
+            "media/max_player_maxresource_matrix_$(gen_padded).png"
+        )
+        
+        log_scatter(
+            vec(distance_matrix), vec(player_max_matrix),
+            "Distance vs Max PlayerMaxResource", "Phylogenetic Distance", "Max PlayerMaxResource",
+            "media/distance_vs_player_maxresource_$(gen_padded).png"
+        )
     end
 
     individuals
