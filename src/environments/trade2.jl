@@ -16,8 +16,10 @@ const BANANA_COLOR = [0.0f0, 1.0f0, 0.0f0]  # Green color for bananas
 struct TradeRatio <: AbstractMetric end
 struct NumApples <: AbstractMetric end
 struct NumBananas <: AbstractMetric end
-struct MinResource <: AbstractMetric end
-struct SecondMinResource <: AbstractMetric end
+struct EnvMinResource <: AbstractMetric end
+struct EnvSecondMinResource <: AbstractMetric end
+struct PlayerMinResource <: AbstractMetric end
+struct PlayerMaxResource <: AbstractMetric end
 
 
 abstract type AbstractGridworld <: Jevo.AbstractEnvironment end
@@ -35,16 +37,28 @@ struct TradeRatioInteraction <: AbstractInteraction
     trade_ratio::Float64
 end
 
-struct MinResourceInteraction <: AbstractInteraction
+struct EnvMinResourceInteraction <: AbstractInteraction
     individual_id::Int
     other_ids::Vector{Int}
     min_resource::Float64
 end
 
-struct SecondMinResourceInteraction <: AbstractInteraction
+struct EnvSecondMinResourceInteraction <: AbstractInteraction
     individual_id::Int
     other_ids::Vector{Int}
     second_min_resource::Float64
+end
+
+struct PlayerMinResourceInteraction <: AbstractInteraction
+    individual_id::Int
+    other_ids::Vector{Int}
+    min_resource::Float64
+end
+
+struct PlayerMaxResourceInteraction <: AbstractInteraction
+    individual_id::Int
+    other_ids::Vector{Int}
+    max_resource::Float64
 end
 
 
@@ -149,18 +163,18 @@ function log_trade_ratio(state, pops, h5)
     ratio_m=StatisticalMeasurement(TradeRatio, pop_ratios, generation(state))
     apple_m=StatisticalMeasurement(NumApples, pop_apples, generation(state))
     banana_m=StatisticalMeasurement(NumBananas, pop_bananas, generation(state))
-    min_m=StatisticalMeasurement(MinResource, pop_mins, generation(state))
-    second_min_m=StatisticalMeasurement(SecondMinResource, pop_mins, generation(state))
+    env_min_m=StatisticalMeasurement(EnvMinResource, pop_mins, generation(state))
+    env_second_min_m=StatisticalMeasurement(EnvSecondMinResource, pop_mins, generation(state))
     @info(ratio_m)
     @info(apple_m)
     @info(banana_m)
-    @info(min_m)
-    @info(second_min_m)
+    @info(env_min_m)
+    @info(env_second_min_m)
     h5 && @h5(ratio_m)
     h5 && @h5(apple_m)
     h5 && @h5(banana_m)
-    h5 && @h5(min_m)
-    h5 && @h5(second_min_m)
+    h5 && @h5(env_min_m)
+    h5 && @h5(env_second_min_m)
 
     if generation(state) % 100 == 0
         # get order of trade_matrix rows by decreasing row sum, then sort the rows and columns by that same permutation
@@ -180,7 +194,13 @@ function log_trade_ratio(state, pops, h5)
     individuals
 end
 
-isa_trade_interaction(int::AbstractInteraction) = int isa TradeRatioInteraction || int isa NumApplesInteraction || int isa NumBananasInteraction || int isa MinResourceInteraction
+isa_trade_interaction(int::AbstractInteraction) = int isa TradeRatioInteraction || 
+                                                int isa NumApplesInteraction || 
+                                                int isa NumBananasInteraction || 
+                                                int isa EnvMinResourceInteraction || 
+                                                int isa EnvSecondMinResourceInteraction ||
+                                                int isa PlayerMinResourceInteraction ||
+                                                int isa PlayerMaxResourceInteraction
 
 function remove_trade_ratios!(state, individuals)
     for ind in individuals
@@ -207,7 +227,7 @@ function inverse_absolute_difference(apples, bananas)
 end
 inverse_absolute_difference(player::PlayerState) = inverse_absolute_difference(player.resource_apples, player.resource_bananas)
 
-function min_resource(players::Vector{PlayerState})
+function env_min_resource(players::Vector{PlayerState})
     min_resource = Inf
     for player in players
         min_resource = min(min_resource, player.resource_apples, player.resource_bananas)
@@ -215,7 +235,7 @@ function min_resource(players::Vector{PlayerState})
     return min_resource
 end
 
-function second_min_resource(players::Vector{PlayerState})
+function env_second_min_resource(players::Vector{PlayerState})
     values = Float64[]
     for player in players
         push!(values, player.resource_apples)
@@ -224,6 +244,14 @@ function second_min_resource(players::Vector{PlayerState})
     
     sort!(values)
     return values[2]  # Return the second smallest value
+end
+
+function player_min_resource(player::PlayerState)
+    return min(player.resource_apples, player.resource_bananas)
+end
+
+function player_max_resource(player::PlayerState)
+    return max(player.resource_apples, player.resource_bananas)
 end
 
 function collect_nearby_resources(grid::Array{Float64, 2}, player::PlayerState, amount)
@@ -393,16 +421,29 @@ function make_resource_interactions(env::TradeGridWorld, ids::Vector{Int})
     @assert env.p == 2
     for i in 1:env.p, j in (i+1):env.p
 
-        min_resource_value = min_resource(env.players)
-        second_min_resource_value = second_min_resource(env.players)
+        # Environment-level metrics (across all players)
+        env_min_resource_value = env_min_resource(env.players)
+        env_second_min_resource_value = env_second_min_resource(env.players)
 
         push!(interactions, 
-            MinResourceInteraction(ids[i], [ids[j]], min_resource_value),
-            MinResourceInteraction(ids[j], [ids[i]], min_resource_value))
+            EnvMinResourceInteraction(ids[i], [ids[j]], env_min_resource_value),
+            EnvMinResourceInteraction(ids[j], [ids[i]], env_min_resource_value))
 
         push!(interactions, 
-            SecondMinResourceInteraction(ids[i], [ids[j]], second_min_resource_value),
-            SecondMinResourceInteraction(ids[j], [ids[i]], second_min_resource_value))
+            EnvSecondMinResourceInteraction(ids[i], [ids[j]], env_second_min_resource_value),
+            EnvSecondMinResourceInteraction(ids[j], [ids[i]], env_second_min_resource_value))
+        
+        # Player-level metrics (per player)
+        for k in 1:env.p
+            player_min = player_min_resource(env.players[k])
+            player_max = player_max_resource(env.players[k])
+            
+            push!(interactions, 
+                PlayerMinResourceInteraction(ids[k], [ids[k == 1 ? 2 : 1]], player_min))
+            
+            push!(interactions, 
+                PlayerMaxResourceInteraction(ids[k], [ids[k == 1 ? 2 : 1]], player_max))
+        end
 
         push!(interactions, 
             TradeRatioInteraction(ids[i], [ids[j]], inverse_absolute_difference(env.players[i])),
