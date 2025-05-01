@@ -226,6 +226,12 @@ function log_trade_ratio(state, pops, h5)
             "Max EnvMinResource Matrix", "Individual", "Test",
             "media/max_env_minresource_matrix_$(gen_padded).png"
         )
+
+        log_heatmap(
+            env_second_min_matrix, perm,
+            "Max EnvSecondMinResource Matrix", "Individual", "Test",
+            "media/max_env_secondminresource_matrix_$(gen_padded).png"
+        )
         
         # Calculate correlation between distance and env_min_matrix
         valid_indices = .!isnan.(vec(distance_matrix)) .& .!isnan.(vec(env_min_matrix)) .& (vec(distance_matrix) .>= 0)
@@ -254,10 +260,6 @@ function log_trade_ratio(state, pops, h5)
         
         log_measurement(Measurement("DistanceEnvSecondMinCorrelation", correlation, generation(state)), h5)
         
-        # Player min resource visualizations
-        row_sums = vec(sum(player_min_matrix, dims=2))
-        perm = sortperm(row_sums, rev=true)
-        
         log_heatmap(
             player_min_matrix, perm,
             "Max PlayerMinResource Matrix", "Individual", "Test",
@@ -276,10 +278,6 @@ function log_trade_ratio(state, pops, h5)
         )
         
         log_measurement(Measurement("DistancePlayerMinCorrelation", correlation, generation(state)), h5)
-        
-        # Player max resource visualizations
-        row_sums = vec(sum(player_max_matrix, dims=2))
-        perm = sortperm(row_sums, rev=true)
         
         log_heatmap(
             player_max_matrix, perm,
