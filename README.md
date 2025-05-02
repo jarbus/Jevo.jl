@@ -5,6 +5,8 @@
 
 Jevo is a high-performance, distributed, and modular (co-)evolutionary algorithm framework written in Julia. It is designed to be flexible and easy to use, with a focus on deep neuroevolutionary applications using [Flux.jl](https://fluxml.ai/Flux.jl/stable/). Jevo is designed to be easy to use, with a simple API that allows users to quickly define custom evolutionary algorithms and run them on distributed systems.
 
+Jevo powers the paper [Low Rank Factorizations are Indirect Encodings for Deep Neuroevolution](https://arxiv.org/abs/2504.03037). See `experiments/` for the configuration files.
+
 
 > [!WARNING]
 > Jevo is currently alpha software and is under active development.
@@ -13,7 +15,7 @@ Jevo's source contains ~5k lines of code, ~50% of which is in `src/environments`
 
 # Install
 
-This package requires modified versions of Transformers.jl and NeuralAttentionlib.jl, which are unregistered. In addition, it depends on a custom plotting library (XPlot.jl) & a library for phylogenies (PhylogeneticTrees.jl), both unregistered as well. To install all dependencies, run the following command in the environment of your choice:
+This package requires modified versions of Transformers.jl and NeuralAttentionlib.jl, and a library for Phylogenies (PhylogeneticTrees.jl) which are unregistered. To install all dependencies, run the following command in the environment of your choice:
 
 ```julia
 julia ./install.jl
