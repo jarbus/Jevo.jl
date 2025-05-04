@@ -10,7 +10,7 @@ function get_earliest_cached_weight(dims::NTuple{N, Int}, genes::Vector{NetworkG
             return (copy(weights), i)
         end
     end
-    if weight_cache.current_size > weight_cache.maxsize / 2
+    if weight_cache.currentsize > weight_cache.maxsize / 2
         @error "Failed to find cache entry, but cache is more than half full. This is likely an error; consider increasing cache size."
     end
     zeros(Float32, dims), 0
